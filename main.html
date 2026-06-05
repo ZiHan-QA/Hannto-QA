@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liene QA · 工作台</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<style>
+:root {
+  --pink:   #FF6B9D;
+  --yellow: #FFDA79;
+  --teal:   #00D2D3;
+  --purple: #5F27CD;
+  --mint:   #1DD1A1;
+  --cream:  #FFF9F0;
+  --dark:   #1A1035;
+  --dark2:  #231448;
+  --text:   #3d1a00;
+  --sub:    #9a6a40;
+  --sb-w:   220px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); display: flex; height: 100vh; overflow: hidden; }
+
+/* ── 侧边栏 ── */
+.sidebar {
+  width: var(--sb-w); background: var(--dark);
+  display: flex; flex-direction: column;
+  flex-shrink: 0; height: 100vh;
+  overflow-y: auto; overflow-x: hidden;
+  position: relative; z-index: 100;
+}
+.sb-logo {
+  padding: 18px 16px 14px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+.sb-logo-icon {
+  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  border-radius: 10px;
+  background: var(--pink); display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(255,107,157,0.35);
+}
+.sb-logo-icon i { font-size: 18px; color: #fff; line-height: 1; }
+.sb-logo-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; }
+.sb-logo-sub   { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+
+.sb-section { font-size: 10px; color: rgba(255,255,255,0.25); padding: 14px 16px 5px; letter-spacing: 0.8px; text-transform: uppercase; }
+
+.sb-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 8px 16px; color: rgba(255,255,255,0.5);
+  font-size: 12px; cursor: pointer;
+  border-left: 2.5px solid transparent;
+  transition: all 0.15s; text-decoration: none;
+  position: relative;
+}
+.sb-item:hover  { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); }
+.sb-item.active { background: rgba(255,107,157,0.14); color: var(--pink); border-left-color: var(--pink); font-weight: 500; }
+.sb-item i { font-size: 16px; flex-shrink: 0; }
+.sb-item .badge {
+  margin-left: auto; font-size: 10px; min-width: 18px; height: 18px;
+  border-radius: 9px; padding: 0 5px;
+  display: flex; align-items: center; justify-content: center;
+}
+.sb-item .badge.red    { background: #E24B4A; color: #fff; }
+.sb-item .badge.pink   { background: var(--pink); color: #fff; }
+.sb-item .badge.yellow { background: var(--yellow); color: #6b4a00; }
+
+.sb-divider { border: none; border-top: 0.5px solid rgba(255,255,255,0.06); margin: 6px 0; }
+
+/* 侧边栏底部吉祥物 */
+.sb-mascot {
+  margin: 10px 12px;
+  background: rgba(255,107,157,0.1);
+  border-radius: 10px; padding: 10px 12px; text-align: center;
+}
+.sb-mascot-face { font-size: 24px; margin-bottom: 4px; }
+.sb-mascot-text { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+.sb-mascot-text strong { color: var(--pink); }
+
+.sb-user {
+  margin-top: auto; padding: 12px 16px;
+  border-top: 0.5px solid rgba(255,255,255,0.07);
+  display: flex; align-items: center; gap: 8px; flex-shrink: 0;
+}
+.sb-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--pink); display: flex; align-items: center;
+  justify-content: center; font-size: 11px; font-weight: 500;
+  color: #fff; flex-shrink: 0;
+}
+.sb-uname { font-size: 12px; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-urole { font-size: 10px; color: rgba(255,255,255,0.35); }
+.sb-logout {
+  margin-left: auto; background: none; border: none;
+  color: rgba(255,255,255,0.3); cursor: pointer; font-size: 15px;
+  padding: 4px; border-radius: 6px; transition: all 0.15s; flex-shrink: 0;
+}
+.sb-logout:hover { color: var(--pink); background: rgba(255,107,157,0.1); }
+
+/* ── 主内容区 ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+.topbar {
+  background: var(--cream); padding: 0 24px;
+  height: 56px; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0;
+  border-bottom: 0.5px solid rgba(61,26,0,0.1);
+}
+.topbar-left { display: flex; flex-direction: column; }
+.topbar-title { font-size: 15px; font-weight: 500; color: var(--text); font-family: 'Syne', sans-serif; }
+.topbar-sub   { font-size: 11px; color: var(--sub); }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+.tb-btn {
+  width: 32px; height: 32px; border-radius: 9px;
+  background: rgba(255,107,157,0.08); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--pink); font-size: 16px; transition: all 0.15s;
+}
+.tb-btn:hover { background: rgba(255,107,157,0.16); }
+.tb-version {
+  font-size: 11px; padding: 3px 10px; border-radius: 20px;
+  background: var(--yellow); color: #6b4a00; font-weight: 500;
+}
+
+/* ── 内容区 ── */
+.content { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* iframe 模块 */
+.module-frame { width: 100%; height: 100%; border: none; border-radius: 12px; }
+
+/* 工作台内容 */
+.welcome-banner {
+  background: var(--dark); border-radius: 14px;
+  padding: 20px 24px; display: flex; align-items: center;
+  gap: 16px; margin-bottom: 20px;
+}
+.welcome-emoji { font-size: 36px; flex-shrink: 0; }
+.welcome-title { font-size: 16px; font-weight: 500; color: #fff; margin-bottom: 4px; }
+.welcome-sub   { font-size: 12px; color: rgba(255,255,255,0.5); }
+.welcome-badge {
+  margin-left: auto; background: var(--pink); color: #fff;
+  font-size: 11px; padding: 4px 12px; border-radius: 20px; flex-shrink: 0;
+}
+
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+.stat-card { border-radius: 12px; padding: 16px; }
+.stat-card.p  { background: #FFE8F2; }
+.stat-card.y  { background: #FFF3CC; }
+.stat-card.t  { background: #CCF5EE; }
+.stat-card.pu { background: #EDE8FF; }
+.sc-icon { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px; }
+.sc-icon.p  { background: var(--pink);   }
+.sc-icon.y  { background: var(--yellow); }
+.sc-icon.t  { background: var(--teal);   }
+.sc-icon.pu { background: var(--purple); }
+.sc-icon i { font-size: 16px; color: #fff; }
+.sc-val   { font-size: 22px; font-weight: 600; color: var(--text); line-height: 1; margin-bottom: 3px; }
+.sc-label { font-size: 11px; color: var(--sub); }
+
+.bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.card {
+  background: #fff; border-radius: 12px; padding: 16px;
+  border: 0.5px solid rgba(255,182,193,0.3);
+}
+.card-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.card-title { font-size: 13px; font-weight: 500; color: var(--text); }
+.card-tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; }
+
+.quick-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.quick-item {
+  border-radius: 10px; padding: 12px; cursor: pointer;
+  transition: all 0.15s; border: 0.5px solid transparent;
+  display: flex; align-items: center; gap: 8px;
+}
+.quick-item:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+.quick-item i { font-size: 18px; }
+.quick-item span { font-size: 12px; font-weight: 500; }
+
+.notice-item { display: flex; align-items: flex-start; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid rgba(255,182,193,0.2); }
+.notice-item:last-child { border-bottom: none; }
+.notice-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+.notice-text { font-size: 12px; color: var(--text); flex: 1; line-height: 1.5; }
+.notice-time { font-size: 10px; color: var(--sub); white-space: nowrap; }
+
+/* loading */
+.page-loading {
+  position: fixed; inset: 0; background: var(--dark);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999; transition: opacity 0.4s;
+}
+.page-loading .spinner {
+  width: 32px; height: 32px;
+  border: 3px solid rgba(255,107,157,0.2);
+  border-top-color: var(--pink);
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="page-loading" id="pageLoading"><div class="spinner"></div></div>
+
+<!-- 侧边栏 -->
+<div class="sidebar">
+  <div class="sb-logo">
+    <div class="sb-logo-icon"><i class="ti ti-wand" style="font-size:18px;color:#fff;"></i></div>
+    <div>
+      <div class="sb-logo-title">Liene QA</div>
+      <div class="sb-logo-sub">Liene 测试管理平台</div>
+    </div>
+  </div>
+
+  <div class="sb-section">概览</div>
+  <a class="sb-item active" onclick="nav(this,'dashboard')">
+    <i class="ti ti-layout-dashboard"></i>工作台
+  </a>
+  <a class="sb-item" onclick="nav(this,'report')">
+    <i class="ti ti-chart-bar"></i>质量报表
+  </a>
+  <a class="sb-item" onclick="nav(this,'risk')">
+    <i class="ti ti-alert-triangle"></i>风险提示
+    <span class="badge red" id="riskBadge">0</span>
+  </a>
+
+  <hr class="sb-divider">
+  <div class="sb-section">测试资产</div>
+  <a class="sb-item" onclick="nav(this,'prd')">
+    <i class="ti ti-file-description"></i>PRD 管理
+  </a>
+  <a class="sb-item" onclick="nav(this,'assets')">
+    <i class="ti ti-device-mobile"></i>资产管理
+  </a>
+  <a class="sb-item" onclick="nav(this,'ai')">
+    <i class="ti ti-robot"></i>AI 写用例
+  </a>
+
+  <hr class="sb-divider">
+  <div class="sb-section">PingCode 数据</div>
+  <a class="sb-item" onclick="nav(this,'cases')">
+    <i class="ti ti-list-check"></i>用例库
+  </a>
+  <a class="sb-item" onclick="nav(this,'plan')">
+    <i class="ti ti-calendar-stats"></i>测试计划
+  </a>
+  <a class="sb-item" onclick="nav(this,'bugs')">
+    <i class="ti ti-bug"></i>BUG 管理
+    <span class="badge pink" id="bugBadge">-</span>
+  </a>
+
+  <hr class="sb-divider">
+  <div class="sb-section">系统</div>
+  <a class="sb-item" onclick="nav(this,'members')" id="membersMenu" style="display:none">
+    <i class="ti ti-users"></i>成员管理
+  </a>
+  <a class="sb-item" onclick="nav(this,'settings')">
+    <i class="ti ti-settings"></i>系统设置
+  </a>
+
+  <div class="sb-mascot">
+    <div class="sb-mascot-face">🤖</div>
+    <div class="sb-mascot-text">系统运行正常<br><strong>All systems go!</strong></div>
+  </div>
+
+  <div class="sb-user">
+    <div class="sb-avatar" id="userAvatar">?</div>
+    <div style="flex:1;overflow:hidden;">
+      <div class="sb-uname" id="userName">加载中...</div>
+      <div class="sb-urole" id="userRole">-</div>
+    </div>
+    <button class="sb-logout" onclick="logout()" title="退出登录">
+      <i class="ti ti-logout"></i>
+    </button>
+  </div>
+</div>
+
+<!-- 主内容 -->
+<div class="main">
+  <div class="topbar">
+    <div class="topbar-left">
+      <div class="topbar-title" id="pageTitle">工作台</div>
+      <div class="topbar-sub" id="pageDate">-</div>
+    </div>
+    <div class="topbar-right">
+      <span class="tb-version" id="versionTag">v1.0</span>
+      <button class="tb-btn" title="刷新"><i class="ti ti-refresh"></i></button>
+    </div>
+  </div>
+
+  <div class="content" id="content">
+    <!-- 动态内容 -->
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://pgpnyrglrromqqjnvaix.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncG55cmdscnJvbXFxam52YWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjY2OTgsImV4cCI6MjA5NjIwMjY5OH0.TmkrxS2mY_95aBC2UL2BARLU7gqNb_gSpHP6ynofDsE';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentUser = null;
+let userRole = 'member';
+
+const pageTitles = {
+  dashboard: '工作台', report: '质量报表', risk: '风险提示',
+  prd: 'PRD 管理', assets: '资产管理', ai: 'AI 写用例',
+  cases: '用例库', plan: '测试计划', bugs: 'BUG 管理',
+  members: '成员管理', settings: '系统设置',
+};
+
+// ── 初始化 ──
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { window.location.href = 'index.html'; return; }
+
+  currentUser = session.user;
+
+  // 获取用户角色（从 profiles 表，没有就默认 member）
+  try {
+    const { data } = await sb.from('profiles').select('role,name').eq('id', currentUser.id).single();
+    if (data) {
+      userRole = data.role || 'member';
+      setUserInfo(data.name || currentUser.email, userRole);
+    } else {
+      setUserInfo(currentUser.email, 'member');
+    }
+  } catch {
+    setUserInfo(currentUser.email, 'member');
+  }
+
+  // 管理员显示成员管理
+  if (userRole === 'admin') {
+    document.getElementById('membersMenu').style.display = 'flex';
+  }
+
+  // 设置日期
+  const now = new Date();
+  document.getElementById('pageDate').textContent =
+    now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
+
+  document.getElementById('pageLoading').style.opacity = '0';
+  setTimeout(() => document.getElementById('pageLoading').style.display = 'none', 400);
+
+  renderDashboard();
+}
+
+function setUserInfo(name, role) {
+  const email = currentUser.email;
+  const displayName = name !== email ? name : email.split('@')[0];
+  document.getElementById('userName').textContent = displayName;
+  document.getElementById('userRole').textContent = role === 'admin' ? '管理员' : '成员';
+  document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
+}
+
+// ── 导航 ──
+function nav(el, page) {
+  document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+  renderPage(page);
+}
+
+function renderPage(page) {
+  const content = document.getElementById('content');
+  if (page === 'dashboard') { renderDashboard(); return; }
+  if (page === 'assets') {
+    content.style.padding = '0';
+    content.innerHTML = `<iframe src='assets.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
+    return;
+  }
+  if (page === 'ai') {
+    content.style.padding = '0';
+    content.innerHTML = `<iframe src="liene.html" class="module-frame" style="height:calc(100vh - 56px);border-radius:0;"></iframe>`;
+    return;
+  }
+  content.style.padding = '24px';
+  if (page === 'prd') {
+    content.style.padding = '0';
+    content.innerHTML = `<iframe src='prd.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
+    return;
+  }
+  // 其他模块占位
+  content.innerHTML = `
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;">
+      <div style="font-size:48px;">🚧</div>
+      <div style="font-size:16px;font-weight:500;color:var(--text);">${pageTitles[page]} 模块开发中</div>
+      <div style="font-size:13px;color:var(--sub);">即将上线，敬请期待</div>
+    </div>`;
+}
+
+// ── 工作台 ──
+function renderDashboard() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  const email = currentUser ? currentUser.email : '';
+  const name  = document.getElementById('userName').textContent;
+
+  content.innerHTML = `
+    <div class="welcome-banner">
+      <div class="welcome-emoji">👋</div>
+      <div>
+        <div class="welcome-title">你好，${name}！</div>
+        <div class="welcome-sub">欢迎回到 XiaoFei QA 测试管理平台</div>
+      </div>
+      <div class="welcome-badge">今日状态良好</div>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat-card p">
+        <div class="sc-icon p"><i class="ti ti-bug"></i></div>
+        <div class="sc-val" id="sc-bugs">-</div>
+        <div class="sc-label">待处理 BUG</div>
+      </div>
+      <div class="stat-card y">
+        <div class="sc-icon y"><i class="ti ti-device-mobile"></i></div>
+        <div class="sc-val" id="sc-devices">-</div>
+        <div class="sc-label">在用设备</div>
+      </div>
+      <div class="stat-card t">
+        <div class="sc-icon t"><i class="ti ti-package"></i></div>
+        <div class="sc-val" id="sc-consumables">-</div>
+        <div class="sc-label">耗材预警</div>
+      </div>
+      <div class="stat-card pu">
+        <div class="sc-icon pu"><i class="ti ti-file-description"></i></div>
+        <div class="sc-val" id="sc-prd">-</div>
+        <div class="sc-label">PRD 版本</div>
+      </div>
+    </div>
+
+    <div class="bottom-grid">
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">⚡ 快捷入口</span>
+        </div>
+        <div class="quick-grid">
+          <div class="quick-item" style="background:#FFE8F2;" onclick="navTo('assets')">
+            <i class="ti ti-device-mobile" style="color:var(--pink);"></i>
+            <span style="color:var(--pink);">资产管理</span>
+          </div>
+          <div class="quick-item" style="background:#EDE8FF;" onclick="navTo('prd')">
+            <i class="ti ti-file-description" style="color:var(--purple);"></i>
+            <span style="color:var(--purple);">PRD 管理</span>
+          </div>
+          <div class="quick-item" style="background:#CCF5EE;" onclick="navTo('bugs')">
+            <i class="ti ti-bug" style="color:#0F6E56;"></i>
+            <span style="color:#0F6E56;">BUG 管理</span>
+          </div>
+          <div class="quick-item" style="background:#FFF3CC;" onclick="navTo('ai')">
+            <i class="ti ti-robot" style="color:#7a5a00;"></i>
+            <span style="color:#7a5a00;">AI 写用例</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-hd">
+          <span class="card-title">🔔 系统公告</span>
+          <span class="card-tag" style="background:#FFE8F2;color:#c0265a;">最新</span>
+        </div>
+        <div>
+          <div class="notice-item">
+            <div class="notice-dot" style="background:var(--pink);"></div>
+            <div class="notice-text">XiaoFei QA 平台正式上线，欢迎使用！</div>
+            <div class="notice-time">今天</div>
+          </div>
+          <div class="notice-item">
+            <div class="notice-dot" style="background:var(--yellow);"></div>
+            <div class="notice-text">资产管理模块即将上线，请关注更新</div>
+            <div class="notice-time">本周</div>
+          </div>
+          <div class="notice-item">
+            <div class="notice-dot" style="background:var(--teal);"></div>
+            <div class="notice-text">PingCode 数据对接开发中</div>
+            <div class="notice-time">本月</div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  loadDashboardStats();
+}
+
+async function loadDashboardStats() {
+  try {
+    const { count: deviceCount } = await sb.from('assets').select('*', {count:'exact',head:true}).eq('status','在用');
+    document.getElementById('sc-devices').textContent = deviceCount ?? '-';
+  } catch {}
+  try {
+    const { count: warnCount } = await sb.from('consumables').select('*', {count:'exact',head:true}).lt('quantity','threshold');
+    document.getElementById('sc-consumables').textContent = warnCount ?? 0;
+  } catch { document.getElementById('sc-consumables').textContent = '0'; }
+}
+
+function navTo(page) {
+  const item = document.querySelector(`.sb-item[onclick*="'${page}'"]`);
+  if (item) nav(item, page);
+}
+
+async function logout() {
+  await sb.auth.signOut();
+  window.location.href = 'index.html';
+}
+
+init();
+</script>
+</body>
+</html>

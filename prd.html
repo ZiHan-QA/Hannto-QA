@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD 管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<style>
+:root {
+  --pink:#FF6B9D; --yellow:#FFDA79; --teal:#00D2D3;
+  --purple:#5F27CD; --mint:#1DD1A1; --cream:#FFF9F0;
+  --dark:#1A1035; --text:#3d1a00; --sub:#9a6a40;
+  --border:rgba(255,182,193,0.25);
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var(--text); padding:20px; }
+
+/* 统计卡 */
+.stat-row { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:18px; }
+.sc { border-radius:12px; padding:13px 14px; }
+.sc.p{background:#FFE8F2;} .sc.y{background:#FFF3CC;} .sc.t{background:#CCF5EE;} .sc.pu{background:#EDE8FF;}
+.sc-icon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; margin-bottom:7px; }
+.sc-icon.p{background:var(--pink);} .sc-icon.y{background:#e0a000;} .sc-icon.t{background:var(--teal);} .sc-icon.pu{background:var(--purple);}
+.sc-icon i { font-size:13px; color:#fff; }
+.sc-val { font-size:20px; font-weight:600; color:var(--text); line-height:1; margin-bottom:2px; }
+.sc-label { font-size:10px; color:var(--sub); }
+
+/* 工具栏 */
+.toolbar { display:flex; align-items:center; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+.search-box { display:flex; align-items:center; gap:8px; background:#fff; border:0.5px solid var(--border); border-radius:10px; padding:7px 12px; flex:1; max-width:280px; }
+.search-box i { color:var(--sub); font-size:14px; flex-shrink:0; }
+.search-box input { border:none; outline:none; font-size:13px; color:var(--text); background:none; width:100%; font-family:'Noto Sans SC',sans-serif; }
+.search-box input::placeholder { color:rgba(157,106,64,0.4); }
+.filter-select { border:0.5px solid var(--border); border-radius:10px; padding:7px 12px; font-size:12px; color:var(--sub); background:#fff; outline:none; cursor:pointer; font-family:'Noto Sans SC',sans-serif; }
+.btn { padding:7px 14px; border-radius:10px; border:none; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:5px; transition:all 0.15s; font-family:'Noto Sans SC',sans-serif; white-space:nowrap; }
+.btn-primary { background:var(--pink); color:#fff; box-shadow:0 4px 12px rgba(255,107,157,0.25); }
+.btn-primary:hover { transform:translateY(-1px); }
+.btn-outline { background:#fff; color:var(--sub); border:0.5px solid var(--border); }
+.btn-outline:hover { border-color:var(--pink); color:var(--pink); }
+.btn-purple { background:#EDE8FF; color:var(--purple); }
+.btn-purple:hover { background:var(--purple); color:#fff; }
+.ml-auto { margin-left:auto; }
+
+/* PRD 卡片列表 */
+.prd-grid { display:flex; flex-direction:column; gap:10px; }
+.prd-card {
+  background:#fff; border-radius:14px; border:0.5px solid var(--border);
+  padding:16px 18px; cursor:pointer; transition:all 0.15s;
+}
+.prd-card:hover { border-color:var(--pink); box-shadow:0 4px 16px rgba(255,107,157,0.1); transform:translateY(-1px); }
+.prd-card.expanded { border-color:var(--pink); }
+.prd-card-head { display:flex; align-items:flex-start; gap:12px; }
+.prd-icon { width:38px; height:38px; border-radius:10px; background:#EDE8FF; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.prd-icon i { font-size:18px; color:var(--purple); }
+.prd-info { flex:1; min-width:0; }
+.prd-title { font-size:14px; font-weight:500; color:var(--text); margin-bottom:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.prd-meta { font-size:11px; color:var(--sub); display:flex; gap:12px; flex-wrap:wrap; }
+.prd-meta span { display:flex; align-items:center; gap:4px; }
+.prd-actions { display:flex; gap:6px; flex-shrink:0; }
+.prd-body { margin-top:14px; padding-top:14px; border-top:0.5px solid var(--border); display:none; }
+.prd-card.expanded .prd-body { display:block; }
+
+.tag { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:500; white-space:nowrap; }
+.tag-进行中 { background:#CCF5EE; color:#0F6E56; }
+.tag-已完成 { background:#EDE8FF; color:var(--purple); }
+.tag-暂停   { background:#FFF3CC; color:#7a5a00; }
+.tag-已归档 { background:#F1EFE8; color:#5F5E5A; }
+
+/* 需求点 */
+.req-head { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+.req-title { font-size:12px; font-weight:500; color:var(--text); }
+.req-list { display:flex; flex-direction:column; gap:6px; margin-bottom:12px; }
+.req-item {
+  display:flex; align-items:flex-start; gap:10px;
+  background:var(--cream); border-radius:9px; padding:10px 12px;
+  border:0.5px solid transparent; transition:all 0.15s;
+}
+.req-item:hover { border-color:var(--border); }
+.req-num { width:20px; height:20px; border-radius:6px; background:#EDE8FF; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:500; color:var(--purple); flex-shrink:0; margin-top:1px; }
+.req-content { flex:1; min-width:0; }
+.req-item-title { font-size:12px; font-weight:500; color:var(--text); margin-bottom:3px; }
+.req-item-desc  { font-size:11px; color:var(--sub); line-height:1.5; }
+.req-item-meta  { display:flex; gap:8px; margin-top:5px; flex-wrap:wrap; }
+.req-case { font-size:10px; background:#E6F1FB; color:#185FA5; padding:2px 7px; border-radius:6px; display:flex; align-items:center; gap:4px; }
+.req-priority { font-size:10px; padding:2px 7px; border-radius:6px; }
+.req-priority-高 { background:#FAECE7; color:#993C1D; }
+.req-priority-中 { background:#FFF3CC; color:#7a5a00; }
+.req-priority-低 { background:#CCF5EE; color:#0F6E56; }
+.req-status { font-size:10px; padding:2px 7px; border-radius:6px; }
+.req-status-待测试   { background:#FFE8F2; color:#c0265a; }
+.req-status-测试中   { background:#FFF3CC; color:#7a5a00; }
+.req-status-已完成   { background:#CCF5EE; color:#0F6E56; }
+.req-status-已跳过   { background:#F1EFE8; color:#5F5E5A; }
+.req-del { background:none; border:none; cursor:pointer; color:rgba(157,106,64,0.4); font-size:13px; padding:2px; border-radius:5px; transition:all 0.15s; flex-shrink:0; margin-top:1px; }
+.req-del:hover { color:#E24B4A; background:rgba(226,75,74,0.08); }
+
+/* AI 拆解区 */
+.ai-box { background:linear-gradient(135deg,#1A1035,#2d1a5e); border-radius:12px; padding:14px 16px; margin-bottom:12px; }
+.ai-box-title { font-size:12px; color:rgba(255,255,255,0.6); margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+.ai-box-title i { color:var(--pink); }
+.ai-textarea { width:100%; background:rgba(255,255,255,0.07); border:0.5px solid rgba(255,255,255,0.12); border-radius:9px; padding:10px 12px; font-size:12px; color:#fff; outline:none; resize:vertical; min-height:80px; font-family:'Noto Sans SC',sans-serif; line-height:1.6; }
+.ai-textarea::placeholder { color:rgba(255,255,255,0.25); }
+.ai-btn { margin-top:8px; padding:7px 16px; border-radius:9px; border:none; background:var(--pink); color:#fff; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:6px; font-family:'Noto Sans SC',sans-serif; transition:all 0.15s; }
+.ai-btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(255,107,157,0.3); }
+.ai-btn:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+.spinner-sm { width:12px; height:12px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin 0.6s linear infinite; }
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* 变更记录 */
+.change-list { display:flex; flex-direction:column; gap:6px; }
+.change-item { display:flex; gap:10px; font-size:11px; }
+.change-dot { width:6px; height:6px; border-radius:50%; background:var(--pink); flex-shrink:0; margin-top:4px; }
+.change-text { color:var(--text); flex:1; }
+.change-time { color:var(--sub); white-space:nowrap; }
+
+.empty { padding:50px 20px; text-align:center; color:var(--sub); }
+.empty i { font-size:32px; opacity:0.3; display:block; margin-bottom:8px; }
+
+/* 抽屉 */
+.drawer-overlay { position:fixed; inset:0; background:rgba(26,16,53,0.4); z-index:200; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+.drawer-overlay.show { opacity:1; pointer-events:all; }
+.drawer { position:fixed; right:-500px; top:0; bottom:0; width:500px; background:#fff; z-index:201; box-shadow:-8px 0 32px rgba(0,0,0,0.12); transition:right 0.3s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; }
+.drawer.open { right:0; }
+.drawer-head { padding:18px 22px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.drawer-title { font-size:14px; font-weight:500; color:var(--text); }
+.drawer-close { margin-left:auto; background:none; border:none; cursor:pointer; color:var(--sub); font-size:18px; border-radius:8px; padding:4px; transition:all 0.15s; }
+.drawer-close:hover { color:var(--pink); }
+.drawer-body { flex:1; overflow-y:auto; padding:18px 22px; }
+.drawer-foot { padding:14px 22px; border-top:0.5px solid var(--border); display:flex; gap:10px; flex-shrink:0; }
+.form-group { display:flex; flex-direction:column; gap:4px; margin-bottom:12px; }
+.form-group label { font-size:11px; color:var(--sub); font-weight:500; }
+.form-group input,.form-group select,.form-group textarea { border:0.5px solid var(--border); border-radius:9px; padding:8px 11px; font-size:13px; color:var(--text); outline:none; transition:all 0.15s; background:#fff; font-family:'Noto Sans SC',sans-serif; }
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus { border-color:var(--pink); box-shadow:0 0 0 3px rgba(255,107,157,0.1); }
+.form-group textarea { resize:vertical; min-height:60px; }
+.form-row2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.form-section { font-size:11px; color:var(--sub); letter-spacing:0.5px; margin:14px 0 8px; padding-bottom:5px; border-bottom:0.5px solid var(--border); }
+.dingtalk-link { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--teal); margin-top:4px; cursor:pointer; text-decoration:none; }
+.dingtalk-link:hover { color:var(--purple); }
+
+/* 需求点编辑 */
+.req-edit-item { display:flex; flex-direction:column; gap:6px; background:var(--cream); border-radius:9px; padding:10px 12px; margin-bottom:8px; position:relative; }
+.req-edit-item input,.req-edit-item select,.req-edit-item textarea { border:0.5px solid var(--border); border-radius:7px; padding:6px 10px; font-size:12px; color:var(--text); outline:none; background:#fff; font-family:'Noto Sans SC',sans-serif; }
+.req-edit-item textarea { resize:vertical; min-height:48px; }
+.req-edit-row { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
+.req-edit-del { position:absolute; top:8px; right:8px; background:none; border:none; cursor:pointer; color:rgba(157,106,64,0.4); font-size:14px; border-radius:5px; padding:2px; transition:all 0.15s; }
+.req-edit-del:hover { color:#E24B4A; }
+.add-req-btn { width:100%; padding:8px; border-radius:9px; border:1px dashed var(--border); background:none; color:var(--sub); font-size:12px; cursor:pointer; transition:all 0.15s; font-family:'Noto Sans SC',sans-serif; display:flex; align-items:center; justify-content:center; gap:6px; }
+.add-req-btn:hover { border-color:var(--pink); color:var(--pink); }
+
+.action-btn { background:none; border:none; cursor:pointer; color:var(--sub); font-size:14px; padding:3px; border-radius:6px; transition:all 0.15s; }
+.action-btn:hover { background:rgba(255,107,157,0.1); color:var(--pink); }
+.action-btn.del:hover { background:rgba(226,75,74,0.1); color:#E24B4A; }
+</style>
+</head>
+<body>
+
+<!-- 统计 -->
+<div class="stat-row">
+  <div class="sc p"><div class="sc-icon p"><i class="ti ti-file-description"></i></div><div class="sc-val" id="s-total">-</div><div class="sc-label">PRD 总数</div></div>
+  <div class="sc y"><div class="sc-icon y"><i class="ti ti-loader"></i></div><div class="sc-val" id="s-active">-</div><div class="sc-label">进行中</div></div>
+  <div class="sc t"><div class="sc-icon t"><i class="ti ti-list-check"></i></div><div class="sc-val" id="s-reqs">-</div><div class="sc-label">需求点总数</div></div>
+  <div class="sc pu"><div class="sc-icon pu"><i class="ti ti-check"></i></div><div class="sc-val" id="s-done">-</div><div class="sc-label">已完成需求点</div></div>
+</div>
+
+<!-- 工具栏 -->
+<div class="toolbar">
+  <div class="search-box">
+    <i class="ti ti-search"></i>
+    <input type="text" id="searchInput" placeholder="搜索 PRD 标题、版本..." oninput="renderList()">
+  </div>
+  <select class="filter-select" id="statusFilter" onchange="renderList()">
+    <option value="">全部状态</option>
+    <option>进行中</option><option>已完成</option><option>暂停</option><option>已归档</option>
+  </select>
+  <button class="btn btn-primary ml-auto" onclick="openDrawer()"><i class="ti ti-plus"></i>新增 PRD</button>
+</div>
+
+<!-- PRD 列表 -->
+<div class="prd-grid" id="prdList"></div>
+
+<!-- 抽屉：新增/编辑 PRD -->
+<div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <i class="ti ti-file-description" style="color:var(--purple);font-size:16px;"></i>
+    <span class="drawer-title" id="drawerTitle">新增 PRD</span>
+    <button class="drawer-close" onclick="closeDrawer()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn btn-primary" style="flex:1;" onclick="savePrd()"><i class="ti ti-check"></i>保存</button>
+    <button class="btn btn-outline" onclick="closeDrawer()">取消</button>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://pgpnyrglrromqqjnvaix.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncG55cmdscnJvbXFxam52YWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjY2OTgsImV4cCI6MjA5NjIwMjY5OH0.TmkrxS2mY_95aBC2UL2BARLU7gqNb_gSpHP6ynofDsE';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// API Key 从 localStorage 读取
+function getApiKey() {
+  return localStorage.getItem('aliyun_api_key') || '';
+}
+
+function promptApiKey() {
+  const key = prompt('请输入阿里云 API Key（将保存在本地浏览器）：', getApiKey());
+  if (key?.trim()) {
+    localStorage.setItem('aliyun_api_key', key.trim());
+    return key.trim();
+  }
+  return '';
+}
+
+let allPrds = [];
+let allReqs = [];
+let editId = null;
+let expandedId = null;
+let editReqs = [];
+
+async function init() {
+  await loadStats();
+  await loadData();
+}
+
+async function loadStats() {
+  try {
+    const [total, active, reqs, done] = await Promise.all([
+      sb.from('prds').select('*',{count:'exact',head:true}),
+      sb.from('prds').select('*',{count:'exact',head:true}).eq('status','进行中'),
+      sb.from('requirements').select('*',{count:'exact',head:true}),
+      sb.from('requirements').select('*',{count:'exact',head:true}).eq('status','已完成'),
+    ]);
+    document.getElementById('s-total').textContent  = total.count ?? 0;
+    document.getElementById('s-active').textContent = active.count ?? 0;
+    document.getElementById('s-reqs').textContent   = reqs.count ?? 0;
+    document.getElementById('s-done').textContent   = done.count ?? 0;
+  } catch(e) { console.error(e); }
+}
+
+async function loadData() {
+  const { data: prds } = await sb.from('prds').select('*').order('created_at',{ascending:false});
+  const { data: reqs } = await sb.from('requirements').select('*').order('created_at',{ascending:true});
+  allPrds = prds || [];
+  allReqs = reqs || [];
+  renderList();
+}
+
+function renderList() {
+  const kw = document.getElementById('searchInput').value.toLowerCase();
+  const st = document.getElementById('statusFilter').value;
+  const data = allPrds.filter(p => {
+    const mk = !kw || (p.title+p.version+p.product).toLowerCase().includes(kw);
+    const ms = !st || p.status === st;
+    return mk && ms;
+  });
+  const list = document.getElementById('prdList');
+  if (!data.length) {
+    list.innerHTML = `<div class="empty"><i class="ti ti-file-off"></i>暂无 PRD，点击右上角新增</div>`;
+    return;
+  }
+  list.innerHTML = data.map(p => {
+    const reqs = allReqs.filter(r => r.prd_id === p.id);
+    const doneReqs = reqs.filter(r => r.status === '已完成').length;
+    const isExpanded = expandedId === p.id;
+    return `
+    <div class="prd-card ${isExpanded?'expanded':''}" id="card-${p.id}">
+      <div class="prd-card-head" onclick="toggleExpand('${p.id}')">
+        <div class="prd-icon"><i class="ti ti-file-description"></i></div>
+        <div class="prd-info">
+          <div class="prd-title">
+            ${p.title}
+            <span class="tag tag-${p.status||'进行中'}">${p.status||'进行中'}</span>
+            ${p.version?`<span style="font-size:10px;background:#FFF3CC;color:#7a5a00;padding:2px 7px;border-radius:8px;">v${p.version}</span>`:''}
+          </div>
+          <div class="prd-meta">
+            ${p.product?`<span><i class="ti ti-device-mobile" style="font-size:11px;"></i>${p.product}</span>`:''}
+            ${p.author?`<span><i class="ti ti-user" style="font-size:11px;"></i>${p.author}</span>`:''}
+            ${p.release_date?`<span><i class="ti ti-calendar" style="font-size:11px;"></i>${p.release_date}</span>`:''}
+            <span><i class="ti ti-list-check" style="font-size:11px;"></i>${doneReqs}/${reqs.length} 需求点</span>
+            ${p.dingtalk_url?`<a href="${p.dingtalk_url}" target="_blank" onclick="event.stopPropagation()" style="color:var(--teal);font-size:11px;display:flex;align-items:center;gap:3px;"><i class="ti ti-external-link" style="font-size:11px;"></i>钉钉文档</a>`:''}
+          </div>
+        </div>
+        <div class="prd-actions" onclick="event.stopPropagation()">
+          <button class="action-btn" onclick="openDrawer('${p.id}')" title="编辑"><i class="ti ti-edit"></i></button>
+          <button class="action-btn del" onclick="deletePrd('${p.id}')" title="删除"><i class="ti ti-trash"></i></button>
+          <button class="action-btn" onclick="toggleExpand('${p.id}')" title="${isExpanded?'收起':'展开'}">
+            <i class="ti ti-chevron-${isExpanded?'up':'down'}"></i>
+          </button>
+        </div>
+      </div>
+      <div class="prd-body">
+        ${renderReqBody(p.id, reqs)}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderReqBody(prdId, reqs) {
+  return `
+    <div class="req-head">
+      <span class="req-title">📋 需求点（${reqs.length}）</span>
+      <button class="btn btn-purple" style="padding:4px 10px;font-size:11px;" onclick="openReqDrawer('${prdId}')">
+        <i class="ti ti-pencil"></i>编辑需求点
+      </button>
+      <button onclick="promptApiKey()" style="background:none;border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 10px;color:rgba(255,255,255,0.4);font-size:11px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans SC',sans-serif;" title="设置 API Key">
+        ⚙️ ${getApiKey() ? 'Key 已设置' : '设置 Key'}
+      </button>
+      </div>
+    </div>
+    ${reqs.length ? `
+    <div class="req-list">
+      ${reqs.map((r,i) => `
+        <div class="req-item">
+          <div class="req-num">${i+1}</div>
+          <div class="req-content">
+            <div class="req-item-title">${r.title}</div>
+            ${r.description?`<div class="req-item-desc">${r.description}</div>`:''}
+            <div class="req-item-meta">
+              <span class="req-priority req-priority-${r.priority||'中'}">${r.priority||'中'}优先级</span>
+              <span class="req-status req-status-${r.status||'待测试'}">${r.status||'待测试'}</span>
+              ${r.pingcode_case_ids?`<span class="req-case"><i class="ti ti-link" style="font-size:10px;"></i>用例 ${r.pingcode_case_ids}</span>`:''}
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>` : `<div style="text-align:center;padding:16px;color:var(--sub);font-size:12px;">暂无需求点，点击编辑需求点添加</div>`}
+    ${renderChangeLog(prdId)}`;
+}
+
+function renderChangeLog(prdId) {
+  // 暂时用创建时间模拟
+  const prd = allPrds.find(p => p.id === prdId);
+  if (!prd) return '';
+  return `
+    <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid var(--border);">
+      <div style="font-size:12px;font-weight:500;color:var(--text);margin-bottom:8px;">📝 变更记录</div>
+      <div class="change-list">
+        <div class="change-item">
+          <div class="change-dot"></div>
+          <div class="change-text">PRD 创建${prd.notes?'：'+prd.notes:''}</div>
+          <div class="change-time">${prd.created_at?.split('T')[0]||''}</div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function toggleExpand(id) {
+  expandedId = expandedId === id ? null : id;
+  renderList();
+}
+
+// ── PRD 抽屉 ──
+function openDrawer(id) {
+  editId = id || null;
+  const p = id ? allPrds.find(r => r.id === id) : null;
+  const v = k => p ? (p[k]||'') : '';
+  document.getElementById('drawerTitle').textContent = id ? '编辑 PRD' : '新增 PRD';
+  document.getElementById('drawerBody').innerHTML = `
+    <div class="form-section">基本信息</div>
+    <div class="form-group"><label>PRD 标题 *</label><input id="f-title" value="${v('title')}" placeholder="如：首页改版 v2.0"></div>
+    <div class="form-row2">
+      <div class="form-group"><label>版本号</label><input id="f-version" value="${v('version')}" placeholder="1.0.0"></div>
+      <div class="form-group"><label>负责人</label><input id="f-author" value="${v('author')}" placeholder="姓名"></div>
+    </div>
+    <div class="form-row2">
+      <div class="form-group"><label>产品线</label><input id="f-product" value="${v('product')}" placeholder="Liene/极印"></div>
+      <div class="form-group"><label>预计上线日期</label><input type="date" id="f-date" value="${v('release_date')}"></div>
+    </div>
+    <div class="form-group"><label>状态</label>
+      <select id="f-status">${['进行中','已完成','暂停','已归档'].map(s=>`<option ${v('status')===s?'selected':''}>${s}</option>`).join('')}</select>
+    </div>
+    <div class="form-section">钉钉文档</div>
+    <div class="form-group">
+      <label>钉钉文档链接</label>
+      <input id="f-url" value="${v('dingtalk_url')}" placeholder="粘贴钉钉文档链接">
+      <span style="font-size:10px;color:var(--sub);margin-top:3px;">后续支持 API 直读文档内容</span>
+    </div>
+    <div class="form-group"><label>备注</label><textarea id="f-notes">${v('notes')}</textarea></div>`;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('drawer').classList.remove('open');
+  editId = null;
+}
+
+async function savePrd() {
+  const g = id => document.getElementById(id)?.value?.trim()||'';
+  const title = g('f-title');
+  if (!title) { alert('请填写 PRD 标题'); return; }
+  const data = {
+    title, version:g('f-version'), author:g('f-author'),
+    product:g('f-product'), release_date:g('f-date')||null,
+    status:g('f-status')||'进行中',
+    dingtalk_url:g('f-url'), notes:g('f-notes'),
+    updated_at: new Date().toISOString()
+  };
+  try {
+    if (editId) {
+      const { error } = await sb.from('prds').update(data).eq('id',editId);
+      if (error) throw error;
+    } else {
+      const { error } = await sb.from('prds').insert(data);
+      if (error) throw error;
+    }
+    closeDrawer();
+    await loadStats();
+    await loadData();
+  } catch(e) { alert('保存失败：'+e.message); }
+}
+
+async function deletePrd(id) {
+  if (!confirm('确定删除此 PRD？相关需求点也会一并删除。')) return;
+  await sb.from('prds').delete().eq('id',id);
+  if (expandedId === id) expandedId = null;
+  await loadStats();
+  await loadData();
+}
+
+// ── 需求点编辑抽屉 ──
+let currentPrdId = null;
+
+function openReqDrawer(prdId) {
+  currentPrdId = prdId;
+  const prd = allPrds.find(p => p.id === prdId);
+  const reqs = allReqs.filter(r => r.prd_id === prdId);
+  editReqs = reqs.map(r => ({...r}));
+  renderReqDrawer(prd);
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+}
+
+function renderReqDrawer(prd) {
+  document.getElementById('drawerTitle').textContent = `需求点 · ${prd?.title||''}`;
+  // 重写 foot
+  document.querySelector('.drawer-foot').innerHTML = `
+    <button class="btn btn-primary" style="flex:1;" onclick="saveReqs()"><i class="ti ti-check"></i>保存需求点</button>
+    <button class="btn btn-outline" onclick="closeDrawer()">取消</button>`;
+
+  const aiSection = `
+    <div class="ai-box">
+      <div class="ai-box-title"><i class="ti ti-robot"></i>AI 自动拆解需求点</div>
+      <textarea class="ai-textarea" id="aiContent" placeholder="粘贴钉钉文档内容，AI 自动提取需求点..."></textarea>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+      <button class="ai-btn" id="aiBtn" onclick="aiExtract()" style="margin-top:0;">
+        <i class="ti ti-wand"></i>开始拆解
+      </button>
+    </div>`;
+
+  const reqsHtml = editReqs.map((r,i) => reqEditItem(r,i)).join('');
+
+  document.getElementById('drawerBody').innerHTML = `
+    ${aiSection}
+    <div style="font-size:11px;color:var(--sub);margin-bottom:8px;margin-top:4px;">需求点列表（${editReqs.length}）</div>
+    <div id="reqEditList">${reqsHtml}</div>
+    <button class="add-req-btn" onclick="addReqItem()"><i class="ti ti-plus"></i>手动添加需求点</button>`;
+}
+
+function reqEditItem(r, i) {
+  return `
+    <div class="req-edit-item" id="req-edit-${i}">
+      <button class="req-edit-del" onclick="removeReqItem(${i})"><i class="ti ti-x"></i></button>
+      <input placeholder="需求点标题 *" value="${r.title||''}" oninput="editReqs[${i}].title=this.value">
+      <textarea placeholder="描述（可选）" oninput="editReqs[${i}].description=this.value">${r.description||''}</textarea>
+      <div class="req-edit-row">
+        <select onchange="editReqs[${i}].priority=this.value">
+          ${['高','中','低'].map(s=>`<option ${(r.priority||'中')===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        <select onchange="editReqs[${i}].status=this.value">
+          ${['待测试','测试中','已完成','已跳过'].map(s=>`<option ${(r.status||'待测试')===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+        <input placeholder="PingCode 用例 ID" value="${r.pingcode_case_ids||''}" oninput="editReqs[${i}].pingcode_case_ids=this.value">
+      </div>
+    </div>`;
+}
+
+function addReqItem() {
+  editReqs.push({title:'',description:'',priority:'中',status:'待测试',pingcode_case_ids:''});
+  const i = editReqs.length - 1;
+  const list = document.getElementById('reqEditList');
+  const div = document.createElement('div');
+  div.innerHTML = reqEditItem(editReqs[i], i);
+  list.appendChild(div.firstElementChild);
+}
+
+function removeReqItem(i) {
+  editReqs.splice(i, 1);
+  const list = document.getElementById('reqEditList');
+  const items = list.querySelectorAll('.req-edit-item');
+  if (items[i]) items[i].remove();
+  // 重新编号
+  editReqs.forEach((_,idx) => {
+    const el = list.querySelectorAll('.req-edit-item')[idx];
+    if (el) {
+      el.id = `req-edit-${idx}`;
+      el.querySelector('.req-edit-del').setAttribute('onclick',`removeReqItem(${idx})`);
+    }
+  });
+}
+
+async function saveReqs() {
+  const valid = editReqs.filter(r => r.title?.trim());
+  if (!valid.length && editReqs.length > 0) { alert('请至少填写需求点标题'); return; }
+  try {
+    // 删除旧的，插入新的
+    await sb.from('requirements').delete().eq('prd_id', currentPrdId);
+    if (valid.length) {
+      const inserts = valid.map(r => ({
+        prd_id: currentPrdId,
+        title: r.title.trim(),
+        description: r.description||'',
+        priority: r.priority||'中',
+        status: r.status||'待测试',
+        pingcode_case_ids: r.pingcode_case_ids||''
+      }));
+      const { error } = await sb.from('requirements').insert(inserts);
+      if (error) throw error;
+    }
+    closeDrawer();
+    await loadStats();
+    await loadData();
+    expandedId = currentPrdId;
+    renderList();
+  } catch(e) { alert('保存失败：'+e.message); }
+}
+
+// ── AI 拆解 ──
+async function aiExtract() {
+  const content = document.getElementById('aiContent').value.trim();
+  if (!content) { alert('请先粘贴 PRD 内容'); return; }
+  const btn = document.getElementById('aiBtn');
+  btn.disabled = true;
+  btn.innerHTML = `<div class="spinner-sm"></div>AI 拆解中...`;
+  try {
+    let apiKey = getApiKey();
+    if (!apiKey) {
+      apiKey = promptApiKey();
+      if (!apiKey) { btn.disabled=false; btn.innerHTML=`<i class="ti ti-wand"></i>开始拆解`; return; }
+    }
+    const resp = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'Authorization':`Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: 'qwen-plus',
+        messages: [{
+          role: 'user',
+          content: `请从以下 PRD 内容中提取所有需求点，以 JSON 数组格式返回，每个元素包含：title（需求点标题）、description（简要描述）、priority（高/中/低）。只返回 JSON 数组，不要其他内容。\n\nPRD 内容：\n${content}`
+        }]
+      })
+    });
+    const data = await resp.json();
+    const text = data.choices?.[0]?.message?.content || '';
+    const clean = text.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(clean);
+    if (Array.isArray(parsed)) {
+      // 追加到现有需求点
+      parsed.forEach(r => {
+        editReqs.push({ title:r.title||'', description:r.description||'', priority:r.priority||'中', status:'待测试', pingcode_case_ids:'' });
+      });
+      const list = document.getElementById('reqEditList');
+      list.innerHTML = editReqs.map((r,i) => reqEditItem(r,i)).join('');
+      document.getElementById('aiContent').value = '';
+    }
+  } catch(e) {
+    alert('AI 拆解失败，请检查 API Key 或手动添加需求点');
+  }
+  btn.disabled = false;
+  btn.innerHTML = `<i class="ti ti-wand"></i>开始拆解`;
+}
+
+init();
+</script>
+</body>
+</html>

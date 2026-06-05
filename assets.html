@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资产管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<style>
+:root {
+  --pink:#FF6B9D; --yellow:#FFDA79; --teal:#00D2D3;
+  --purple:#5F27CD; --mint:#1DD1A1; --cream:#FFF9F0;
+  --dark:#1A1035; --text:#3d1a00; --sub:#9a6a40;
+  --border:rgba(255,182,193,0.25);
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var(--text); }
+
+.stat-row { display:grid; grid-template-columns:repeat(5,1fr); gap:10px; margin-bottom:18px; }
+.sc { border-radius:12px; padding:13px 14px; cursor:default; }
+.sc.clickable { cursor:pointer; transition:transform 0.15s; }
+.sc.clickable:hover { transform:translateY(-2px); }
+.sc.p  { background:#FFE8F2; } .sc.y { background:#FFF3CC; }
+.sc.t  { background:#CCF5EE; } .sc.r { background:#FAECE7; }
+.sc.b  { background:#EDE8FF; }
+.sc-icon { width:26px; height:26px; border-radius:7px; display:flex; align-items:center; justify-content:center; margin-bottom:7px; }
+.sc-icon.p{background:var(--pink);} .sc-icon.y{background:#e0a000;}
+.sc-icon.t{background:var(--teal);} .sc-icon.r{background:#E24B4A;}
+.sc-icon.b{background:var(--purple);}
+.sc-icon i { font-size:13px; color:#fff; }
+.sc-val   { font-size:20px; font-weight:600; color:var(--text); line-height:1; margin-bottom:2px; }
+.sc-label { font-size:10px; color:var(--sub); }
+
+/* 统计面板 */
+.stats-panel {
+  background:#fff; border-radius:14px; border:0.5px solid var(--border);
+  padding:18px 20px; margin-bottom:16px; display:none;
+}
+.stats-panel.show { display:block; }
+.stats-head { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+.stats-title { font-size:14px; font-weight:500; color:var(--text); }
+.period-tabs { display:flex; gap:4px; margin-left:auto; }
+.period-tab {
+  padding:4px 12px; border-radius:8px; font-size:12px;
+  cursor:pointer; border:0.5px solid var(--border);
+  background:#fff; color:var(--sub); transition:all 0.15s;
+  font-family:'Noto Sans SC',sans-serif;
+}
+.period-tab.active { background:var(--pink); color:#fff; border-color:var(--pink); }
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px; }
+.stats-card { background:var(--cream); border-radius:10px; padding:12px 14px; }
+.stats-card-val { font-size:18px; font-weight:600; color:var(--text); margin-bottom:3px; }
+.stats-card-label { font-size:11px; color:var(--sub); }
+.stats-table { width:100%; border-collapse:collapse; }
+.stats-table th { font-size:11px; color:var(--sub); padding:7px 10px; text-align:left; border-bottom:0.5px solid var(--border); }
+.stats-table td { font-size:12px; color:var(--text); padding:8px 10px; border-bottom:0.5px solid var(--border); }
+.stats-table tr:last-child td { border-bottom:none; }
+
+.tabs { display:flex; gap:4px; margin-bottom:14px; background:rgba(255,107,157,0.06); border-radius:12px; padding:4px; width:fit-content; }
+.tab { padding:7px 16px; border-radius:9px; font-size:13px; cursor:pointer; border:none; background:none; color:var(--sub); transition:all 0.15s; font-family:'Noto Sans SC',sans-serif; }
+.tab.active { background:#fff; color:var(--pink); font-weight:500; box-shadow:0 2px 8px rgba(255,107,157,0.15); }
+
+.toolbar { display:flex; align-items:center; gap:8px; margin-bottom:12px; flex-wrap:wrap; }
+.search-box { display:flex; align-items:center; gap:8px; background:#fff; border:0.5px solid var(--border); border-radius:10px; padding:7px 12px; flex:1; max-width:280px; }
+.search-box i { color:var(--sub); font-size:14px; flex-shrink:0; }
+.search-box input { border:none; outline:none; font-size:13px; color:var(--text); background:none; width:100%; font-family:'Noto Sans SC',sans-serif; }
+.search-box input::placeholder { color:rgba(157,106,64,0.4); }
+.filter-select { border:0.5px solid var(--border); border-radius:10px; padding:7px 12px; font-size:12px; color:var(--sub); background:#fff; outline:none; cursor:pointer; font-family:'Noto Sans SC',sans-serif; }
+.btn { padding:7px 14px; border-radius:10px; border:none; font-size:12px; cursor:pointer; display:flex; align-items:center; gap:5px; transition:all 0.15s; font-family:'Noto Sans SC',sans-serif; white-space:nowrap; }
+.btn-primary { background:var(--pink); color:#fff; box-shadow:0 4px 12px rgba(255,107,157,0.25); }
+.btn-primary:hover { transform:translateY(-1px); }
+.btn-outline { background:#fff; color:var(--sub); border:0.5px solid var(--border); }
+.btn-outline:hover { border-color:var(--pink); color:var(--pink); }
+.btn-teal { background:#CCF5EE; color:#0F6E56; }
+.btn-teal:hover { background:#00D2D3; color:#fff; }
+.ml-auto { margin-left:auto; }
+
+.table-wrap { background:#fff; border-radius:14px; border:0.5px solid var(--border); overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+thead th { padding:10px 12px; text-align:left; font-size:11px; color:var(--sub); font-weight:500; letter-spacing:0.3px; background:rgba(255,107,157,0.04); border-bottom:0.5px solid var(--border); white-space:nowrap; }
+tbody td { padding:10px 12px; font-size:12px; color:var(--text); border-bottom:0.5px solid var(--border); }
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover { background:rgba(255,107,157,0.03); }
+
+.status-badge { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:500; white-space:nowrap; }
+.status-在用{background:#CCF5EE;color:#0F6E56;} .status-闲置{background:#FFF3CC;color:#7a5a00;}
+.status-维修中{background:#FFE8F2;color:#c0265a;} .status-报废{background:#F1EFE8;color:#5F5E5A;}
+.status-预警{background:#FAECE7;color:#993C1D;} .status-正常{background:#CCF5EE;color:#0F6E56;}
+
+.action-btn { background:none; border:none; cursor:pointer; color:var(--sub); font-size:14px; padding:3px; border-radius:6px; transition:all 0.15s; }
+.action-btn:hover { background:rgba(255,107,157,0.1); color:var(--pink); }
+.action-btn.del:hover { background:rgba(226,75,74,0.1); color:#E24B4A; }
+.action-btn.out:hover { background:rgba(0,210,211,0.1); color:var(--teal); }
+.empty { padding:50px 20px; text-align:center; color:var(--sub); }
+.empty i { font-size:32px; opacity:0.3; display:block; margin-bottom:8px; }
+
+/* 抽屉 */
+.drawer-overlay { position:fixed; inset:0; background:rgba(26,16,53,0.4); z-index:200; opacity:0; pointer-events:none; transition:opacity 0.25s; }
+.drawer-overlay.show { opacity:1; pointer-events:all; }
+.drawer { position:fixed; right:-500px; top:0; bottom:0; width:500px; background:#fff; z-index:201; box-shadow:-8px 0 32px rgba(0,0,0,0.12); transition:right 0.3s cubic-bezier(0.16,1,0.3,1); display:flex; flex-direction:column; }
+.drawer.open { right:0; }
+.drawer-head { padding:18px 22px; border-bottom:0.5px solid var(--border); display:flex; align-items:center; gap:10px; flex-shrink:0; }
+.drawer-title { font-size:14px; font-weight:500; color:var(--text); }
+.drawer-close { margin-left:auto; background:none; border:none; cursor:pointer; color:var(--sub); font-size:18px; border-radius:8px; padding:4px; transition:all 0.15s; }
+.drawer-close:hover { color:var(--pink); background:rgba(255,107,157,0.08); }
+.drawer-body { flex:1; overflow-y:auto; padding:18px 22px; }
+.drawer-foot { padding:14px 22px; border-top:0.5px solid var(--border); display:flex; gap:10px; flex-shrink:0; }
+
+.form-row { display:flex; flex-direction:column; gap:10px; margin-bottom:10px; }
+.form-row.full { flex-direction:column; }
+.form-row.three { flex-direction:column; }
+.form-group { display:flex; flex-direction:column; gap:4px; }
+.form-group label { font-size:11px; color:var(--sub); font-weight:500; }
+.form-group input,.form-group select,.form-group textarea { border:0.5px solid var(--border); border-radius:9px; padding:8px 11px; font-size:13px; color:var(--text); outline:none; transition:all 0.15s; background:#fff; font-family:'Noto Sans SC',sans-serif; }
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus { border-color:var(--pink); box-shadow:0 0 0 3px rgba(255,107,157,0.1); }
+.form-group textarea { resize:vertical; min-height:60px; }
+.form-section { font-size:11px; color:var(--sub); letter-spacing:0.5px; margin:14px 0 8px; padding-bottom:5px; border-bottom:0.5px solid var(--border); }
+
+/* 弹窗 */
+.modal-overlay { position:fixed; inset:0; background:rgba(26,16,53,0.5); z-index:300; display:flex; align-items:center; justify-content:center; opacity:0; pointer-events:none; transition:opacity 0.2s; }
+.modal-overlay.show { opacity:1; pointer-events:all; }
+.modal { background:#fff; border-radius:16px; padding:22px; width:380px; box-shadow:0 24px 60px rgba(0,0,0,0.15); transform:scale(0.95); transition:transform 0.2s; }
+.modal-overlay.show .modal { transform:scale(1); }
+.modal-title { font-size:14px; font-weight:500; color:var(--text); margin-bottom:14px; }
+.modal-info { font-size:12px; color:var(--sub); margin-bottom:12px; padding:8px 12px; background:var(--cream); border-radius:8px; }
+.modal-btns { display:flex; gap:8px; margin-top:16px; }
+.mg { margin-bottom:10px; }
+</style>
+</head>
+<body style="padding:20px;">
+
+<!-- 统计卡片 -->
+<div class="stat-row">
+  <div class="sc p">
+    <div class="sc-icon p"><i class="ti ti-device-mobile"></i></div>
+    <div class="sc-val" id="s-phone">-</div>
+    <div class="sc-label">手机设备</div>
+  </div>
+  <div class="sc y">
+    <div class="sc-icon y"><i class="ti ti-printer"></i></div>
+    <div class="sc-val" id="s-printer">-</div>
+    <div class="sc-label">打印机</div>
+  </div>
+  <div class="sc t">
+    <div class="sc-icon t"><i class="ti ti-package"></i></div>
+    <div class="sc-val" id="s-consumable">-</div>
+    <div class="sc-label">耗材品类</div>
+  </div>
+  <div class="sc r clickable" onclick="showWarnDetail()" title="点击查看预警详情">
+    <div class="sc-icon r"><i class="ti ti-alert-triangle"></i></div>
+    <div class="sc-val" id="s-warn">0</div>
+    <div class="sc-label">库存预警 👆</div>
+  </div>
+  <div class="sc b clickable" onclick="toggleStats()" title="点击查看费用统计">
+    <div class="sc-icon b"><i class="ti ti-coin"></i></div>
+    <div class="sc-val" id="s-cost">¥-</div>
+    <div class="sc-label">本月费用 👆</div>
+  </div>
+</div>
+
+<!-- 费用统计面板 -->
+<div class="stats-panel" id="statsPanel">
+  <div class="stats-head">
+    <span class="stats-title">📊 费用统计</span>
+    <div class="period-tabs">
+      <button class="period-tab active" onclick="switchPeriod('month',this)">本月</button>
+      <button class="period-tab" onclick="switchPeriod('year',this)">本年</button>
+      <button class="period-tab" onclick="switchPeriod('all',this)">全部</button>
+    </div>
+    <button class="btn btn-outline" style="margin-left:10px;padding:4px 10px;font-size:11px;" onclick="toggleStats()">收起</button>
+  </div>
+  <div class="stats-grid">
+    <div class="stats-card">
+      <div class="stats-card-val" id="st-in-cost">¥0</div>
+      <div class="stats-card-label">入库总费用</div>
+    </div>
+    <div class="stats-card">
+      <div class="stats-card-val" id="st-in-qty">0</div>
+      <div class="stats-card-label">入库总数量</div>
+    </div>
+    <div class="stats-card">
+      <div class="stats-card-val" id="st-out-qty">0</div>
+      <div class="stats-card-label">出库总数量</div>
+    </div>
+    <div class="stats-card">
+      <div class="stats-card-val" id="st-out-cost">¥0</div>
+      <div class="stats-card-label">出库总费用</div>
+    </div>
+  </div>
+  <div style="font-size:11px;color:var(--sub);margin-bottom:8px;">耗材明细</div>
+  <div class="table-wrap" style="border-radius:10px;">
+    <table class="stats-table">
+      <thead><tr><th>耗材</th><th>品牌</th><th>入库量</th><th>入库费用</th><th>出库量</th><th>出库费用</th></tr></thead>
+      <tbody id="statsBody"><tr><td colspan="6" style="text-align:center;color:var(--sub);padding:20px;">加载中...</td></tr></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Tab -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('phone',this)">📱 手机</button>
+  <button class="tab" onclick="switchTab('printer',this)">🖨️ 打印机</button>
+  <button class="tab" onclick="switchTab('consumable',this)">📦 耗材</button>
+</div>
+
+<!-- 工具栏 -->
+<div class="toolbar">
+  <div class="search-box">
+    <i class="ti ti-search"></i>
+    <input type="text" id="searchInput" placeholder="搜索名称、品牌、SN码..." oninput="renderTable()">
+  </div>
+  <select class="filter-select" id="statusFilter" onchange="renderTable()">
+    <option value="">全部状态</option>
+    <option>在用</option><option>闲置</option><option>维修中</option><option>报废</option>
+  </select>
+  <button class="btn btn-outline ml-auto" onclick="exportCSV()"><i class="ti ti-download"></i>导出</button>
+  <button class="btn btn-primary" onclick="openDrawer()"><i class="ti ti-plus"></i>新增</button>
+</div>
+
+<!-- 表格 -->
+<div class="table-wrap" id="tableWrap"></div>
+
+<!-- 抽屉 -->
+<div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <i class="ti ti-plus" id="drawerIcon" style="color:var(--pink);font-size:16px;"></i>
+    <span class="drawer-title" id="drawerTitle">新增记录</span>
+    <button class="drawer-close" onclick="closeDrawer()"><i class="ti ti-x"></i></button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn btn-primary" style="flex:1;" onclick="saveRecord()"><i class="ti ti-check"></i>保存</button>
+    <button class="btn btn-outline" onclick="closeDrawer()">取消</button>
+  </div>
+</div>
+
+<!-- 补货弹窗 -->
+<div class="modal-overlay" id="restockModal">
+  <div class="modal">
+    <div class="modal-title">📦 补货入库</div>
+    <div class="modal-info" id="restockInfo"></div>
+    <div class="form-row three">
+      <div class="form-group mg"><label>入库数量 *</label><input type="number" id="restockQty" min="1" placeholder="数量"></div>
+      <div class="form-group mg"><label>单价（元）</label><input type="number" id="restockPrice" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="form-group mg"><label>入库日期</label><input type="date" id="restockDate"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group mg"><label>操作人</label><input type="text" id="restockOperator" placeholder="姓名"></div>
+      <div class="form-group mg"><label>备注</label><input type="text" id="restockNotes" placeholder="可选"></div>
+    </div>
+    <div id="restockTotal" style="font-size:13px;color:var(--pink);font-weight:500;margin-top:4px;"></div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;" onclick="confirmRestock()">确认入库</button>
+      <button class="btn btn-outline" onclick="closeModal('restockModal')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 出库弹窗 -->
+<div class="modal-overlay" id="outboundModal">
+  <div class="modal">
+    <div class="modal-title">📤 出库消耗</div>
+    <div class="modal-info" id="outboundInfo"></div>
+    <div class="form-row">
+      <div class="form-group mg"><label>出库数量 *</label><input type="number" id="outQty" min="1" placeholder="数量"></div>
+      <div class="form-group mg"><label>出库日期</label><input type="date" id="outDate"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group mg"><label>操作人</label><input type="text" id="outOperator" placeholder="姓名"></div>
+      <div class="form-group mg"><label>原因</label>
+        <select id="outReason" style="border:0.5px solid var(--border);border-radius:9px;padding:8px 11px;font-size:13px;outline:none;">
+          <option>日常使用</option><option>测试消耗</option><option>报废处理</option><option>其他</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group mg"><label>备注</label><input type="text" id="outNotes" placeholder="可选"></div>
+    <div id="outTotal" style="font-size:13px;color:var(--teal);font-weight:500;margin-top:4px;"></div>
+    <div class="modal-btns">
+      <button class="btn btn-teal" style="flex:1;" onclick="confirmOutbound()">确认出库</button>
+      <button class="btn btn-outline" onclick="closeModal('outboundModal')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- 预警详情弹窗 -->
+<div class="modal-overlay" id="warnModal">
+  <div class="modal" style="width:440px;">
+    <div class="modal-title">⚠️ 库存预警详情</div>
+    <div id="warnList"></div>
+    <div class="modal-btns">
+      <button class="btn btn-primary" style="flex:1;" onclick="closeModal('warnModal');switchTab('consumable',document.querySelectorAll('.tab')[2])">去耗材页</button>
+      <button class="btn btn-outline" onclick="closeModal('warnModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://pgpnyrglrromqqjnvaix.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncG55cmdscnJvbXFxam52YWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjY2OTgsImV4cCI6MjA5NjIwMjY5OH0.TmkrxS2mY_95aBC2UL2BARLU7gqNb_gSpHP6ynofDsE';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentTab = 'phone';
+let allData = [];
+let editId = null;
+let restockId = null;
+let outboundId = null;
+let currentPeriod = 'month';
+
+// ── 初始化 ──
+async function init() {
+  await loadStats();
+  await loadData();
+  // 设置今日日期
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('restockDate').value = today;
+  document.getElementById('outDate').value = today;
+  // 计算费用联动
+  document.getElementById('restockQty').addEventListener('input', updateRestockTotal);
+  document.getElementById('restockPrice').addEventListener('input', updateRestockTotal);
+}
+
+async function loadStats() {
+  try {
+    const [ph, pr, co, warn] = await Promise.all([
+      sb.from('assets').select('*',{count:'exact',head:true}).eq('type','手机'),
+      sb.from('assets').select('*',{count:'exact',head:true}).eq('type','打印机'),
+      sb.from('consumables').select('*',{count:'exact',head:true}),
+      sb.from('consumables').select('id,quantity,threshold,name,brand,unit'),
+    ]);
+    document.getElementById('s-phone').textContent    = ph.count ?? 0;
+    document.getElementById('s-printer').textContent  = pr.count ?? 0;
+    document.getElementById('s-consumable').textContent = co.count ?? 0;
+    const warnItems = (warn.data||[]).filter(r => r.quantity < r.threshold);
+    document.getElementById('s-warn').textContent = warnItems.length;
+    try { window.parent.document.getElementById('riskBadge').textContent = warnItems.length; } catch{}
+    // 本月费用
+    await loadCostSummary();
+  } catch(e) { console.error(e); }
+}
+
+async function loadCostSummary() {
+  try {
+    const now = new Date();
+    const from = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+    const { data } = await sb.from('restock_logs').select('total_price').gte('restock_date', from);
+    const total = (data||[]).reduce((s,r) => s + (parseFloat(r.total_price)||0), 0);
+    document.getElementById('s-cost').textContent = '¥' + total.toFixed(0);
+  } catch {}
+}
+
+async function loadData() {
+  try {
+    if (currentTab === 'consumable') {
+      const { data } = await sb.from('consumables').select('*').order('created_at',{ascending:false});
+      allData = data || [];
+    } else {
+      const type = currentTab === 'phone' ? '手机' : '打印机';
+      const { data } = await sb.from('assets').select('*').eq('type',type).order('created_at',{ascending:false});
+      allData = data || [];
+    }
+    renderTable();
+  } catch(e) { console.error(e); }
+}
+
+function switchTab(tab, el) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('searchInput').value = '';
+  document.getElementById('statusFilter').style.display = tab === 'consumable' ? 'none' : '';
+  loadData();
+}
+
+// ── 表格渲染 ──
+function renderTable() {
+  const kw = document.getElementById('searchInput').value.toLowerCase();
+  const st = document.getElementById('statusFilter').value;
+  const data = allData.filter(r => {
+    const mk = !kw || JSON.stringify(r).toLowerCase().includes(kw);
+    const ms = !st || r.status === st;
+    return mk && ms;
+  });
+  const wrap = document.getElementById('tableWrap');
+  if (!data.length) {
+    wrap.innerHTML = `<div class="empty"><i class="ti ti-inbox"></i>暂无数据，点击右上角新增</div>`;
+    return;
+  }
+  if (currentTab === 'phone') {
+    wrap.innerHTML = `<table><thead><tr>
+      <th>名称</th><th>品牌</th><th>型号</th><th>SN码</th><th>OS版本</th>
+      <th>单价</th><th>归属人</th><th>入库日期</th><th>状态</th><th>操作</th>
+    </tr></thead><tbody>${data.map(r=>`<tr>
+      <td><b>${r.name||'-'}</b></td><td>${r.brand||'-'}</td><td>${r.model||'-'}</td>
+      <td style="font-family:monospace;font-size:11px;">${r.sn_code||'-'}</td>
+      <td>${r.os_version||'-'}</td>
+      <td>${r.unit_price?'¥'+parseFloat(r.unit_price).toFixed(0):'-'}</td>
+      <td>${r.owner||'-'}</td><td>${r.purchase_date||'-'}</td>
+      <td><span class="status-badge status-${r.status||'在用'}">${r.status||'在用'}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="action-btn" onclick="openDrawer('${r.id}')" title="编辑"><i class="ti ti-edit"></i></button>
+        <button class="action-btn del" onclick="deleteRecord('${r.id}')" title="删除"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`).join('')}</tbody></table>`;
+  } else if (currentTab === 'printer') {
+    wrap.innerHTML = `<table><thead><tr>
+      <th>名称</th><th>品牌</th><th>型号</th><th>SN码</th><th>配置</th>
+      <th>单价</th><th>归属人</th><th>入库日期</th><th>状态</th><th>操作</th>
+    </tr></thead><tbody>${data.map(r=>`<tr>
+      <td><b>${r.name||'-'}</b></td><td>${r.brand||'-'}</td><td>${r.model||'-'}</td>
+      <td style="font-family:monospace;font-size:11px;">${r.sn_code||'-'}</td>
+      <td>${r.config||'-'}</td>
+      <td>${r.unit_price?'¥'+parseFloat(r.unit_price).toFixed(0):'-'}</td>
+      <td>${r.owner||'-'}</td><td>${r.purchase_date||'-'}</td>
+      <td><span class="status-badge status-${r.status||'在用'}">${r.status||'在用'}</span></td>
+      <td style="white-space:nowrap;">
+        <button class="action-btn" onclick="openDrawer('${r.id}')" title="编辑"><i class="ti ti-edit"></i></button>
+        <button class="action-btn del" onclick="deleteRecord('${r.id}')" title="删除"><i class="ti ti-trash"></i></button>
+      </td>
+    </tr>`).join('')}</tbody></table>`;
+  } else {
+    wrap.innerHTML = `<table><thead><tr>
+      <th>类型</th><th>名称</th><th>品牌</th><th>库存</th><th>单位</th>
+      <th>单价</th><th>预警值</th><th>状态</th><th>最近补货</th><th>负责人</th><th>操作</th>
+    </tr></thead><tbody>${data.map(r=>{
+      const isWarn = r.quantity < r.threshold;
+      return `<tr>
+        <td>${r.type||'-'}</td>
+        <td><b>${r.name||'-'}</b>${r.brand?`<span style="font-size:10px;background:#EDE8FF;color:var(--purple);padding:1px 6px;border-radius:8px;margin-left:5px;">${r.brand}</span>`:''}</td>
+        <td>${r.brand||'-'}</td>
+        <td style="font-weight:600;color:${isWarn?'#E24B4A':'var(--text)'};">${r.quantity}</td>
+        <td>${r.unit||'-'}</td>
+        <td>${r.unit_price?'¥'+parseFloat(r.unit_price).toFixed(2):'-'}</td>
+        <td>${r.threshold}</td>
+        <td><span class="status-badge ${isWarn?'status-预警':'status-正常'}">${isWarn?'⚠️ 需补货':'正常'}</span></td>
+        <td>${r.last_restock_date||'-'}</td>
+        <td>${r.manager||'-'}</td>
+        <td style="white-space:nowrap;">
+          <button class="action-btn" onclick="openRestock('${r.id}')" title="补货"><i class="ti ti-package-import"></i></button>
+          <button class="action-btn out" onclick="openOutbound('${r.id}')" title="出库"><i class="ti ti-package-export"></i></button>
+          <button class="action-btn" onclick="openDrawer('${r.id}')" title="编辑"><i class="ti ti-edit"></i></button>
+          <button class="action-btn del" onclick="deleteRecord('${r.id}')" title="删除"><i class="ti ti-trash"></i></button>
+        </td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
+  }
+}
+
+// ── 抽屉表单 ──
+function openDrawer(id) {
+  editId = id || null;
+  const rec = id ? allData.find(r => r.id === id) : null;
+  document.getElementById('drawerTitle').textContent = id ? '编辑记录' : '新增记录';
+  const v = (k) => rec ? (rec[k]||'') : '';
+  let html = '';
+  if (currentTab === 'phone') {
+    html = `
+      <div class="form-section">基本信息</div>
+      <div class="form-row full">
+        <div class="form-group"><label>设备名称 *</label><input id="f-name" value="${v('name')}" placeholder="iPhone 15 Pro"></div>
+        <div class="form-group"><label>品牌</label><input id="f-brand" value="${v('brand')}" placeholder="Apple"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>型号</label><input id="f-model" value="${v('model')}" placeholder="A3293"></div>
+        <div class="form-group"><label>OS版本</label><input id="f-os" value="${v('os_version')}" placeholder="iOS 17.4"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>SN码</label><input id="f-sn" value="${v('sn_code')}" placeholder="序列号"></div>
+        <div class="form-group"><label>单价（元）</label><input type="number" id="f-price" value="${v('unit_price')}" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="form-section">管理信息</div>
+      <div class="form-row full">
+        <div class="form-group"><label>归属人</label><input id="f-owner" value="${v('owner')}" placeholder="姓名"></div>
+        <div class="form-group"><label>入库日期</label><input type="date" id="f-date" value="${v('purchase_date')}"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>状态</label><select id="f-status">${['在用','闲置','维修中','报废'].map(s=>`<option ${v('status')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-row full"><div class="form-group"><label>备注</label><textarea id="f-notes">${v('notes')}</textarea></div></div>`;
+  } else if (currentTab === 'printer') {
+    html = `
+      <div class="form-section">基本信息</div>
+      <div class="form-row full">
+        <div class="form-group"><label>设备名称 *</label><input id="f-name" value="${v('name')}" placeholder="极印打印机N3"></div>
+        <div class="form-group"><label>品牌</label><input id="f-brand" value="${v('brand')}" placeholder="Hannto"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>型号</label><input id="f-model" value="${v('model')}" placeholder="N3"></div>
+        <div class="form-group"><label>SN码</label><input id="f-sn" value="${v('sn_code')}" placeholder="序列号"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>配置</label><input id="f-config" value="${v('config')}" placeholder="WiFi+BT, 4×6"></div>
+        <div class="form-group"><label>单价（元）</label><input type="number" id="f-price" value="${v('unit_price')}" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="form-section">管理信息</div>
+      <div class="form-row full">
+        <div class="form-group"><label>归属人</label><input id="f-owner" value="${v('owner')}" placeholder="姓名"></div>
+        <div class="form-group"><label>入库日期</label><input type="date" id="f-date" value="${v('purchase_date')}"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>状态</label><select id="f-status">${['在用','闲置','维修中','报废'].map(s=>`<option ${v('status')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-row full"><div class="form-group"><label>备注</label><textarea id="f-notes">${v('notes')}</textarea></div></div>`;
+  } else {
+    html = `
+      <div class="form-section">耗材信息</div>
+      <div class="form-row full">
+        <div class="form-group"><label>耗材类型 *</label><select id="f-type">${['纸张','色带'].map(s=>`<option ${v('type')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+        <div class="form-group"><label>单位</label><select id="f-unit">${['盒','个','卷','包'].map(s=>`<option ${v('unit')===s?'selected':''}>${s}</option>`).join('')}</select></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>名称 *</label><input id="f-name" value="${v('name')}" placeholder="4×6相纸"></div>
+        <div class="form-group"><label>品牌</label><input id="f-brand" value="${v('brand')}" placeholder="品牌名"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>当前库存</label><input type="number" id="f-qty" value="${v('quantity')||0}" min="0"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>预警阈值</label><input type="number" id="f-threshold" value="${v('threshold')||20}" min="1"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>单价（元）</label><input type="number" id="f-price" value="${v('unit_price')}" placeholder="0.00" step="0.01"></div>
+      </div>
+      <div class="form-row full">
+        <div class="form-group"><label>负责人</label><input id="f-manager" value="${v('manager')}" placeholder="姓名"></div>
+        <div class="form-group"><label>最近补货日期</label><input type="date" id="f-restock" value="${v('last_restock_date')}"></div>
+      </div>`;
+  }
+  document.getElementById('drawerBody').innerHTML = html;
+  document.getElementById('overlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('overlay').classList.remove('show');
+  document.getElementById('drawer').classList.remove('open');
+  editId = null;
+}
+
+async function saveRecord() {
+  let data = {};
+  try {
+    const g = id => document.getElementById(id)?.value?.trim() || '';
+    const gn = id => parseFloat(document.getElementById(id)?.value) || 0;
+    if (currentTab === 'phone') {
+      if (!g('f-name')) { alert('请填写设备名称'); return; }
+      data = { type:'手机', name:g('f-name'), brand:g('f-brand'), model:g('f-model'),
+        os_version:g('f-os'), sn_code:g('f-sn'), unit_price:gn('f-price'),
+        owner:g('f-owner'), purchase_date:g('f-date')||null,
+        status:g('f-status')||'在用', notes:g('f-notes'),
+        ...(editId ? {} : {asset_no:'PHN-'+Date.now()}) };
+    } else if (currentTab === 'printer') {
+      if (!g('f-name')) { alert('请填写设备名称'); return; }
+      data = { type:'打印机', name:g('f-name'), brand:g('f-brand'), model:g('f-model'),
+        sn_code:g('f-sn'), config:g('f-config'), unit_price:gn('f-price'),
+        owner:g('f-owner'), purchase_date:g('f-date')||null,
+        status:g('f-status')||'在用', notes:g('f-notes'),
+        ...(editId ? {} : {asset_no:'PRN-'+Date.now()}) };
+    } else {
+      if (!g('f-name')) { alert('请填写耗材名称'); return; }
+      data = { type:g('f-type'), name:g('f-name'), brand:g('f-brand'),
+        unit:g('f-unit'), quantity:gn('f-qty'), threshold:gn('f-threshold')||20,
+        unit_price:gn('f-price'), manager:g('f-manager'),
+        last_restock_date:g('f-restock')||null };
+    }
+    const table = currentTab === 'consumable' ? 'consumables' : 'assets';
+    if (editId) {
+      data.updated_at = new Date().toISOString();
+      const { error } = await sb.from(table).update(data).eq('id', editId);
+      if (error) throw error;
+    } else {
+      const { data: inserted, error } = await sb.from(table).insert(data).select().single();
+      if (error) throw error;
+      // 耗材新增时自动生成补货记录
+      if (currentTab === 'consumable' && inserted && data.quantity > 0) {
+        const unitPrice = parseFloat(data.unit_price) || 0;
+        await sb.from('restock_logs').insert({
+          consumable_id: inserted.id,
+          quantity: data.quantity,
+          unit_price: unitPrice,
+          total_price: data.quantity * unitPrice,
+          restock_date: data.last_restock_date || new Date().toISOString().split('T')[0],
+          operator: data.manager || '',
+          notes: '新增耗材自动入库'
+        });
+      }
+    }
+    closeDrawer();
+    await loadStats();
+    await loadData();
+  } catch(e) { alert('保存失败：' + e.message); }
+}
+
+async function deleteRecord(id) {
+  if (!confirm('确定删除这条记录吗？')) return;
+  const table = currentTab === 'consumable' ? 'consumables' : 'assets';
+  await sb.from(table).delete().eq('id', id);
+  await loadStats();
+  await loadData();
+}
+
+// ── 补货 ──
+function openRestock(id) {
+  restockId = id;
+  const rec = allData.find(r => r.id === id);
+  document.getElementById('restockInfo').textContent = `${rec.name} · ${rec.brand||''} · 当前库存 ${rec.quantity} ${rec.unit}`;
+  document.getElementById('restockQty').value = '';
+  document.getElementById('restockPrice').value = rec.unit_price || '';
+  document.getElementById('restockOperator').value = '';
+  document.getElementById('restockNotes').value = '';
+  document.getElementById('restockTotal').textContent = '';
+  document.getElementById('restockDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('restockModal').classList.add('show');
+}
+
+function updateRestockTotal() {
+  const qty = parseFloat(document.getElementById('restockQty').value)||0;
+  const price = parseFloat(document.getElementById('restockPrice').value)||0;
+  const total = qty * price;
+  document.getElementById('restockTotal').textContent = total > 0 ? `本次费用：¥${total.toFixed(2)}` : '';
+}
+
+async function confirmRestock() {
+  const qty = parseInt(document.getElementById('restockQty').value);
+  if (!qty || qty < 1) { alert('请输入有效数量'); return; }
+  const price = parseFloat(document.getElementById('restockPrice').value)||0;
+  const total = qty * price;
+  try {
+    const rec = allData.find(r => r.id === restockId);
+    await sb.from('consumables').update({
+      quantity: (rec.quantity||0) + qty,
+      unit_price: price || rec.unit_price,
+      last_restock_date: document.getElementById('restockDate').value,
+      updated_at: new Date().toISOString()
+    }).eq('id', restockId);
+    await sb.from('restock_logs').insert({
+      consumable_id: restockId, quantity: qty,
+      unit_price: price, total_price: total,
+      restock_date: document.getElementById('restockDate').value,
+      operator: document.getElementById('restockOperator').value.trim(),
+      notes: document.getElementById('restockNotes').value.trim()
+    });
+    closeModal('restockModal');
+    await loadStats();
+    await loadData();
+  } catch(e) { alert('操作失败：' + e.message); }
+}
+
+// ── 出库 ──
+function openOutbound(id) {
+  outboundId = id;
+  const rec = allData.find(r => r.id === id);
+  document.getElementById('outboundInfo').textContent = `${rec.name} · ${rec.brand||''} · 当前库存 ${rec.quantity} ${rec.unit}`;
+  document.getElementById('outQty').value = '';
+  document.getElementById('outOperator').value = '';
+  document.getElementById('outNotes').value = '';
+  document.getElementById('outTotal').textContent = '';
+  document.getElementById('outDate').value = new Date().toISOString().split('T')[0];
+  document.getElementById('outboundModal').classList.add('show');
+  document.getElementById('outQty').addEventListener('input', () => {
+    const rec2 = allData.find(r => r.id === outboundId);
+    const qty = parseFloat(document.getElementById('outQty').value)||0;
+    const total = qty * (parseFloat(rec2.unit_price)||0);
+    document.getElementById('outTotal').textContent = total > 0 ? `出库费用：¥${total.toFixed(2)}` : '';
+  });
+}
+
+async function confirmOutbound() {
+  const qty = parseInt(document.getElementById('outQty').value);
+  if (!qty || qty < 1) { alert('请输入有效数量'); return; }
+  const rec = allData.find(r => r.id === outboundId);
+  if (qty > rec.quantity) { alert(`库存不足，当前库存仅 ${rec.quantity} ${rec.unit}`); return; }
+  try {
+    await sb.from('consumables').update({
+      quantity: rec.quantity - qty,
+      updated_at: new Date().toISOString()
+    }).eq('id', outboundId);
+    await sb.from('outbound_logs').insert({
+      consumable_id: outboundId, quantity: qty,
+      outbound_date: document.getElementById('outDate').value,
+      operator: document.getElementById('outOperator').value.trim(),
+      reason: document.getElementById('outReason').value,
+      notes: document.getElementById('outNotes').value.trim()
+    });
+    closeModal('outboundModal');
+    await loadStats();
+    await loadData();
+  } catch(e) { alert('操作失败：' + e.message); }
+}
+
+// ── 费用统计 ──
+function toggleStats() {
+  const panel = document.getElementById('statsPanel');
+  panel.classList.toggle('show');
+  if (panel.classList.contains('show')) loadStatsDetail();
+}
+
+async function switchPeriod(period, el) {
+  currentPeriod = period;
+  document.querySelectorAll('.period-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  await loadStatsDetail();
+}
+
+async function loadStatsDetail() {
+  const now = new Date();
+  let fromDate = '';
+  if (currentPeriod === 'month') {
+    fromDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+  } else if (currentPeriod === 'year') {
+    fromDate = `${now.getFullYear()}-01-01`;
+  }
+
+  try {
+    let inQuery = sb.from('restock_logs').select('consumable_id,quantity,unit_price,total_price,restock_date');
+    let outQuery = sb.from('outbound_logs').select('consumable_id,quantity,outbound_date');
+    if (fromDate) {
+      inQuery = inQuery.gte('restock_date', fromDate);
+      outQuery = outQuery.gte('outbound_date', fromDate);
+    }
+    const [inLogs, outLogs, cons] = await Promise.all([
+      inQuery, outQuery,
+      sb.from('consumables').select('id,name,brand,unit,unit_price')
+    ]);
+
+    const inData = inLogs.data || [];
+    const outData = outLogs.data || [];
+    const consMap = {};
+    (cons.data||[]).forEach(c => consMap[c.id] = c);
+
+    const totalInCost = inData.reduce((s,r) => s+(parseFloat(r.total_price)||0), 0);
+    const totalInQty  = inData.reduce((s,r) => s+(parseInt(r.quantity)||0), 0);
+    const totalOutQty = outData.reduce((s,r) => s+(parseInt(r.quantity)||0), 0);
+    const totalOutCost = outData.reduce((s,r) => {
+      const c = consMap[r.consumable_id];
+      return s + (parseInt(r.quantity)||0) * (parseFloat(c?.unit_price)||0);
+    }, 0);
+
+    document.getElementById('st-in-cost').textContent  = '¥' + totalInCost.toFixed(2);
+    document.getElementById('st-in-qty').textContent   = totalInQty;
+    document.getElementById('st-out-qty').textContent  = totalOutQty;
+    document.getElementById('st-out-cost').textContent = '¥' + totalOutCost.toFixed(2);
+
+    // 按耗材汇总
+    const byId = {};
+    inData.forEach(r => {
+      if (!byId[r.consumable_id]) byId[r.consumable_id] = {inQty:0,inCost:0,outQty:0,outCost:0};
+      byId[r.consumable_id].inQty  += parseInt(r.quantity)||0;
+      byId[r.consumable_id].inCost += parseFloat(r.total_price)||0;
+    });
+    outData.forEach(r => {
+      if (!byId[r.consumable_id]) byId[r.consumable_id] = {inQty:0,inCost:0,outQty:0,outCost:0};
+      const c = consMap[r.consumable_id];
+      byId[r.consumable_id].outQty  += parseInt(r.quantity)||0;
+      byId[r.consumable_id].outCost += (parseInt(r.quantity)||0) * (parseFloat(c?.unit_price)||0);
+    });
+
+    const rows = Object.entries(byId).map(([id, d]) => {
+      const c = consMap[id] || {};
+      return `<tr>
+        <td>${c.name||'-'}</td>
+        <td>${c.brand||'-'}</td>
+        <td>${d.inQty} ${c.unit||''}</td>
+        <td style="color:var(--pink);font-weight:500;">¥${d.inCost.toFixed(2)}</td>
+        <td>${d.outQty} ${c.unit||''}</td>
+        <td style="color:var(--teal);font-weight:500;">¥${d.outCost.toFixed(2)}</td>
+      </tr>`;
+    });
+    document.getElementById('statsBody').innerHTML = rows.length
+      ? rows.join('')
+      : '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:20px;">暂无记录</td></tr>';
+  } catch(e) { console.error(e); }
+}
+
+// ── 预警详情 ──
+async function showWarnDetail() {
+  const { data } = await sb.from('consumables').select('*');
+  const warns = (data||[]).filter(r => r.quantity < r.threshold);
+  document.getElementById('warnList').innerHTML = !warns.length
+    ? '<div style="text-align:center;padding:20px;color:var(--sub);">🎉 当前无预警，库存充足</div>'
+    : warns.map(r => `
+      <div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border);">
+        <div style="width:34px;height:34px;border-radius:9px;background:#FAECE7;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <i class="ti ti-package" style="color:#993C1D;font-size:15px;"></i>
+        </div>
+        <div style="flex:1;">
+          <div style="font-size:13px;font-weight:500;">${r.name} · <span style="color:var(--sub);font-weight:400;">${r.brand||'未知品牌'}</span></div>
+          <div style="font-size:11px;color:#993C1D;margin-top:2px;">剩余 ${r.quantity} ${r.unit}，预警值 ${r.threshold} ${r.unit}</div>
+        </div>
+        <button class="btn btn-outline" style="padding:4px 10px;font-size:11px;"
+          onclick="closeModal('warnModal');openRestock('${r.id}')">补货</button>
+      </div>`).join('');
+  document.getElementById('warnModal').classList.add('show');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+function exportCSV() {
+  if (!allData.length) { alert('暂无数据'); return; }
+  const keys = Object.keys(allData[0]).filter(k => !['id','created_at','updated_at'].includes(k));
+  const rows = [keys.join(','), ...allData.map(r => keys.map(k => `"${r[k]||''}"`).join(','))];
+  const blob = new Blob(['\uFEFF'+rows.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `资产管理_${currentTab}_${new Date().toLocaleDateString('zh-CN')}.csv`;
+  a.click();
+}
+
+init();
+</script>
+</body>
+</html>

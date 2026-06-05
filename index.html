@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Liene QA · 登录</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<style>
+  :root {
+    --pink:   #FF6B9D;
+    --yellow: #FFDA79;
+    --teal:   #00D2D3;
+    --purple: #5F27CD;
+    --mint:   #1DD1A1;
+    --cream:  #FFF9F0;
+    --dark:   #1A1035;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--dark);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .bg-blob {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.18;
+    pointer-events: none;
+    animation: float 8s ease-in-out infinite;
+  }
+  .bg-blob.b1 { width: 500px; height: 500px; background: var(--pink);   top: -100px; left: -100px; animation-delay: 0s; }
+  .bg-blob.b2 { width: 400px; height: 400px; background: var(--teal);   bottom: -80px; right: -80px; animation-delay: 3s; }
+  .bg-blob.b3 { width: 300px; height: 300px; background: var(--purple); top: 50%; left: 50%; animation: float3 8s ease-in-out infinite 1.5s; }
+  @keyframes float  { 0%,100%{transform:translateY(0) scale(1)} 50%{transform:translateY(-20px) scale(1.05)} }
+  @keyframes float3 { 0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,calc(-50% - 20px)) scale(1.05)} }
+
+  .dots {
+    position: fixed; inset: 0;
+    background-image: radial-gradient(rgba(255,255,255,0.04) 1px, transparent 1px);
+    background-size: 28px 28px;
+    pointer-events: none;
+  }
+
+  .card {
+    position: relative; z-index: 10;
+    background: rgba(255,249,240,0.06);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 24px;
+    padding: 44px 40px;
+    width: 100%; max-width: 420px;
+    box-shadow: 0 32px 80px rgba(0,0,0,0.4);
+    animation: slideUp 0.6s cubic-bezier(0.16,1,0.3,1) both;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+
+  .logo-wrap { display:flex; align-items:center; gap:12px; margin-bottom:32px; }
+  .logo-icon {
+    width:44px; height:44px; border-radius:14px;
+    background: var(--pink);
+    display:flex; align-items:center; justify-content:center;
+    font-size:22px;
+    box-shadow: 0 8px 24px rgba(255,107,157,0.4);
+  }
+  .logo-title { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; color:#fff; line-height:1; }
+  .logo-sub   { font-size:12px; color:rgba(255,255,255,0.4); margin-top:3px; }
+
+  h2 { font-size:26px; font-weight:700; font-family:'Syne',sans-serif; color:#fff; margin-bottom:6px; }
+  .subtitle { font-size:13px; color:rgba(255,255,255,0.45); margin-bottom:28px; }
+
+  .form-group { margin-bottom:16px; }
+  label { display:block; font-size:12px; color:rgba(255,255,255,0.5); margin-bottom:7px; letter-spacing:0.3px; }
+
+  .input-wrap { position: relative; }
+  .input-wrap input { padding-right: 40px; }
+  .toggle-pw {
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: rgba(255,255,255,0.3); font-size: 16px; padding: 0;
+    transition: color 0.2s;
+  }
+  .toggle-pw:hover { color: rgba(255,255,255,0.7); }
+
+  input {
+    width:100%;
+    background: rgba(255,255,255,0.07);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius:12px;
+    padding:12px 16px;
+    font-size:14px; color:#fff;
+    outline:none; transition:all 0.2s;
+    font-family:'Noto Sans SC',sans-serif;
+  }
+  input::placeholder { color:rgba(255,255,255,0.25); }
+  input:focus {
+    border-color: var(--pink);
+    background: rgba(255,107,157,0.08);
+    box-shadow: 0 0 0 3px rgba(255,107,157,0.15);
+  }
+
+  .btn-main {
+    width:100%; padding:14px; border-radius:12px; border:none;
+    background: var(--pink); color:#fff;
+    font-size:15px; font-weight:500; cursor:pointer;
+    margin-top:8px; transition:all 0.2s;
+    font-family:'Noto Sans SC',sans-serif;
+    box-shadow: 0 8px 24px rgba(255,107,157,0.35);
+  }
+  .btn-main:hover  { transform:translateY(-1px); box-shadow:0 12px 32px rgba(255,107,157,0.45); }
+  .btn-main:active { transform:translateY(0); }
+  .btn-main:disabled { opacity:0.6; cursor:not-allowed; transform:none; }
+
+  .msg {
+    margin-top:14px; padding:10px 14px; border-radius:10px;
+    font-size:12px; display:none;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+  .msg.success { background:rgba(29,209,161,0.15); border:1px solid rgba(29,209,161,0.3); color:#1DD1A1; }
+  .msg.error   { background:rgba(255,107,157,0.15); border:1px solid rgba(255,107,157,0.3); color:#FF6B9D; }
+  .msg.show    { display:block; }
+
+  .footer-chips { display:flex; gap:6px; justify-content:center; margin-top:28px; flex-wrap:wrap; }
+  .chip {
+    font-size:10px; padding:3px 10px; border-radius:20px;
+    border:1px solid rgba(255,255,255,0.1); color:rgba(255,255,255,0.3);
+  }
+
+  .spinner {
+    display:inline-block; width:16px; height:16px;
+    border:2px solid rgba(255,255,255,0.3); border-top-color:#fff;
+    border-radius:50%; animation:spin 0.6s linear infinite;
+    vertical-align:middle; margin-right:6px;
+  }
+  @keyframes spin { to{transform:rotate(360deg)} }
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+</head>
+<body>
+
+<div class="bg-blob b1"></div>
+<div class="bg-blob b2"></div>
+<div class="bg-blob b3"></div>
+<div class="dots"></div>
+
+<div class="card">
+  <div class="logo-wrap">
+    <div class="logo-icon"><i class="ti ti-wand" style="font-size:22px;color:#fff;"></i></div>
+    <div>
+      <div class="logo-title">Liene QA</div>
+      <div class="logo-sub">Liene 测试管理平台</div>
+    </div>
+  </div>
+
+  <h2>欢迎回来 👋</h2>
+  <p class="subtitle">使用工作邮箱和密码登录</p>
+
+  <div class="form-group">
+    <label>工作邮箱</label>
+    <input type="email" id="email" placeholder="yourname@hannto.com" autocomplete="email">
+  </div>
+
+  <div class="form-group">
+    <label>密码</label>
+    <div class="input-wrap">
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password">
+      <button class="toggle-pw" onclick="togglePw()" type="button" id="toggleBtn">👁</button>
+    </div>
+  </div>
+
+  <button class="btn-main" id="loginBtn" onclick="login()">登录</button>
+  <div class="msg" id="msg"></div>
+
+  <div class="footer-chips">
+    <span class="chip">🔒 Supabase Auth</span>
+    <span class="chip">☁️ 云端数据</span>
+    <span class="chip">🛡️ 权限管理</span>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://pgpnyrglrromqqjnvaix.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncG55cmdscnJvbXFxam52YWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjY2OTgsImV4cCI6MjA5NjIwMjY5OH0.TmkrxS2mY_95aBC2UL2BARLU7gqNb_gSpHP6ynofDsE';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// 已登录直接跳转
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) window.location.href = 'main.html';
+})();
+
+function showMsg(text, type) {
+  const el = document.getElementById('msg');
+  el.textContent = text;
+  el.className = `msg ${type} show`;
+}
+
+function setLoading(loading) {
+  const btn = document.getElementById('loginBtn');
+  btn.disabled = loading;
+  btn.innerHTML = loading ? '<span class="spinner"></span>登录中...' : '登录';
+}
+
+function togglePw() {
+  const inp = document.getElementById('password');
+  const btn = document.getElementById('toggleBtn');
+  if (inp.type === 'password') {
+    inp.type = 'text';
+    btn.textContent = '🙈';
+  } else {
+    inp.type = 'password';
+    btn.textContent = '👁';
+  }
+}
+
+async function login() {
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+
+  if (!email || !email.includes('@')) { showMsg('请输入有效的邮箱地址', 'error'); return; }
+  if (!password)                       { showMsg('请输入密码', 'error'); return; }
+
+  setLoading(true);
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  setLoading(false);
+
+  if (error) {
+    const map = {
+      'Invalid login credentials': '邮箱或密码错误，请重试',
+      'Email not confirmed':        '邮箱未验证，请联系管理员',
+      'Too many requests':          '尝试次数过多，请稍后再试',
+    };
+    showMsg(map[error.message] || ('登录失败：' + error.message), 'error');
+    return;
+  }
+
+  showMsg('✓ 登录成功，正在跳转...', 'success');
+  setTimeout(() => { window.location.href = 'main.html'; }, 600);
+}
+
+// 回车登录
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+</script>
+</body>
+</html>
