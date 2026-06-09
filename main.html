@@ -333,6 +333,14 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   <a class="sb-item" onclick="nav(this,'assets')">
     <i class="ti ti-device-mobile"></i>资产管理
   </a>
+  <a class="sb-item" onclick="nav(this,'copy')">
+    <i class="ti ti-language"></i>文案管理
+  </a>
+
+  <a class="sb-item" onclick="nav(this,'copy')">
+    <i class="ti ti-language"></i>文案管理
+  </a>
+
   <a class="sb-item" onclick="nav(this,'ai')">
     <i class="ti ti-robot"></i>AI 写用例
   </a>
@@ -413,6 +421,8 @@ const pageTitles = {
   dashboard: '工作台', report: '质量报表', risk: '风险提示',
   prd: 'PRD 管理', assets: '资产管理', ai: 'AI 写用例',
   automation: '自动化测试',
+  copy: '文案管理',
+  copy: '文案管理',
   cases: '用例库', plan: '测试计划', bugs: 'BUG 管理',
   members: '成员管理', settings: '系统设置',
 };
@@ -496,6 +506,11 @@ function renderPage(page) {
   if (page === 'ai') {
     content.style.padding = '0';
     content.innerHTML = `<iframe src="liene.html" class="module-frame" style="height:calc(100vh - 56px);border-radius:0;"></iframe>`;
+    return;
+  }
+  if (page === 'copy') {
+    content.style.padding = '0';
+    content.innerHTML = `<iframe src='copy.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
     return;
   }
   if (page === 'prd') {
