@@ -675,6 +675,7 @@ async function triggerTask() {
   const platform  = document.getElementById('taskPlatform').value;
   const device_id = document.getElementById('taskDevice').value || null;
   const triggered_by = document.getElementById('userName').textContent;
+  const task_module   = document.getElementById('taskModule').value;
 
   btn.disabled = true;
   btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.7s linear infinite"></i> 提交中...';
@@ -686,7 +687,7 @@ async function triggerTask() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_KEY}`,
       },
-      body: JSON.stringify({ task_type, platform, device_id, triggered_by, task_module: module }),
+      body: JSON.stringify({ task_type, platform, device_id, triggered_by, task_module }),
     });
     const data = await resp.json();
     if (data.success) {
