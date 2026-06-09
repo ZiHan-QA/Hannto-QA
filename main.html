@@ -686,7 +686,7 @@ async function triggerTask() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_KEY}`,
       },
-      body: JSON.stringify({ task_type, platform, device_id, triggered_by, module }),
+      body: JSON.stringify({ task_type, platform, device_id, triggered_by, task_module: module }),
     });
     const data = await resp.json();
     if (data.success) {
