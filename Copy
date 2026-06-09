@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文案管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+:root {
+  --pink:#FF6B9D; --yellow:#FFDA79; --teal:#00D2D3; --purple:#5F27CD;
+  --cream:#FFF9F0; --dark:#1A1035; --text:#3d1a00; --sub:#9a6a40;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+.topbar {
+  background: var(--dark); padding: 0 20px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between; flex-shrink: 0;
+}
+.topbar-left { display: flex; align-items: center; gap: 12px; }
+.topbar-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #fff; }
+.topbar-right { display: flex; align-items: center; gap: 8px; }
+
+.toolbar {
+  background: #fff; padding: 10px 16px; border-bottom: 0.5px solid rgba(61,26,0,0.1);
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap; flex-shrink: 0;
+}
+
+.btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 500;
+  cursor: pointer; border: none; transition: all 0.15s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+.btn-pink   { background: var(--pink); color: #fff; }
+.btn-pink:hover { opacity: 0.88; }
+.btn-ghost  { background: #fff; color: var(--text); border: 0.5px solid rgba(61,26,0,0.15); }
+.btn-ghost:hover { background: #f5f0e8; }
+.btn-teal   { background: #CCF5EE; color: #0F6E56; }
+.btn-teal:hover { background: #b0eddf; }
+.btn-yellow { background: var(--yellow); color: #6b4a00; }
+.btn-yellow:hover { opacity: 0.88; }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.form-select, .form-input {
+  padding: 6px 10px; border-radius: 8px; font-size: 12px;
+  border: 0.5px solid rgba(61,26,0,0.15); background: #fff; color: var(--text);
+  font-family: 'Noto Sans SC', sans-serif;
+}
+.form-select { cursor: pointer; appearance: none; padding-right: 24px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%239a6a40' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+.form-input { min-width: 180px; }
+.form-input:focus, .form-select:focus { outline: none; border-color: var(--pink); }
+
+.lang-filter { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lang-chip {
+  font-size: 11px; padding: 3px 9px; border-radius: 20px; cursor: pointer;
+  border: 0.5px solid rgba(61,26,0,0.12); background: #fff; color: var(--sub);
+  transition: all 0.12s; user-select: none;
+}
+.lang-chip.active { background: var(--pink); color: #fff; border-color: var(--pink); }
+
+.table-wrap { flex: 1; overflow: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 12px; }
+thead { position: sticky; top: 0; z-index: 10; }
+th {
+  background: #fff; padding: 8px 10px; font-weight: 500; color: var(--sub);
+  border-bottom: 0.5px solid rgba(61,26,0,0.1); white-space: nowrap;
+  text-align: left; font-size: 11px;
+}
+th.sticky-col { position: sticky; left: 0; z-index: 11; background: #fff; }
+th:first-child { left: 0; min-width: 120px; }
+th:nth-child(2) { left: 120px; min-width: 160px; }
+td {
+  padding: 7px 10px; border-bottom: 0.5px solid rgba(61,26,0,0.06);
+  vertical-align: top; max-width: 200px;
+}
+td.sticky-col { position: sticky; background: #fff; z-index: 5; }
+td:first-child  { left: 0; min-width: 120px; }
+td:nth-child(2) { left: 120px; min-width: 160px; }
+tr:hover td { background: #fdf8f4; }
+tr:hover td.sticky-col { background: #fdf8f4; }
+
+.page-badge {
+  display: inline-block; font-size: 10px; padding: 2px 7px; border-radius: 10px;
+  font-weight: 500; white-space: nowrap;
+}
+.cell-text { color: var(--text); line-height: 1.4; word-break: break-all; }
+.cell-empty { color: #ccc; font-style: italic; }
+.cell-edit {
+  width: 100%; border: none; background: transparent; font-size: 12px;
+  color: var(--text); font-family: 'Noto Sans SC', sans-serif;
+  resize: none; outline: none; min-height: 20px; line-height: 1.4;
+}
+.cell-edit:focus { background: #fff8f0; border-radius: 4px; }
+
+.actions { display: flex; gap: 4px; }
+.act-btn {
+  width: 26px; height: 26px; border-radius: 6px; border: none;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 14px; transition: all 0.12s;
+}
+.act-save   { background: #CCF5EE; color: #0F6E56; }
+.act-save:hover { background: #9fe1cb; }
+.act-del    { background: #FFEBEE; color: #C62828; }
+.act-del:hover  { background: #ffcdd2; }
+.act-edit   { background: #FFF3CC; color: #7a5a00; }
+.act-edit:hover { background: #ffe082; }
+
+/* 模态框 */
+.modal-mask {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 1000;
+}
+.modal {
+  background: #fff; border-radius: 14px; padding: 24px; width: 560px;
+  max-width: 95vw; max-height: 90vh; overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+}
+.modal-title { font-size: 15px; font-weight: 500; margin-bottom: 16px; color: var(--text); }
+.modal-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+.modal-full { grid-column: 1/-1; }
+.field-label { font-size: 11px; color: var(--sub); margin-bottom: 4px; font-weight: 500; }
+.field-input {
+  width: 100%; padding: 7px 10px; border-radius: 8px; font-size: 12px;
+  border: 0.5px solid rgba(61,26,0,0.15); font-family: 'Noto Sans SC', sans-serif;
+  color: var(--text);
+}
+.field-input:focus { outline: none; border-color: var(--pink); }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
+
+.toast {
+  position: fixed; bottom: 20px; right: 20px; z-index: 9999;
+  padding: 9px 16px; border-radius: 9px; font-size: 12px; font-weight: 500;
+  color: #fff; box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+}
+.toast.success { background: #1DD1A1; }
+.toast.error   { background: #E24B4A; }
+
+.empty { text-align: center; padding: 60px; color: var(--sub); }
+.empty i { font-size: 36px; opacity: 0.25; display: block; margin-bottom: 10px; }
+
+.count-badge {
+  font-size: 11px; padding: 2px 8px; border-radius: 10px;
+  background: #FFE8F2; color: #c0265a; font-weight: 500;
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <i class="ti ti-language" style="color:var(--pink);font-size:18px;"></i>
+    <span class="topbar-title">文案管理</span>
+    <span class="count-badge" id="totalCount">0 条</span>
+  </div>
+  <div class="topbar-right">
+    <span style="font-size:11px;color:rgba(255,255,255,0.4);" id="roleTag"></span>
+  </div>
+</div>
+
+<div class="toolbar">
+  <!-- 页面筛选 -->
+  <select class="form-select" id="pageFilter" onchange="loadData()">
+    <option value="">全部页面</option>
+    <option value="splash">启动页</option>
+    <option value="login">登录页</option>
+    <option value="homepage_perilla">Perilla 首页</option>
+    <option value="homepage_kiwi">Kiwi 首页</option>
+    <option value="homepage_cumin">Cumin 首页</option>
+    <option value="homepage_laurel">Laurel 首页</option>
+    <option value="homepage_fennel">Fennel 首页</option>
+  </select>
+
+  <!-- 搜索 -->
+  <input class="form-input" id="searchInput" placeholder="搜索 key 或文案..." oninput="filterTable()" style="width:180px;">
+
+  <!-- 语言显示切换 -->
+  <div class="lang-filter" id="langFilter"></div>
+
+  <div style="margin-left:auto;display:flex;gap:8px;">
+    <button class="btn btn-teal" onclick="exportExcel()"><i class="ti ti-download"></i> 导出</button>
+    <button class="btn btn-yellow" onclick="document.getElementById('importFile').click()"><i class="ti ti-upload"></i> 导入</button>
+    <input type="file" id="importFile" accept=".xlsx,.xls" style="display:none" onchange="importExcel(this)">
+    <button class="btn btn-pink" id="addBtn" onclick="openAddModal()"><i class="ti ti-plus"></i> 新增</button>
+  </div>
+</div>
+
+<div class="table-wrap">
+  <table id="mainTable">
+    <thead id="tableHead"></thead>
+    <tbody id="tableBody"></tbody>
+  </table>
+  <div class="empty" id="emptyState" style="display:none">
+    <i class="ti ti-language"></i>
+    <p>暂无文案数据，点击「新增」添加</p>
+  </div>
+</div>
+
+<!-- 新增/编辑模态框 -->
+<div class="modal-mask" id="editModal" style="display:none" onclick="closeModalOnMask(event)">
+  <div class="modal">
+    <div class="modal-title" id="modalTitle">新增文案</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      <div>
+        <div class="field-label">页面 *</div>
+        <select class="field-input" id="f_page" style="width:100%;appearance:none;">
+          <option value="splash">启动页</option>
+          <option value="login">登录页</option>
+          <option value="homepage_perilla">Perilla 首页</option>
+          <option value="homepage_kiwi">Kiwi 首页</option>
+          <option value="homepage_cumin">Cumin 首页</option>
+          <option value="homepage_laurel">Laurel 首页</option>
+          <option value="homepage_fennel">Fennel 首页</option>
+        </select>
+      </div>
+      <div>
+        <div class="field-label">Key *</div>
+        <input class="field-input" id="f_key" placeholder="如 btn_login">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;" id="langFields"></div>
+    <div style="margin-bottom:16px;">
+      <div class="field-label">备注</div>
+      <input class="field-input" id="f_remark" placeholder="可选">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal()">取消</button>
+      <button class="btn btn-pink" onclick="saveRow()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 删除确认 -->
+<div class="modal-mask" id="delModal" style="display:none" onclick="closeModalOnMask(event)">
+  <div class="modal" style="width:360px;">
+    <div class="modal-title">确认删除</div>
+    <p style="font-size:13px;color:var(--sub);margin-bottom:20px;">删除后无法恢复，确认删除这条文案吗？</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="document.getElementById('delModal').style.display='none'">取消</button>
+      <button class="btn" style="background:#E24B4A;color:#fff;" onclick="confirmDelete()">删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://pgpnyrglrromqqjnvaix.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncG55cmdscnJvbXFxam52YWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjY2OTgsImV4cCI6MjA5NjIwMjY5OH0.TmkrxS2mY_95aBC2UL2BARLU7gqNb_gSpHP6ynofDsE';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const LANGS = [
+  { key:'en',    label:'EN' },
+  { key:'zh',    label:'ZH' },
+  { key:'de',    label:'DE' },
+  { key:'es',    label:'ES' },
+  { key:'fr',    label:'FR' },
+  { key:'it',    label:'IT' },
+  { key:'ja',    label:'JA' },
+  { key:'ru',    label:'RU' },
+  { key:'ko',    label:'KO' },
+  { key:'zh_TW', label:'繁體' },
+  { key:'pl',    label:'PL' },
+  { key:'da',    label:'DA' },
+  { key:'fi',    label:'FI' },
+  { key:'nl',    label:'NL' },
+  { key:'cs',    label:'CS' },
+  { key:'nb',    label:'NB' },
+  { key:'sv',    label:'SV' },
+];
+
+const PAGE_LABELS = {
+  splash:'启动页', login:'登录页',
+  homepage_perilla:'Perilla 首页', homepage_kiwi:'Kiwi 首页',
+  homepage_cumin:'Cumin 首页', homepage_laurel:'Laurel 首页',
+  homepage_fennel:'Fennel 首页',
+};
+const PAGE_COLORS = {
+  splash:'#FFE8F2,#c0265a', login:'#EDE8FF,#4a1fa8',
+  homepage_perilla:'#CCF5EE,#0F6E56', homepage_kiwi:'#FFF3CC,#7a5a00',
+  homepage_cumin:'#E6F1FB,#185FA5', homepage_laurel:'#FAECE7,#712B13',
+  homepage_fennel:'#F1EFE8,#444441',
+};
+
+let allData = [];
+let activeLangs = ['en','zh'];
+let editingId = null;
+let deletingId = null;
+let isAdmin = false;
+let currentUser = null;
+
+async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return;
+  currentUser = session.user;
+  try {
+    const { data } = await sb.from('profiles').select('role').eq('id', currentUser.id).single();
+    isAdmin = data?.role === 'admin';
+  } catch {}
+  document.getElementById('roleTag').textContent = isAdmin ? '管理员' : '只读';
+  document.getElementById('addBtn').style.display = isAdmin ? 'inline-flex' : 'none';
+  buildLangFilter();
+  buildLangFields();
+  await loadData();
+}
+
+function buildLangFilter() {
+  const el = document.getElementById('langFilter');
+  el.innerHTML = LANGS.map(l =>
+    `<span class="lang-chip ${activeLangs.includes(l.key)?'active':''}"
+      onclick="toggleLang('${l.key}',this)">${l.label}</span>`
+  ).join('');
+}
+
+function toggleLang(key, el) {
+  if (activeLangs.includes(key)) {
+    if (activeLangs.length === 1) return;
+    activeLangs = activeLangs.filter(k => k !== key);
+    el.classList.remove('active');
+  } else {
+    activeLangs.push(key);
+    el.classList.add('active');
+  }
+  renderTable(allData);
+}
+
+function buildLangFields() {
+  const el = document.getElementById('langFields');
+  el.innerHTML = LANGS.map(l => `
+    <div>
+      <div class="field-label">${l.label}</div>
+      <input class="field-input" id="f_${l.key}" placeholder="${l.label}">
+    </div>`).join('');
+}
+
+async function loadData() {
+  const page = document.getElementById('pageFilter').value;
+  let q = sb.from('copy_texts').select('*').order('page').order('key');
+  if (page) q = q.eq('page', page);
+  const { data, error } = await q;
+  if (error) { showToast('加载失败：' + error.message, 'error'); return; }
+  allData = data || [];
+  document.getElementById('totalCount').textContent = allData.length + ' 条';
+  filterTable();
+}
+
+function filterTable() {
+  const kw = document.getElementById('searchInput').value.toLowerCase();
+  const filtered = kw ? allData.filter(r =>
+    r.key?.toLowerCase().includes(kw) ||
+    LANGS.some(l => r[l.key]?.toLowerCase().includes(kw))
+  ) : allData;
+  renderTable(filtered);
+}
+
+function renderTable(data) {
+  // 表头
+  const head = document.getElementById('tableHead');
+  head.innerHTML = `<tr>
+    <th class="sticky-col">页面</th>
+    <th class="sticky-col" style="left:120px;">Key</th>
+    ${activeLangs.map(k => `<th>${LANGS.find(l=>l.key===k)?.label||k}</th>`).join('')}
+    <th>备注</th>
+    ${isAdmin ? '<th>操作</th>' : ''}
+  </tr>`;
+
+  const body = document.getElementById('tableBody');
+  if (!data.length) {
+    body.innerHTML = '';
+    document.getElementById('emptyState').style.display = 'block';
+    return;
+  }
+  document.getElementById('emptyState').style.display = 'none';
+
+  body.innerHTML = data.map(row => {
+    const [bg, fg] = (PAGE_COLORS[row.page] || '#f5f0e8,#5a3a00').split(',');
+    const pageLabel = PAGE_LABELS[row.page] || row.page;
+    const langCells = activeLangs.map(k => {
+      const val = row[k] || '';
+      return `<td><span class="${val ? 'cell-text' : 'cell-empty'}">${val || '—'}</span></td>`;
+    }).join('');
+    const actions = isAdmin ? `<td><div class="actions">
+      <button class="act-btn act-edit" onclick="openEditModal('${row.id}')" title="编辑"><i class="ti ti-edit"></i></button>
+      <button class="act-btn act-del"  onclick="openDelModal('${row.id}')"  title="删除"><i class="ti ti-trash"></i></button>
+    </div></td>` : '';
+    return `<tr>
+      <td class="sticky-col"><span class="page-badge" style="background:${bg};color:${fg};">${pageLabel}</span></td>
+      <td class="sticky-col" style="left:120px;font-weight:500;font-family:monospace;font-size:11px;">${row.key}</td>
+      ${langCells}
+      <td style="color:var(--sub);font-size:11px;">${row.remark||''}</td>
+      ${actions}
+    </tr>`;
+  }).join('');
+}
+
+function openAddModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '新增文案';
+  document.getElementById('f_page').value = document.getElementById('pageFilter').value || 'splash';
+  document.getElementById('f_key').value = '';
+  document.getElementById('f_remark').value = '';
+  LANGS.forEach(l => { const el = document.getElementById('f_'+l.key); if(el) el.value = ''; });
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function openEditModal(id) {
+  const row = allData.find(r => r.id === id);
+  if (!row) return;
+  editingId = id;
+  document.getElementById('modalTitle').textContent = '编辑文案';
+  document.getElementById('f_page').value = row.page || '';
+  document.getElementById('f_key').value = row.key || '';
+  document.getElementById('f_remark').value = row.remark || '';
+  LANGS.forEach(l => { const el = document.getElementById('f_'+l.key); if(el) el.value = row[l.key]||''; });
+  document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+function closeModalOnMask(e) { if (e.target === e.currentTarget) { e.currentTarget.style.display = 'none'; } }
+
+async function saveRow() {
+  if (!isAdmin) return;
+  const page = document.getElementById('f_page').value;
+  const key  = document.getElementById('f_key').value.trim();
+  if (!page || !key) { showToast('页面和 Key 必填', 'error'); return; }
+
+  const payload = { page, key, remark: document.getElementById('f_remark').value.trim(), updated_by: currentUser.email, updated_at: new Date().toISOString() };
+  LANGS.forEach(l => { const el = document.getElementById('f_'+l.key); if(el) payload[l.key] = el.value.trim(); });
+
+  let error;
+  if (editingId) {
+    ({ error } = await sb.from('copy_texts').update(payload).eq('id', editingId));
+  } else {
+    ({ error } = await sb.from('copy_texts').insert(payload));
+  }
+  if (error) { showToast('保存失败：' + error.message, 'error'); return; }
+  showToast(editingId ? '更新成功' : '新增成功', 'success');
+  closeModal();
+  await loadData();
+}
+
+function openDelModal(id) { deletingId = id; document.getElementById('delModal').style.display = 'flex'; }
+async function confirmDelete() {
+  if (!isAdmin || !deletingId) return;
+  const { error } = await sb.from('copy_texts').delete().eq('id', deletingId);
+  document.getElementById('delModal').style.display = 'none';
+  if (error) { showToast('删除失败：' + error.message, 'error'); return; }
+  showToast('已删除', 'success');
+  await loadData();
+}
+
+// ── 导出 Excel ──
+function exportExcel() {
+  const page = document.getElementById('pageFilter').value;
+  const rows = page ? allData.filter(r => r.page === page) : allData;
+  if (!rows.length) { showToast('没有数据可导出', 'error'); return; }
+  const headers = ['page','key', ...LANGS.map(l=>l.key), 'remark'];
+  const ws_data = [
+    ['页面','Key', ...LANGS.map(l=>l.label), '备注'],
+    ...rows.map(r => headers.map(h => r[h] || ''))
+  ];
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  ws['!cols'] = headers.map((_,i) => ({ wch: i < 2 ? 18 : 20 }));
+  XLSX.utils.book_append_sheet(wb, ws, '文案');
+  XLSX.writeFile(wb, `copy_texts_${page||'all'}_${new Date().toISOString().slice(0,10)}.xlsx`);
+  showToast('导出成功', 'success');
+}
+
+// ── 导入 Excel ──
+async function importExcel(input) {
+  if (!isAdmin) { showToast('无权限导入', 'error'); return; }
+  const file = input.files[0];
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  const wb = XLSX.read(buf);
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws);
+  if (!rows.length) { showToast('文件没有数据', 'error'); return; }
+
+  const langKeyMap = {};
+  LANGS.forEach(l => { langKeyMap[l.label] = l.key; langKeyMap[l.key] = l.key; });
+
+  const upsertRows = rows.map(r => {
+    const obj = {
+      page: r['页面'] || r['page'] || '',
+      key:  r['Key']  || r['key']  || '',
+      remark: r['备注'] || r['remark'] || '',
+      updated_by: currentUser.email,
+      updated_at: new Date().toISOString(),
+    };
+    LANGS.forEach(l => {
+      obj[l.key] = r[l.label] || r[l.key] || '';
+    });
+    return obj;
+  }).filter(r => r.page && r.key);
+
+  if (!upsertRows.length) { showToast('没有有效数据行', 'error'); return; }
+
+  const { error } = await sb.from('copy_texts').upsert(upsertRows, { onConflict: 'page,key' });
+  input.value = '';
+  if (error) { showToast('导入失败：' + error.message, 'error'); return; }
+  showToast(`导入成功，共 ${upsertRows.length} 条`, 'success');
+  await loadData();
+}
+
+function showToast(msg, type='success') {
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+init();
+</script>
+</body>
+</html>
