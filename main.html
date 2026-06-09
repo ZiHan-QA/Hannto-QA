@@ -337,10 +337,6 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
     <i class="ti ti-language"></i>文案管理
   </a>
 
-  <a class="sb-item" onclick="nav(this,'copy')">
-    <i class="ti ti-language"></i>文案管理
-  </a>
-
   <a class="sb-item" onclick="nav(this,'ai')">
     <i class="ti ti-robot"></i>AI 写用例
   </a>
@@ -608,12 +604,30 @@ async function renderAutomation() {
       <div class="card-hd" style="margin-bottom:16px;">
         <span class="card-title">触发自动化任务</span>
       </div>
-      <div class="trigger-grid">
+      <div class="trigger-grid" style="grid-template-columns:1fr 1fr 1fr 1fr auto;">
+        <div class="form-group">
+          <div class="form-label">测试模块</div>
+          <select class="form-select" id="taskModule">
+            <option value="smoke">🔥 冒烟测试 P0</option>
+            <option value="regression">🔄 全量回归</option>
+            <option value="" disabled style="color:#ccc;">── 启动页 ──</option>
+            <option value="splash">启动页（交互）</option>
+            <option value="splash_i18n">启动页（多语言）</option>
+            <option value="" disabled style="color:#ccc;">── 登录页 ──</option>
+            <option value="login">登录页</option>
+            <option value="" disabled style="color:#ccc;">── 首页 ──</option>
+            <option value="homepage_perilla">Perilla 首页</option>
+            <option value="homepage_kiwi">Kiwi 首页</option>
+            <option value="homepage_cumin">Cumin 首页</option>
+            <option value="homepage_laurel">Laurel 首页</option>
+            <option value="homepage_fennel">Fennel 首页</option>
+          </select>
+        </div>
         <div class="form-group">
           <div class="form-label">测试类型</div>
           <select class="form-select" id="taskType">
-            <option value="smoke">🔥 冒烟测试 P0</option>
-            <option value="regression">🔄 回归测试</option>
+            <option value="smoke">冒烟</option>
+            <option value="regression">回归</option>
           </select>
         </div>
         <div class="form-group">
@@ -672,7 +686,7 @@ async function triggerTask() {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${SUPABASE_KEY}`,
       },
-      body: JSON.stringify({ task_type, platform, device_id, triggered_by }),
+      body: JSON.stringify({ task_type, platform, device_id, triggered_by, module }),
     });
     const data = await resp.json();
     if (data.success) {
