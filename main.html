@@ -24,7 +24,6 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); display: flex; height: 100vh; overflow: hidden; }
 
-/* ── 侧边栏 ── */
 .sidebar {
   width: var(--sb-w); background: var(--dark);
   display: flex; flex-direction: column;
@@ -70,10 +69,10 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .sb-item .badge.red    { background: #E24B4A; color: #fff; }
 .sb-item .badge.pink   { background: var(--pink); color: #fff; }
 .sb-item .badge.yellow { background: var(--yellow); color: #6b4a00; }
+.sb-item .badge.teal   { background: var(--teal); color: #004a4a; }
 
 .sb-divider { border: none; border-top: 0.5px solid rgba(255,255,255,0.06); margin: 6px 0; }
 
-/* 侧边栏底部吉祥物 */
 .sb-mascot {
   margin: 10px 12px;
   background: rgba(255,107,157,0.1);
@@ -103,7 +102,6 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 }
 .sb-logout:hover { color: var(--pink); background: rgba(255,107,157,0.1); }
 
-/* ── 主内容区 ── */
 .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 
 .topbar {
@@ -128,13 +126,9 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   background: var(--yellow); color: #6b4a00; font-weight: 500;
 }
 
-/* ── 内容区 ── */
 .content { flex: 1; overflow-y: auto; padding: 24px; }
-
-/* iframe 模块 */
 .module-frame { width: 100%; height: 100%; border: none; border-radius: 12px; }
 
-/* 工作台内容 */
 .welcome-banner {
   background: var(--dark); border-radius: 14px;
   padding: 20px 24px; display: flex; align-items: center;
@@ -188,7 +182,110 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .notice-text { font-size: 12px; color: var(--text); flex: 1; line-height: 1.5; }
 .notice-time { font-size: 10px; color: var(--sub); white-space: nowrap; }
 
-/* loading */
+/* ── 自动化模块样式 ── */
+.auto-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px;
+}
+.auto-title { font-size: 16px; font-weight: 500; color: var(--text); }
+.auto-subtitle { font-size: 12px; color: var(--sub); margin-top: 2px; }
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--pink); color: #fff; border: none;
+  padding: 8px 16px; border-radius: 10px; font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: all 0.15s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+.btn-primary:hover { opacity: 0.88; transform: translateY(-1px); }
+.btn-secondary {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #fff; color: var(--text);
+  border: 0.5px solid rgba(61,26,0,0.15);
+  padding: 8px 16px; border-radius: 10px; font-size: 13px;
+  cursor: pointer; transition: all 0.15s;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+.btn-secondary:hover { background: #f5f0e8; }
+
+.trigger-card {
+  background: #fff; border-radius: 14px; padding: 20px;
+  border: 0.5px solid rgba(255,182,193,0.3); margin-bottom: 16px;
+}
+.trigger-grid { display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 12px; align-items: end; }
+.form-group { display: flex; flex-direction: column; gap: 6px; }
+.form-label { font-size: 11px; color: var(--sub); font-weight: 500; }
+.form-select {
+  padding: 8px 12px; border-radius: 8px; font-size: 13px;
+  border: 0.5px solid rgba(61,26,0,0.15); background: #fff;
+  color: var(--text); font-family: 'Noto Sans SC', sans-serif;
+  cursor: pointer; appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239a6a40' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 10px center;
+  padding-right: 28px;
+}
+.form-select:focus { outline: none; border-color: var(--pink); }
+
+.history-card {
+  background: #fff; border-radius: 14px; padding: 20px;
+  border: 0.5px solid rgba(255,182,193,0.3); margin-bottom: 16px;
+}
+.history-table { width: 100%; border-collapse: collapse; }
+.history-table th {
+  font-size: 11px; color: var(--sub); font-weight: 500;
+  padding: 8px 12px; text-align: left;
+  border-bottom: 0.5px solid rgba(61,26,0,0.08);
+}
+.history-table td {
+  font-size: 12px; color: var(--text);
+  padding: 10px 12px; border-bottom: 0.5px solid rgba(61,26,0,0.05);
+}
+.history-table tr:last-child td { border-bottom: none; }
+.history-table tr:hover td { background: #fdf8f4; }
+
+.status-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500;
+}
+.status-queued  { background: #FFF3CC; color: #7a5a00; }
+.status-running { background: #CCF5EE; color: #0F6E56; }
+.status-done    { background: #E8F5E9; color: #2E7D32; }
+.status-failed  { background: #FFEBEE; color: #C62828; }
+
+.deploy-card {
+  background: var(--dark); border-radius: 14px; padding: 20px;
+  display: flex; align-items: center; gap: 16px;
+}
+.deploy-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: rgba(255,107,157,0.2); display: flex;
+  align-items: center; justify-content: center; flex-shrink: 0;
+}
+.deploy-icon i { font-size: 22px; color: var(--pink); }
+.deploy-title { font-size: 14px; font-weight: 500; color: #fff; margin-bottom: 4px; }
+.deploy-sub { font-size: 12px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+.deploy-actions { margin-left: auto; display: flex; gap: 8px; flex-shrink: 0; }
+.btn-download {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--pink); color: #fff; border: none;
+  padding: 8px 16px; border-radius: 10px; font-size: 13px;
+  font-weight: 500; cursor: pointer; transition: all 0.15s;
+  text-decoration: none;
+}
+.btn-download:hover { opacity: 0.88; }
+
+.empty-state {
+  text-align: center; padding: 40px 0; color: var(--sub);
+}
+.empty-state i { font-size: 32px; opacity: 0.3; margin-bottom: 8px; display: block; }
+.empty-state p { font-size: 13px; }
+
+.running-pulse {
+  display: inline-block; width: 6px; height: 6px;
+  border-radius: 50%; background: var(--mint);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(1.3)} }
+
 .page-loading {
   position: fixed; inset: 0; background: var(--dark);
   display: flex; align-items: center; justify-content: center;
@@ -207,7 +304,6 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 
 <div class="page-loading" id="pageLoading"><div class="spinner"></div></div>
 
-<!-- 侧边栏 -->
 <div class="sidebar">
   <div class="sb-logo">
     <div class="sb-logo-icon"><i class="ti ti-wand" style="font-size:18px;color:#fff;"></i></div>
@@ -239,6 +335,13 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   </a>
   <a class="sb-item" onclick="nav(this,'ai')">
     <i class="ti ti-robot"></i>AI 写用例
+  </a>
+
+  <hr class="sb-divider">
+  <div class="sb-section">自动化</div>
+  <a class="sb-item" onclick="nav(this,'automation')">
+    <i class="ti ti-player-play"></i>自动化测试
+    <span class="badge teal" id="autoBadge" style="display:none">运行中</span>
   </a>
 
   <hr class="sb-divider">
@@ -280,7 +383,6 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   </div>
 </div>
 
-<!-- 主内容 -->
 <div class="main">
   <div class="topbar">
     <div class="topbar-left">
@@ -289,13 +391,11 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
     </div>
     <div class="topbar-right">
       <span class="tb-version" id="versionTag">v1.0</span>
-      <button class="tb-btn" title="刷新"><i class="ti ti-refresh"></i></button>
+      <button class="tb-btn" title="刷新" onclick="refreshPage()"><i class="ti ti-refresh"></i></button>
     </div>
   </div>
 
-  <div class="content" id="content">
-    <!-- 动态内容 -->
-  </div>
+  <div class="content" id="content"></div>
 </div>
 
 <script>
@@ -306,22 +406,22 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
 let userRole = 'member';
+let currentPage = 'dashboard';
+let autoRealtimeSub = null;
 
 const pageTitles = {
   dashboard: '工作台', report: '质量报表', risk: '风险提示',
   prd: 'PRD 管理', assets: '资产管理', ai: 'AI 写用例',
+  automation: '自动化测试',
   cases: '用例库', plan: '测试计划', bugs: 'BUG 管理',
   members: '成员管理', settings: '系统设置',
 };
 
-// ── 初始化 ──
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return; }
-
   currentUser = session.user;
 
-  // 获取用户角色（从 profiles 表，没有就默认 member）
   try {
     const { data } = await sb.from('profiles').select('role,name').eq('id', currentUser.id).single();
     if (data) {
@@ -334,12 +434,10 @@ async function init() {
     setUserInfo(currentUser.email, 'member');
   }
 
-  // 管理员显示成员管理
   if (userRole === 'admin') {
     document.getElementById('membersMenu').style.display = 'flex';
   }
 
-  // 设置日期
   const now = new Date();
   document.getElementById('pageDate').textContent =
     now.toLocaleDateString('zh-CN', { year:'numeric', month:'long', day:'numeric', weekday:'long' });
@@ -347,28 +445,49 @@ async function init() {
   document.getElementById('pageLoading').style.opacity = '0';
   setTimeout(() => document.getElementById('pageLoading').style.display = 'none', 400);
 
+  // 监听是否有运行中任务，更新侧边栏角标
+  watchRunningTasks();
+
   renderDashboard();
 }
 
 function setUserInfo(name, role) {
-  const email = currentUser.email;
-  const displayName = name !== email ? name : email.split('@')[0];
+  const displayName = name !== currentUser.email ? name : currentUser.email.split('@')[0];
   document.getElementById('userName').textContent = displayName;
   document.getElementById('userRole').textContent = role === 'admin' ? '管理员' : '成员';
   document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
 }
 
-// ── 导航 ──
+async function watchRunningTasks() {
+  try {
+    const { count } = await sb.from('run_tasks').select('*', {count:'exact',head:true}).eq('status','running');
+    const badge = document.getElementById('autoBadge');
+    if (count > 0) { badge.style.display = 'flex'; badge.textContent = '运行中'; }
+    else { badge.style.display = 'none'; }
+  } catch {}
+  // 实时订阅
+  sb.channel('run_tasks_watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'run_tasks' }, () => {
+      watchRunningTasks();
+      if (currentPage === 'automation') renderAutomation();
+    })
+    .subscribe();
+}
+
 function nav(el, page) {
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('pageTitle').textContent = pageTitles[page] || page;
+  currentPage = page;
   renderPage(page);
 }
+
+function refreshPage() { renderPage(currentPage); }
 
 function renderPage(page) {
   const content = document.getElementById('content');
   if (page === 'dashboard') { renderDashboard(); return; }
+  if (page === 'automation') { renderAutomation(); return; }
   if (page === 'assets') {
     content.style.padding = '0';
     content.innerHTML = `<iframe src='assets.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
@@ -379,13 +498,12 @@ function renderPage(page) {
     content.innerHTML = `<iframe src="liene.html" class="module-frame" style="height:calc(100vh - 56px);border-radius:0;"></iframe>`;
     return;
   }
-  content.style.padding = '24px';
   if (page === 'prd') {
     content.style.padding = '0';
     content.innerHTML = `<iframe src='prd.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
     return;
   }
-  // 其他模块占位
+  content.style.padding = '24px';
   content.innerHTML = `
     <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:60vh;gap:16px;">
       <div style="font-size:48px;">🚧</div>
@@ -394,19 +512,194 @@ function renderPage(page) {
     </div>`;
 }
 
-// ── 工作台 ──
+// ── 自动化模块 ────────────────────────────────────────────────
+async function renderAutomation() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+
+  // 获取设备列表
+  let devices = [];
+  try {
+    const { data } = await sb.from('device_configs').select('id,model_name,platform,is_online');
+    devices = data || [];
+  } catch {}
+
+  const deviceOptions = devices.length
+    ? devices.map(d => `<option value="${d.id}">${d.model_name || d.platform} (${d.platform})</option>`).join('')
+    : '<option value="">暂无设备，请先添加</option>';
+
+  // 获取执行历史
+  let tasks = [];
+  try {
+    const { data } = await sb.from('run_tasks')
+      .select('id,task_type,platform,status,triggered_by,created_at,started_at,finished_at')
+      .order('created_at', { ascending: false })
+      .limit(20);
+    tasks = data || [];
+  } catch {}
+
+  const statusMap = {
+    queued:  '<span class="status-badge status-queued">排队中</span>',
+    running: '<span class="status-badge status-running"><span class="running-pulse"></span> 运行中</span>',
+    done:    '<span class="status-badge status-done">完成</span>',
+    failed:  '<span class="status-badge status-failed">失败</span>',
+  };
+
+  const taskRows = tasks.length ? tasks.map(t => {
+    const created = new Date(t.created_at).toLocaleString('zh-CN', {month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'});
+    const duration = t.started_at && t.finished_at
+      ? Math.round((new Date(t.finished_at) - new Date(t.started_at)) / 1000) + 's'
+      : t.status === 'running' ? '运行中...' : '-';
+    return `<tr>
+      <td>${t.task_type === 'smoke' ? '🔥 冒烟' : '🔄 回归'}</td>
+      <td>${t.platform}</td>
+      <td>${statusMap[t.status] || t.status}</td>
+      <td>${duration}</td>
+      <td>${t.triggered_by || '-'}</td>
+      <td>${created}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="6"><div class="empty-state"><i class="ti ti-history"></i><p>暂无执行记录</p></div></td></tr>`;
+
+  content.innerHTML = `
+    <div class="auto-header">
+      <div>
+        <div class="auto-title">自动化测试</div>
+        <div class="auto-subtitle">Liene Photo APP · Android / iOS · Appium 2.x</div>
+      </div>
+    </div>
+
+    <!-- 一键部署 -->
+    <div class="deploy-card" style="margin-bottom:16px;">
+      <div class="deploy-icon"><i class="ti ti-download"></i></div>
+      <div>
+        <div class="deploy-title">一键部署自动化环境</div>
+        <div class="deploy-sub">新电脑下载脚本，终端运行 bash setup.sh，自动安装所有依赖并拉取框架代码</div>
+      </div>
+      <div class="deploy-actions">
+        <a class="btn-download"
+           href="https://raw.githubusercontent.com/ZiHan-QA/Hannto-Liene/main/setup.sh"
+           download="setup.sh">
+          <i class="ti ti-download"></i> 下载 setup.sh
+        </a>
+        <a class="btn-download" style="background:rgba(255,255,255,0.12);color:#fff;"
+           href="https://github.com/ZiHan-QA/liene-app-automation" target="_blank">
+          <i class="ti ti-brand-github"></i> 查看框架
+        </a>
+      </div>
+    </div>
+
+    <!-- 触发任务 -->
+    <div class="trigger-card">
+      <div class="card-hd" style="margin-bottom:16px;">
+        <span class="card-title">触发自动化任务</span>
+      </div>
+      <div class="trigger-grid">
+        <div class="form-group">
+          <div class="form-label">测试类型</div>
+          <select class="form-select" id="taskType">
+            <option value="smoke">🔥 冒烟测试 P0</option>
+            <option value="regression">🔄 回归测试</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">平台</div>
+          <select class="form-select" id="taskPlatform">
+            <option value="android">Android</option>
+            <option value="ios">iOS</option>
+            <option value="both">双端</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div class="form-label">设备</div>
+          <select class="form-select" id="taskDevice">
+            <option value="">自动选择</option>
+            ${deviceOptions}
+          </select>
+        </div>
+        <button class="btn-primary" onclick="triggerTask()" id="triggerBtn">
+          <i class="ti ti-player-play"></i> 运行
+        </button>
+      </div>
+    </div>
+
+    <!-- 执行历史 -->
+    <div class="history-card">
+      <div class="card-hd">
+        <span class="card-title">执行历史</span>
+        <span class="card-tag" style="background:#CCF5EE;color:#0F6E56;">实时更新</span>
+      </div>
+      <table class="history-table">
+        <thead>
+          <tr>
+            <th>类型</th><th>平台</th><th>状态</th>
+            <th>耗时</th><th>触发人</th><th>时间</th>
+          </tr>
+        </thead>
+        <tbody id="taskTableBody">${taskRows}</tbody>
+      </table>
+    </div>`;
+}
+
+async function triggerTask() {
+  const btn = document.getElementById('triggerBtn');
+  const task_type = document.getElementById('taskType').value;
+  const platform  = document.getElementById('taskPlatform').value;
+  const device_id = document.getElementById('taskDevice').value || null;
+  const triggered_by = document.getElementById('userName').textContent;
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.7s linear infinite"></i> 提交中...';
+
+  try {
+    const resp = await fetch(`${SUPABASE_URL}/functions/v1/smooth-task`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+      },
+      body: JSON.stringify({ task_type, platform, device_id, triggered_by }),
+    });
+    const data = await resp.json();
+    if (data.success) {
+      showToast('任务已提交，等待 Runner 执行', 'success');
+      setTimeout(() => renderAutomation(), 800);
+    } else {
+      showToast('提交失败：' + (data.error || '未知错误'), 'error');
+    }
+  } catch (e) {
+    showToast('网络错误：' + e.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-player-play"></i> 运行';
+  }
+}
+
+function showToast(msg, type = 'success') {
+  const el = document.createElement('div');
+  el.style.cssText = `
+    position:fixed;bottom:24px;right:24px;z-index:9999;
+    padding:10px 18px;border-radius:10px;font-size:13px;font-weight:500;
+    background:${type === 'success' ? '#1DD1A1' : '#E24B4A'};color:#fff;
+    box-shadow:0 4px 16px rgba(0,0,0,0.15);
+    animation:slideIn 0.25s ease;
+  `;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3000);
+}
+
+// ── 工作台 ────────────────────────────────────────────────────
 function renderDashboard() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
-  const email = currentUser ? currentUser.email : '';
-  const name  = document.getElementById('userName').textContent;
+  const name = document.getElementById('userName').textContent;
 
   content.innerHTML = `
     <div class="welcome-banner">
       <div class="welcome-emoji">👋</div>
       <div>
         <div class="welcome-title">你好，${name}！</div>
-        <div class="welcome-sub">欢迎回到 XiaoFei QA 测试管理平台</div>
+        <div class="welcome-sub">欢迎回到 Liene QA 测试管理平台</div>
       </div>
       <div class="welcome-badge">今日状态良好</div>
     </div>
@@ -423,9 +716,9 @@ function renderDashboard() {
         <div class="sc-label">在用设备</div>
       </div>
       <div class="stat-card t">
-        <div class="sc-icon t"><i class="ti ti-package"></i></div>
-        <div class="sc-val" id="sc-consumables">-</div>
-        <div class="sc-label">耗材预警</div>
+        <div class="sc-icon t"><i class="ti ti-player-play"></i></div>
+        <div class="sc-val" id="sc-auto">-</div>
+        <div class="sc-label">今日自动化执行</div>
       </div>
       <div class="stat-card pu">
         <div class="sc-icon pu"><i class="ti ti-file-description"></i></div>
@@ -448,9 +741,9 @@ function renderDashboard() {
             <i class="ti ti-file-description" style="color:var(--purple);"></i>
             <span style="color:var(--purple);">PRD 管理</span>
           </div>
-          <div class="quick-item" style="background:#CCF5EE;" onclick="navTo('bugs')">
-            <i class="ti ti-bug" style="color:#0F6E56;"></i>
-            <span style="color:#0F6E56;">BUG 管理</span>
+          <div class="quick-item" style="background:#CCF5EE;" onclick="navTo('automation')">
+            <i class="ti ti-player-play" style="color:#0F6E56;"></i>
+            <span style="color:#0F6E56;">自动化测试</span>
           </div>
           <div class="quick-item" style="background:#FFF3CC;" onclick="navTo('ai')">
             <i class="ti ti-robot" style="color:#7a5a00;"></i>
@@ -466,17 +759,17 @@ function renderDashboard() {
         </div>
         <div>
           <div class="notice-item">
-            <div class="notice-dot" style="background:var(--pink);"></div>
-            <div class="notice-text">XiaoFei QA 平台正式上线，欢迎使用！</div>
+            <div class="notice-dot" style="background:var(--teal);"></div>
+            <div class="notice-text">自动化测试模块上线，支持 Android/iOS 双端触发</div>
             <div class="notice-time">今天</div>
           </div>
           <div class="notice-item">
-            <div class="notice-dot" style="background:var(--yellow);"></div>
-            <div class="notice-text">资产管理模块即将上线，请关注更新</div>
+            <div class="notice-dot" style="background:var(--pink);"></div>
+            <div class="notice-text">Liene QA 平台正式上线，欢迎使用！</div>
             <div class="notice-time">本周</div>
           </div>
           <div class="notice-item">
-            <div class="notice-dot" style="background:var(--teal);"></div>
+            <div class="notice-dot" style="background:var(--yellow);"></div>
             <div class="notice-text">PingCode 数据对接开发中</div>
             <div class="notice-time">本月</div>
           </div>
@@ -489,13 +782,14 @@ function renderDashboard() {
 
 async function loadDashboardStats() {
   try {
-    const { count: deviceCount } = await sb.from('assets').select('*', {count:'exact',head:true}).eq('status','在用');
-    document.getElementById('sc-devices').textContent = deviceCount ?? '-';
+    const { count } = await sb.from('assets').select('*',{count:'exact',head:true}).eq('status','在用');
+    document.getElementById('sc-devices').textContent = count ?? '-';
   } catch {}
   try {
-    const { count: warnCount } = await sb.from('consumables').select('*', {count:'exact',head:true}).lt('quantity','threshold');
-    document.getElementById('sc-consumables').textContent = warnCount ?? 0;
-  } catch { document.getElementById('sc-consumables').textContent = '0'; }
+    const today = new Date(); today.setHours(0,0,0,0);
+    const { count } = await sb.from('run_tasks').select('*',{count:'exact',head:true}).gte('created_at', today.toISOString());
+    document.getElementById('sc-auto').textContent = count ?? 0;
+  } catch { document.getElementById('sc-auto').textContent = '0'; }
 }
 
 function navTo(page) {
