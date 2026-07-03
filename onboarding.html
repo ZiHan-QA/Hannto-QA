@@ -137,6 +137,19 @@ body {
 .section-card:hover {
   box-shadow: 0 2px 12px rgba(0,0,0,0.05);
 }
+/* 重点卡片 - 红色边框 + 微红背景 */
+.section-card.highlight {
+  background: linear-gradient(135deg, #FFF5F7 0%, #fff 40%);
+  border-color: var(--pink);
+  border-width: 1.5px;
+  position: relative;
+}
+.section-card.highlight::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; height: 3px;
+  background: linear-gradient(90deg, var(--pink), #ff9ec4);
+}
 
 .card-header {
   display: flex;
@@ -657,13 +670,16 @@ function renderContent() {
 function renderCard(doc) {
   const iconClass = ICON_KEYS[doc.category] || 'env';
   const contentHtml = doc.content ? marked.parse(doc.content) : '';
+  const highlights = ['BUG 提交规范', '软件质量日常行为规范', 'BUG 闭合规范'];
+  const hlClass = highlights.includes(doc.title) ? ' highlight' : '';
+  const hlBadge = highlights.includes(doc.title) ? '<span style="font-size:10px;background:var(--pink);color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px;font-weight:400;">重点</span>' : '';
   return `
-    <div class="section-card" id="card-${doc.id}">
+    <div class="section-card${hlClass}" id="card-${doc.id}">
       <div class="card-header" onclick="toggleCard(${doc.id})">
         <div class="card-icon ${iconClass}">
           <i class="ti ${doc.icon || 'ti-book'}"></i>
         </div>
-        <span class="card-title">${escHtml(doc.title)}</span>
+        <span class="card-title">${escHtml(doc.title)}${hlBadge}</span>
         ${isAdmin ? `
         <div class="card-actions" onclick="event.stopPropagation()">
           <button class="btn-icon" title="编辑" onclick="startEdit(${doc.id})"><i class="ti ti-pencil"></i></button>
