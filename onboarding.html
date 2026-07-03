@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>团队知识库 · Liene QA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+:root {
+  --pink:   #FF6B9D;
+  --yellow: #FFDA79;
+  --teal:   #00D2D3;
+  --purple: #5F27CD;
+  --mint:   #1DD1A1;
+  --cream:  #FFF9F0;
+  --dark:   #1A1035;
+  --dark2:  #231448;
+  --text:   #3d1a00;
+  --sub:    #9a6a40;
+  --border: rgba(255,182,193,0.25);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Noto Sans SC', sans-serif;
+  background: var(--cream);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/* ===== Header ===== */
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px 20px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+.header-left h1 {
+  font-family: 'Syne', sans-serif;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--dark);
+}
+.header-left p {
+  font-size: 13px;
+  color: var(--sub);
+  margin-top: 3px;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.admin-badge {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 20px;
+  background: rgba(95,39,205,0.1);
+  color: var(--purple);
+  font-weight: 500;
+}
+
+/* ===== Category Tabs ===== */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 16px 28px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  background: #fff;
+  border-bottom: 1px solid var(--border);
+}
+.tab-bar::-webkit-scrollbar { display: none; }
+.tab-btn {
+  flex-shrink: 0;
+  padding: 9px 18px;
+  border: none;
+  background: transparent;
+  font-size: 13px;
+  font-family: 'Noto Sans SC', sans-serif;
+  color: var(--sub);
+  cursor: pointer;
+  border-radius: 8px 8px 0 0;
+  transition: all 0.2s;
+  white-space: nowrap;
+  position: relative;
+}
+.tab-btn:hover { color: var(--text); background: rgba(0,0,0,0.03); }
+.tab-btn.active {
+  color: var(--pink);
+  font-weight: 600;
+}
+.tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 3px;
+  background: var(--pink);
+  border-radius: 3px 3px 0 0;
+}
+.tab-count {
+  display: inline-block;
+  margin-left: 5px;
+  font-size: 11px;
+  background: rgba(0,0,0,0.06);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+.tab-btn.active .tab-count {
+  background: rgba(255,107,157,0.12);
+  color: var(--pink);
+}
+
+/* ===== Content Area ===== */
+.content-wrap {
+  padding: 24px 28px;
+  max-width: 900px;
+}
+
+/* ===== Section Card ===== */
+.section-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 14px;
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.section-card:hover {
+  box-shadow: 0 2px 12px rgba(0,0,0,0.05);
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
+}
+.card-header:hover { background: rgba(255,107,157,0.03); }
+.card-icon {
+  width: 38px; height: 38px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+  flex-shrink: 0;
+}
+.card-icon.env  { background: #EDE8FF; color: var(--purple); }
+.card-icon.cmd  { background: #CCF5EE; color: #0F6E56; }
+.card-icon.prod { background: #FFF0E0; color: #E67E22; }
+.card-icon.team { background: #E0F0FF; color: #2980B9; }
+.card-icon.acct { background: #FFE0EC; color: var(--pink); }
+
+.card-title {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--dark);
+}
+.card-expand {
+  color: var(--sub);
+  font-size: 20px;
+  transition: transform 0.25s;
+}
+.card-expand.open { transform: rotate(180deg); }
+
+.card-body {
+  display: none;
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border);
+}
+.card-body.open { display: block; }
+
+/* Markdown content styles */
+.card-body h2 { font-size: 16px; color: var(--dark); margin: 16px 0 8px; font-weight: 600; }
+.card-body h3 { font-size: 14px; color: var(--text); margin: 12px 0 6px; font-weight: 600; }
+.card-body p  { font-size: 13px; color: var(--text); line-height: 1.7; margin: 6px 0; }
+.card-body ul, .card-body ol { padding-left: 20px; margin: 8px 0; }
+.card-body li { font-size: 13px; color: var(--text); line-height: 1.7; }
+.card-body table {
+  width: 100%; border-collapse: collapse; margin: 10px 0;
+  font-size: 13px;
+}
+.card-body th {
+  background: rgba(255,107,157,0.06);
+  padding: 8px 12px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--dark);
+  border-bottom: 2px solid var(--border);
+}
+.card-body td {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+.card-body tr:hover td { background: rgba(255,107,157,0.02); }
+.card-body code {
+  background: rgba(0,0,0,0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+}
+.card-body pre {
+  background: #1A1035;
+  color: #e0e0e0;
+  padding: 14px 18px;
+  border-radius: 10px;
+  overflow-x: auto;
+  margin: 10px 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.card-body pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+}
+.card-body blockquote {
+  border-left: 3px solid var(--yellow);
+  padding: 8px 14px;
+  margin: 10px 0;
+  background: rgba(255,218,121,0.1);
+  border-radius: 0 8px 8px 0;
+  font-size: 13px;
+  color: var(--sub);
+}
+.card-body a { color: var(--pink); text-decoration: none; }
+.card-body a:hover { text-decoration: underline; }
+
+/* ===== Admin Controls ===== */
+.card-actions {
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.section-card:hover .card-actions { opacity: 1; }
+.btn-icon {
+  width: 32px; height: 32px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: #fff;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+  color: var(--sub);
+  transition: all 0.15s;
+}
+.btn-icon:hover { border-color: var(--pink); color: var(--pink); background: rgba(255,107,157,0.05); }
+.btn-icon.danger:hover { border-color: #e74c3c; color: #e74c3c; background: rgba(231,76,60,0.05); }
+
+/* ===== Add Button (admin) ===== */
+.add-card {
+  background: transparent;
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+.add-card:hover {
+  border-color: var(--pink);
+  background: rgba(255,107,157,0.03);
+}
+.add-card span {
+  font-size: 13px;
+  color: var(--sub);
+}
+.add-card i { font-size: 20px; color: var(--pink); display: block; margin-bottom: 6px; }
+
+/* ===== Drawer ===== */
+.drawer-overlay {
+  position: fixed; inset: 0;
+  background: rgba(26,16,53,0.5);
+  z-index: 100;
+  display: none;
+  animation: fadeIn 0.2s ease;
+}
+.drawer-overlay.show { display: block; }
+
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 480px; max-width: 100vw;
+  background: #fff;
+  z-index: 101;
+  box-shadow: -8px 0 32px rgba(0,0,0,0.15);
+  display: flex;
+  flex-direction: column;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.16,1,0.3,1);
+}
+.drawer.open { transform: translateX(0); }
+
+.drawer-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+}
+.drawer-header h3 {
+  font-size: 17px; font-weight: 600; color: var(--dark);
+}
+.drawer-close {
+  width: 32px; height: 32px;
+  border: none; background: none;
+  font-size: 22px; color: var(--sub); cursor: pointer;
+  border-radius: 8px;
+}
+.drawer-close:hover { background: rgba(0,0,0,0.05); }
+
+.drawer-body {
+  flex: 1;
+  padding: 20px 24px;
+  overflow-y: auto;
+}
+
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block;
+  font-size: 12px;
+  color: var(--sub);
+  margin-bottom: 6px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: 'Noto Sans SC', sans-serif;
+  color: var(--text);
+  outline: none;
+  transition: all 0.2s;
+  background: #fff;
+}
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  border-color: var(--pink);
+  box-shadow: 0 0 0 3px rgba(255,107,157,0.1);
+}
+.form-group textarea {
+  resize: vertical;
+  min-height: 200px;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.form-hint {
+  font-size: 11px;
+  color: var(--sub);
+  margin-top: 4px;
+}
+
+.drawer-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.btn-primary {
+  padding: 10px 22px;
+  border: none;
+  border-radius: 10px;
+  background: var(--pink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+  transition: all 0.2s;
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(255,107,157,0.35); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+.btn-outline {
+  padding: 10px 22px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text);
+  font-size: 13px;
+  cursor: pointer;
+  font-family: 'Noto Sans SC', sans-serif;
+}
+.btn-outline:hover { border-color: var(--sub); }
+
+/* ===== Confirm Modal ===== */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(26,16,53,0.5);
+  z-index: 200;
+  display: none;
+  align-items: center; justify-content: center;
+}
+.modal-overlay.show { display: flex; }
+.modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 28px;
+  width: 380px; max-width: 90vw;
+  box-shadow: 0 16px 48px rgba(0,0,0,0.2);
+}
+.modal h3 { font-size: 16px; color: var(--dark); margin-bottom: 8px; }
+.modal p  { font-size: 13px; color: var(--sub); margin-bottom: 20px; line-height: 1.6; }
+.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+/* ===== Empty State ===== */
+.empty {
+  text-align: center;
+  padding: 48px 20px;
+}
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+  opacity: 0.3;
+}
+.empty h3 {
+  font-size: 15px;
+  color: var(--dark);
+  margin-bottom: 4px;
+}
+.empty p {
+  font-size: 12px;
+  color: var(--sub);
+}
+
+/* ===== Toast ===== */
+.toast {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  padding: 12px 20px;
+  border-radius: 10px;
+  font-size: 13px;
+  z-index: 300;
+  animation: slideIn 0.3s ease;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+}
+.toast.success { background: #1DD1A1; color: #fff; }
+.toast.error   { background: #FF6B9D; color: #fff; }
+@keyframes slideIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
+@keyframes fadeIn  { from{opacity:0} to{opacity:1} }
+
+/* ===== Loading ===== */
+.loading-wrap {
+  display: flex;
+  align-items: center; justify-content: center;
+  padding: 60px;
+}
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid var(--border);
+  border-top-color: var(--pink);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to{transform:rotate(360deg)} }
+
+/* ===== Responsive ===== */
+@media (max-width: 640px) {
+  .page-header { padding: 16px 16px 14px; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .tab-bar { padding: 12px 16px 0; }
+  .content-wrap { padding: 16px; }
+  .drawer { width: 100vw; }
+}
+</style>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+</head>
+<body>
+
+<!-- Header -->
+<div class="page-header">
+  <div class="header-left">
+    <h1>📖 团队知识库</h1>
+    <p>新人上手 · 环境配置 · 命令速查 · 产品矩阵</p>
+  </div>
+  <div class="header-right" id="adminBadgeWrap"></div>
+</div>
+
+<!-- Category Tabs -->
+<div class="tab-bar" id="tabBar"></div>
+
+<!-- Content -->
+<div class="content-wrap" id="contentWrap"></div>
+
+<!-- Drawer -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-header">
+    <h3 id="drawerTitle">添加内容</h3>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="form-group">
+      <label>分类</label>
+      <select id="docCategory">
+        <option value="环境配置">🔧 环境配置</option>
+        <option value="常用命令">📋 常用命令</option>
+        <option value="产品矩阵">📱 产品矩阵</option>
+        <option value="团队信息">👥 团队信息</option>
+        <option value="账号工具">🔑 账号工具</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>标题</label>
+      <input type="text" id="docTitle" placeholder="例如：Mac 开发环境总览">
+    </div>
+    <div class="form-group">
+      <label>图标 <span style="font-weight:400;color:var(--sub);">(Tabler Icons 名称)</span></label>
+      <input type="text" id="docIcon" placeholder="例如：ti-brand-apple">
+      <div class="form-hint">浏览图标：<a href="https://tabler.io/icons" target="_blank" style="color:var(--pink);">tabler.io/icons</a></div>
+    </div>
+    <div class="form-group">
+      <label>内容 <span style="font-weight:400;color:var(--sub);">(支持 Markdown)</span></label>
+      <textarea id="docContent" placeholder="## 标题&#10;&#10;正文内容...&#10;&#10;| 表格 | 示例 |&#10;|------|------|&#10;| ... | ... |&#10;&#10;```bash&#10;命令示例&#10;```"></textarea>
+    </div>
+  </div>
+  <div class="drawer-footer">
+    <button class="btn-outline" onclick="closeDrawer()">取消</button>
+    <button class="btn-primary" id="saveDocBtn" onclick="saveDoc()">保存</button>
+  </div>
+</div>
+
+<!-- Delete Confirm Modal -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal">
+    <h3>确认删除</h3>
+    <p>删除后将无法恢复，确定要删除这条内容吗？</p>
+    <div class="modal-actions">
+      <button class="btn-outline" onclick="closeDeleteModal()">取消</button>
+      <button class="btn-primary" style="background:#e74c3c;" id="confirmDeleteBtn" onclick="confirmDelete()">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Supabase =====
+const SUPABASE_URL = 'https://pgpnyrglrromqqjnvaix.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncG55cmdscnJvbXFxam52YWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjY2OTgsImV4cCI6MjA5NjIwMjY5OH0.TmkrxS2mY_95aBC2UL2BARLU7gqNb_gSpHP6ynofDsE';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ===== State =====
+let allDocs = [];
+let currentCategory = '环境配置';
+let isAdmin = false;
+let editingId = null;
+let deleteTargetId = null;
+
+// category meta
+const CATEGORIES = ['环境配置', '常用命令', '产品矩阵', '团队信息', '账号工具'];
+const CATEGORY_ICONS = {
+  '环境配置': 'ti-settings',
+  '常用命令': 'ti-terminal-2',
+  '产品矩阵': 'ti-apps',
+  '团队信息': 'ti-users',
+  '账号工具': 'ti-key'
+};
+const ICON_KEYS = {
+  '环境配置': 'env',
+  '常用命令': 'cmd',
+  '产品矩阵': 'prod',
+  '团队信息': 'team',
+  '账号工具': 'acct'
+};
+
+// ===== Init =====
+(async function init() {
+  // auth check
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    document.body.innerHTML = '<div class="empty"><div class="empty-icon">🔒</div><h3>请先登录</h3><p>需要登录才能查看团队知识库</p></div>';
+    return;
+  }
+
+  // check role
+  const { data: profile } = await sb.from('profiles').select('role').eq('id', session.user.id).single();
+  isAdmin = profile?.role === 'admin';
+  if (isAdmin) {
+    document.getElementById('adminBadgeWrap').innerHTML = '<span class="admin-badge">⚙️ 管理员模式</span>';
+  }
+
+  // load data
+  await loadDocs();
+  renderTabBar();
+  renderContent();
+})();
+
+// ===== Data =====
+async function loadDocs() {
+  const { data, error } = await sb.from('onboarding_docs').select('*').order('sort_order');
+  if (error) {
+    showToast('加载失败: ' + error.message, 'error');
+    allDocs = [];
+  } else {
+    allDocs = data || [];
+  }
+}
+
+// ===== Tab Bar =====
+function renderTabBar() {
+  const bar = document.getElementById('tabBar');
+  bar.innerHTML = CATEGORIES.map(cat => {
+    const count = allDocs.filter(d => d.category === cat).length;
+    const active = cat === currentCategory ? ' active' : '';
+    return `<button class="tab-btn${active}" onclick="switchCategory('${cat}')">
+      <i class="ti ${CATEGORY_ICONS[cat]}" style="margin-right:4px;"></i>${cat}<span class="tab-count">${count}</span>
+    </button>`;
+  }).join('');
+}
+
+function switchCategory(cat) {
+  currentCategory = cat;
+  renderTabBar();
+  renderContent();
+}
+
+// ===== Content =====
+function renderContent() {
+  const wrap = document.getElementById('contentWrap');
+  const docs = allDocs.filter(d => d.category === currentCategory);
+
+  if (docs.length === 0) {
+    wrap.innerHTML = `
+      <div class="empty">
+        <div class="empty-icon">📭</div>
+        <h3>${currentCategory}分类暂无内容</h3>
+        <p>${isAdmin ? '点击下方按钮添加第一条内容' : '请联系管理员添加内容'}</p>
+      </div>
+      ${isAdmin ? renderAddCard() : ''}
+    `;
+    return;
+  }
+
+  wrap.innerHTML = docs.map(doc => renderCard(doc)).join('') + (isAdmin ? renderAddCard() : '');
+}
+
+function renderCard(doc) {
+  const iconClass = ICON_KEYS[doc.category] || 'env';
+  const contentHtml = doc.content ? marked.parse(doc.content) : '';
+  return `
+    <div class="section-card" id="card-${doc.id}">
+      <div class="card-header" onclick="toggleCard(${doc.id})">
+        <div class="card-icon ${iconClass}">
+          <i class="ti ${doc.icon || 'ti-book'}"></i>
+        </div>
+        <span class="card-title">${escHtml(doc.title)}</span>
+        ${isAdmin ? `
+        <div class="card-actions" onclick="event.stopPropagation()">
+          <button class="btn-icon" title="编辑" onclick="startEdit(${doc.id})"><i class="ti ti-pencil"></i></button>
+          <button class="btn-icon danger" title="删除" onclick="startDelete(${doc.id})"><i class="ti ti-trash"></i></button>
+        </div>
+        ` : ''}
+        <span class="card-expand" id="expand-${doc.id}">▾</span>
+      </div>
+      <div class="card-body" id="body-${doc.id}">${contentHtml}</div>
+    </div>
+  `;
+}
+
+function renderAddCard() {
+  return `
+    <div class="add-card" onclick="startAdd('${currentCategory}')">
+      <i class="ti ti-plus"></i>
+      <span>添加 ${currentCategory} 内容</span>
+    </div>
+  `;
+}
+
+function toggleCard(id) {
+  const body = document.getElementById('body-' + id);
+  const expand = document.getElementById('expand-' + id);
+  body.classList.toggle('open');
+  expand.classList.toggle('open');
+}
+
+// ===== Drawer =====
+function startAdd(category) {
+  editingId = null;
+  document.getElementById('drawerTitle').textContent = '添加内容';
+  document.getElementById('docCategory').value = category;
+  document.getElementById('docTitle').value = '';
+  document.getElementById('docIcon').value = 'ti-book';
+  document.getElementById('docContent').value = '';
+  document.getElementById('saveDocBtn').textContent = '保存';
+  openDrawer();
+}
+
+function startEdit(id) {
+  const doc = allDocs.find(d => d.id === id);
+  if (!doc) return;
+  editingId = id;
+  document.getElementById('drawerTitle').textContent = '编辑内容';
+  document.getElementById('docCategory').value = doc.category;
+  document.getElementById('docTitle').value = doc.title;
+  document.getElementById('docIcon').value = doc.icon || 'ti-book';
+  document.getElementById('docContent').value = doc.content || '';
+  document.getElementById('saveDocBtn').textContent = '更新';
+  openDrawer();
+}
+
+function openDrawer() {
+  document.getElementById('drawerOverlay').classList.add('show');
+  document.getElementById('drawer').classList.add('open');
+}
+
+function closeDrawer() {
+  document.getElementById('drawerOverlay').classList.remove('show');
+  document.getElementById('drawer').classList.remove('open');
+}
+
+async function saveDoc() {
+  const category = document.getElementById('docCategory').value;
+  const title = document.getElementById('docTitle').value.trim();
+  const icon = document.getElementById('docIcon').value.trim() || 'ti-book';
+  const content = document.getElementById('docContent').value;
+
+  if (!title) { showToast('请输入标题', 'error'); return; }
+
+  const btn = document.getElementById('saveDocBtn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  let error;
+  if (editingId) {
+    ({ error } = await sb.from('onboarding_docs')
+      .update({ category, title, icon, content, updated_at: new Date().toISOString() })
+      .eq('id', editingId));
+  } else {
+    // get next sort_order
+    const max = allDocs.filter(d => d.category === category).reduce((m, d) => Math.max(m, d.sort_order || 0), 0);
+    ({ error } = await sb.from('onboarding_docs')
+      .insert({ category, title, icon, content, sort_order: max + 1 }));
+  }
+
+  btn.disabled = false;
+  btn.textContent = editingId ? '更新' : '保存';
+
+  if (error) {
+    showToast('保存失败: ' + error.message, 'error');
+    return;
+  }
+
+  showToast(editingId ? '已更新' : '已添加', 'success');
+  closeDrawer();
+  await loadDocs();
+  renderTabBar();
+  renderContent();
+}
+
+// ===== Delete =====
+function startDelete(id) {
+  deleteTargetId = id;
+  document.getElementById('deleteModal').classList.add('show');
+}
+
+function closeDeleteModal() {
+  deleteTargetId = null;
+  document.getElementById('deleteModal').classList.remove('show');
+}
+
+async function confirmDelete() {
+  if (!deleteTargetId) return;
+  const { error } = await sb.from('onboarding_docs').delete().eq('id', deleteTargetId);
+  if (error) {
+    showToast('删除失败: ' + error.message, 'error');
+  } else {
+    showToast('已删除', 'success');
+    await loadDocs();
+    renderTabBar();
+    renderContent();
+  }
+  closeDeleteModal();
+}
+
+// ===== Toast =====
+function showToast(msg, type) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 2500);
+}
+
+// ===== Helpers =====
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+</script>
+</body>
+</html>

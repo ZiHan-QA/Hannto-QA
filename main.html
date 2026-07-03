@@ -349,6 +349,12 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   </a>
 
   <hr class="sb-divider">
+  <div class="sb-section">团队资源</div>
+  <a class="sb-item" onclick="nav(this,'onboarding')">
+    <i class="ti ti-book"></i>团队知识库
+  </a>
+
+  <hr class="sb-divider">
   <div class="sb-section">PingCode 数据</div>
   <a class="sb-item" onclick="nav(this,'cases')">
     <i class="ti ti-list-check"></i>用例库
@@ -418,7 +424,7 @@ const pageTitles = {
   prd: 'PRD 管理', assets: '资产管理', ai: 'AI 写用例',
   automation: '自动化测试',
   copy: '文案管理',
-  copy: '文案管理',
+  onboarding: '团队知识库',
   cases: '用例库', plan: '测试计划', bugs: 'BUG 管理',
   members: '成员管理', settings: '系统设置',
 };
@@ -512,6 +518,11 @@ function renderPage(page) {
   if (page === 'prd') {
     content.style.padding = '0';
     content.innerHTML = `<iframe src='prd.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
+    return;
+  }
+  if (page === 'onboarding') {
+    content.style.padding = '0';
+    content.innerHTML = `<iframe src='onboarding.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
     return;
   }
   content.style.padding = '24px';
