@@ -470,17 +470,23 @@ function setUserInfo(name, role) {
   document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
 }
 
-async function watchRunningTasks() {
+async function updateRunningTaskBadge() {
   try {
     const { count } = await sb.from('run_tasks').select('*', {count:'exact',head:true}).eq('status','running');
     const badge = document.getElementById('autoBadge');
     if (count > 0) { badge.style.display = 'flex'; badge.textContent = '运行中'; }
     else { badge.style.display = 'none'; }
   } catch {}
-  // 实时订阅
-  sb.channel('run_tasks_watch')
+}
+
+function watchRunningTasks() {
+  updateRunningTaskBadge();
+  if (autoRealtimeSub) return;
+
+  // 只创建一个实时订阅，避免每次数据库变更时重复订阅。
+  autoRealtimeSub = sb.channel('run_tasks_watch')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'run_tasks' }, () => {
-      watchRunningTasks();
+      updateRunningTaskBadge();
       if (currentPage === 'automation') renderAutomation();
     })
     .subscribe();
@@ -507,7 +513,7 @@ function renderPage(page) {
   }
   if (page === 'ai') {
     content.style.padding = '0';
-    content.innerHTML = `<iframe src="liene.html" class="module-frame" style="height:calc(100vh - 56px);border-radius:0;"></iframe>`;
+    content.innerHTML = `<iframe src="https://zihan-qa.github.io/Liene-Photo-APP-Case/liene.html" class="module-frame" style="height:calc(100vh - 56px);border-radius:0;"></iframe>`;
     return;
   }
   if (page === 'copy') {
@@ -692,11 +698,15 @@ async function triggerTask() {
   btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.7s linear infinite"></i> 提交中...';
 
   try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) throw new Error('登录状态已失效，请重新登录');
+
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/smooth-task`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ task_type, platform, device_id, triggered_by, task_module }),
     });
@@ -831,6 +841,10 @@ async function loadDashboardStats() {
     const { count } = await sb.from('run_tasks').select('*',{count:'exact',head:true}).gte('created_at', today.toISOString());
     document.getElementById('sc-auto').textContent = count ?? 0;
   } catch { document.getElementById('sc-auto').textContent = '0'; }
+  try {
+    const { count } = await sb.from('prds').select('*',{count:'exact',head:true});
+    document.getElementById('sc-prd').textContent = count ?? 0;
+  } catch { document.getElementById('sc-prd').textContent = '0'; }
 }
 
 function navTo(page) {

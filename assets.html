@@ -311,6 +311,12 @@ let currentPeriod = 'month';
 
 // ── 初始化 ──
 async function init() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) {
+    window.top.location.href = 'index.html';
+    return;
+  }
+
   await loadStats();
   await loadData();
   // 设置今日日期
