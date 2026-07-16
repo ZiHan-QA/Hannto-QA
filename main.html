@@ -182,6 +182,55 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .notice-text { font-size: 12px; color: var(--text); flex: 1; line-height: 1.5; }
 .notice-time { font-size: 10px; color: var(--sub); white-space: nowrap; }
 
+/* ── 今日工作台 ── */
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); gap: 14px; margin-bottom: 14px; }
+.dashboard-list { display: flex; flex-direction: column; gap: 8px; min-height: 148px; }
+.dashboard-loading { color: var(--sub); font-size: 12px; padding: 24px 0; text-align: center; }
+.dashboard-empty { color: var(--sub); font-size: 12px; padding: 26px 12px; text-align: center; background: #fdfaf6; border-radius: 10px; }
+.task-item, .risk-item { display: flex; align-items: center; gap: 10px; padding: 10px 11px; border-radius: 10px; background: #fdfaf6; }
+.task-priority { min-width: 30px; text-align: center; border-radius: 8px; padding: 3px 6px; font: 700 10px 'Syne', sans-serif; }
+.priority-P0 { color: #b42318; background: #fee4e2; }
+.priority-P1 { color: #7a5a00; background: #fff0b8; }
+.priority-P2 { color: #0f6e56; background: #ccf5ee; }
+.task-main, .risk-main { min-width: 0; flex: 1; }
+.task-title, .risk-title { color: var(--text); font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-meta, .risk-meta { color: var(--sub); font-size: 10px; margin-top: 2px; }
+.task-done { width: 28px; height: 28px; border: none; border-radius: 8px; cursor: pointer; color: #0f6e56; background: #ccf5ee; }
+.task-done:hover { background: #a8ebdd; }
+.risk-level { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.risk-high { background: #e24b4a; }
+.risk-medium { background: #f5a623; }
+.risk-low { background: var(--teal); }
+.dashboard-actions { background: #fff; border: 0.5px solid rgba(255,182,193,0.3); border-radius: 12px; padding: 14px 16px; }
+.dashboard-actions-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+.dashboard-action { border: none; border-radius: 10px; padding: 11px 8px; cursor: pointer; font: 500 11px 'Noto Sans SC', sans-serif; display: flex; justify-content: center; align-items: center; gap: 6px; transition: transform .15s, box-shadow .15s; }
+.dashboard-action:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.dashboard-action i { font-size: 16px; }
+.dashboard-modal { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(26,16,53,.46); }
+.dashboard-modal.open { display: flex; }
+.dashboard-modal-panel { width: min(460px, 100%); border-radius: 16px; padding: 20px; background: #fff; box-shadow: 0 20px 50px rgba(26,16,53,.22); }
+.dashboard-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.dashboard-modal-title { color: var(--text); font-size: 15px; font-weight: 600; }
+.dashboard-modal-close { border: none; background: #f5f0e8; color: var(--sub); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; }
+.dashboard-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dashboard-input { width: 100%; padding: 9px 11px; border: .5px solid rgba(61,26,0,.18); border-radius: 8px; color: var(--text); font: 13px 'Noto Sans SC', sans-serif; }
+.dashboard-input:focus { outline: none; border-color: var(--pink); box-shadow: 0 0 0 3px rgba(255,107,157,.1); }
+.dashboard-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+@media (max-width: 960px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .dashboard-actions-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  :root { --sb-w: 176px; }
+  .content { padding: 16px; }
+  .welcome-banner { align-items: flex-start; flex-wrap: wrap; padding: 16px; }
+  .welcome-badge { margin-left: 0; }
+  .stat-grid { grid-template-columns: 1fr; }
+  .dashboard-form-grid { grid-template-columns: 1fr; }
+}
+
 /* ── 自动化模块样式 ── */
 .auto-header {
   display: flex; align-items: center; justify-content: space-between;
@@ -418,6 +467,9 @@ let currentUser = null;
 let userRole = 'member';
 let currentPage = 'dashboard';
 let autoRealtimeSub = null;
+let dashboardRealtimeSub = null;
+let dashboardLoadToken = 0;
+let dashboardSnapshot = null;
 
 const pageTitles = {
   dashboard: '工作台', report: '质量报表', risk: '风险提示',
@@ -459,6 +511,7 @@ async function init() {
 
   // 监听是否有运行中任务，更新侧边栏角标
   watchRunningTasks();
+  watchDashboardData();
 
   renderDashboard();
 }
@@ -488,6 +541,23 @@ function watchRunningTasks() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'run_tasks' }, () => {
       updateRunningTaskBadge();
       if (currentPage === 'automation') renderAutomation();
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .subscribe();
+}
+
+function watchDashboardData() {
+  if (dashboardRealtimeSub) return;
+
+  dashboardRealtimeSub = sb.channel('dashboard_watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'qa_tasks' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'releases' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'release_checks' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
     })
     .subscribe();
 }
@@ -744,107 +814,381 @@ function renderDashboard() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
   const name = document.getElementById('userName').textContent;
+  const safeName = escapeDashboardHtml(name);
+  const token = ++dashboardLoadToken;
 
   content.innerHTML = `
     <div class="welcome-banner">
       <div class="welcome-emoji">👋</div>
       <div>
-        <div class="welcome-title">你好，${name}！</div>
-        <div class="welcome-sub">欢迎回到 Liene QA 测试管理平台</div>
+        <div class="welcome-title">你好，${safeName}！</div>
+        <div class="welcome-sub" id="dashboardReleaseText">正在读取当前测试版本…</div>
       </div>
-      <div class="welcome-badge">今日状态良好</div>
+      <div class="welcome-badge" id="dashboardStatusBadge">数据加载中</div>
     </div>
 
     <div class="stat-grid">
       <div class="stat-card p">
-        <div class="sc-icon p"><i class="ti ti-bug"></i></div>
-        <div class="sc-val" id="sc-bugs">-</div>
-        <div class="sc-label">待处理 BUG</div>
+        <div class="sc-icon p"><i class="ti ti-checkbox"></i></div>
+        <div class="sc-val" id="sc-tasks">…</div>
+        <div class="sc-label">今日待办</div>
       </div>
       <div class="stat-card y">
-        <div class="sc-icon y"><i class="ti ti-device-mobile"></i></div>
-        <div class="sc-val" id="sc-devices">-</div>
-        <div class="sc-label">在用设备</div>
+        <div class="sc-icon y"><i class="ti ti-alert-circle"></i></div>
+        <div class="sc-val" id="sc-auto-failed">…</div>
+        <div class="sc-label">24小时自动化失败</div>
       </div>
       <div class="stat-card t">
-        <div class="sc-icon t"><i class="ti ti-player-play"></i></div>
-        <div class="sc-val" id="sc-auto">-</div>
-        <div class="sc-label">今日自动化执行</div>
+        <div class="sc-icon t"><i class="ti ti-device-mobile-off"></i></div>
+        <div class="sc-val" id="sc-offline">…</div>
+        <div class="sc-label">离线自动化设备</div>
       </div>
       <div class="stat-card pu">
-        <div class="sc-icon pu"><i class="ti ti-file-description"></i></div>
-        <div class="sc-val" id="sc-prd">-</div>
-        <div class="sc-label">PRD 版本</div>
+        <div class="sc-icon pu"><i class="ti ti-package-off"></i></div>
+        <div class="sc-val" id="sc-low-stock">…</div>
+        <div class="sc-label">低库存耗材</div>
       </div>
     </div>
 
-    <div class="bottom-grid">
+    <div class="dashboard-grid">
       <div class="card">
         <div class="card-hd">
-          <span class="card-title">⚡ 快捷入口</span>
+          <span class="card-title">✅ 我的今日任务</span>
+          <span class="card-tag" id="dashboardTaskTag" style="background:#FFE8F2;color:#c0265a;">加载中</span>
         </div>
-        <div class="quick-grid">
-          <div class="quick-item" style="background:#FFE8F2;" onclick="navTo('assets')">
-            <i class="ti ti-device-mobile" style="color:var(--pink);"></i>
-            <span style="color:var(--pink);">资产管理</span>
-          </div>
-          <div class="quick-item" style="background:#EDE8FF;" onclick="navTo('prd')">
-            <i class="ti ti-file-description" style="color:var(--purple);"></i>
-            <span style="color:var(--purple);">PRD 管理</span>
-          </div>
-          <div class="quick-item" style="background:#CCF5EE;" onclick="navTo('automation')">
-            <i class="ti ti-player-play" style="color:#0F6E56;"></i>
-            <span style="color:#0F6E56;">自动化测试</span>
-          </div>
-          <div class="quick-item" style="background:#FFF3CC;" onclick="navTo('ai')">
-            <i class="ti ti-robot" style="color:#7a5a00;"></i>
-            <span style="color:#7a5a00;">AI 写用例</span>
-          </div>
+        <div class="dashboard-list" id="dashboardTaskList">
+          <div class="dashboard-loading">正在加载今日任务…</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-hd">
-          <span class="card-title">🔔 系统公告</span>
-          <span class="card-tag" style="background:#FFE8F2;color:#c0265a;">最新</span>
+          <span class="card-title">⚠️ 风险提醒</span>
+          <span class="card-tag" id="dashboardRiskTag" style="background:#FFF3CC;color:#7a5a00;">加载中</span>
         </div>
-        <div>
-          <div class="notice-item">
-            <div class="notice-dot" style="background:var(--teal);"></div>
-            <div class="notice-text">自动化测试模块上线，支持 Android/iOS 双端触发</div>
-            <div class="notice-time">今天</div>
+        <div class="dashboard-list" id="dashboardRiskList">
+          <div class="dashboard-loading">正在计算版本风险…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-actions">
+      <div class="card-title">⚡ 快捷操作</div>
+      <div class="dashboard-actions-row">
+        <button class="dashboard-action" style="background:#CCF5EE;color:#0F6E56;" onclick="navTo('automation')"><i class="ti ti-player-play"></i>运行冒烟</button>
+        <button class="dashboard-action" style="background:#FFE8F2;color:#c0265a;" onclick="openNewTaskModal()"><i class="ti ti-square-plus"></i>新建待办</button>
+        <button class="dashboard-action" style="background:#EDE8FF;color:var(--purple);" onclick="navTo('prd')"><i class="ti ti-file-description"></i>打开 PRD</button>
+        <button class="dashboard-action" style="background:#FFF3CC;color:#7a5a00;" onclick="navTo('ai')"><i class="ti ti-robot"></i>AI 写用例</button>
+        <button class="dashboard-action" style="background:#f3ecff;color:#6d28d9;" onclick="copyTodaySummary()"><i class="ti ti-copy"></i>复制今日摘要</button>
+      </div>
+    </div>
+
+    <div class="dashboard-modal" id="newTaskModal" onclick="closeNewTaskModal(event)">
+      <div class="dashboard-modal-panel" onclick="event.stopPropagation()">
+        <div class="dashboard-modal-hd">
+          <div class="dashboard-modal-title">新建今日待办</div>
+          <button class="dashboard-modal-close" onclick="closeNewTaskModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" for="newTaskTitle">任务标题</label>
+          <input class="dashboard-input" id="newTaskTitle" maxlength="300" placeholder="例如：评审 Perilla 首页 PRD">
+        </div>
+        <div class="dashboard-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="newTaskPriority">优先级</label>
+            <select class="form-select" id="newTaskPriority">
+              <option value="P0">P0 · 立即处理</option>
+              <option value="P1" selected>P1 · 重要</option>
+              <option value="P2">P2 · 常规</option>
+            </select>
           </div>
-          <div class="notice-item">
-            <div class="notice-dot" style="background:var(--pink);"></div>
-            <div class="notice-text">Liene QA 平台正式上线，欢迎使用！</div>
-            <div class="notice-time">本周</div>
+          <div class="form-group">
+            <label class="form-label" for="newTaskType">任务类型</label>
+            <select class="form-select" id="newTaskType">
+              <option value="prd_review">PRD 评审</option>
+              <option value="case_design">用例设计</option>
+              <option value="test_execution">测试执行</option>
+              <option value="bug_verify">BUG 验证</option>
+              <option value="copy_check">文案检查</option>
+              <option value="automation">自动化</option>
+              <option value="other" selected>其他</option>
+            </select>
           </div>
-          <div class="notice-item">
-            <div class="notice-dot" style="background:var(--yellow);"></div>
-            <div class="notice-text">PingCode 数据对接开发中</div>
-            <div class="notice-time">本月</div>
+          <div class="form-group">
+            <label class="form-label" for="newTaskDueDate">截止日期</label>
+            <input class="dashboard-input" id="newTaskDueDate" type="date" value="${dashboardTodayInputValue()}">
           </div>
+        </div>
+        <div class="dashboard-form-actions">
+          <button class="btn-secondary" onclick="closeNewTaskModal()">取消</button>
+          <button class="btn-primary" id="saveTaskBtn" onclick="saveQaTask()"><i class="ti ti-check"></i>保存待办</button>
         </div>
       </div>
     </div>`;
 
-  loadDashboardStats();
+  loadDashboardData(token);
 }
 
-async function loadDashboardStats() {
+function dashboardTodayInputValue() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function escapeDashboardHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function dashboardQueryResult(result, fallback) {
+  if (result.status !== 'fulfilled' || result.value?.error) {
+    const error = result.status === 'rejected' ? result.reason : result.value?.error;
+    console.error('[dashboard] query failed:', error);
+    return { data: fallback, failed: true };
+  }
+  return { data: result.value.data ?? fallback, failed: false };
+}
+
+function setDashboardMetric(id, value, failed) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = failed ? '加载失败' : String(value);
+  el.style.fontSize = failed ? '12px' : '';
+}
+
+function formatDashboardDue(value, todayStart, todayEnd) {
+  if (!value) return '未设置截止时间';
+  const date = new Date(value);
+  if (date < todayStart) return `已逾期 · ${date.toLocaleDateString('zh-CN', { month:'numeric', day:'numeric' })}`;
+  if (date <= todayEnd) return '今天截止';
+  return date.toLocaleDateString('zh-CN', { month:'numeric', day:'numeric' }) + ' 截止';
+}
+
+function renderDashboardTasks(tasks, failed, todayStart, todayEnd) {
+  const list = document.getElementById('dashboardTaskList');
+  const tag = document.getElementById('dashboardTaskTag');
+  if (!list || !tag) return;
+
+  if (failed) {
+    tag.textContent = '加载失败';
+    list.innerHTML = '<div class="dashboard-empty">任务加载失败，请点击右上角刷新重试</div>';
+    return;
+  }
+
+  tag.textContent = `${tasks.length} 项`;
+  if (!tasks.length) {
+    list.innerHTML = '<div class="dashboard-empty">今天没有待办，可以检查版本风险</div>';
+    return;
+  }
+
+  list.innerHTML = tasks.slice(0, 6).map(task => `
+    <div class="task-item">
+      <span class="task-priority priority-${task.priority}">${escapeDashboardHtml(task.priority)}</span>
+      <div class="task-main">
+        <div class="task-title" title="${escapeDashboardHtml(task.title)}">${escapeDashboardHtml(task.title)}</div>
+        <div class="task-meta">${formatDashboardDue(task.due_date, todayStart, todayEnd)} · ${task.status === 'in_progress' ? '进行中' : '待处理'}</div>
+      </div>
+      <button class="task-done" title="标记完成" onclick="completeQaTask('${task.id}')"><i class="ti ti-check"></i></button>
+    </div>`).join('');
+}
+
+function renderDashboardRisks(risks, failed) {
+  const list = document.getElementById('dashboardRiskList');
+  const tag = document.getElementById('dashboardRiskTag');
+  const badge = document.getElementById('riskBadge');
+  if (!list || !tag) return;
+
+  if (failed) {
+    tag.textContent = '部分失败';
+    list.innerHTML = '<div class="dashboard-empty">部分风险数据加载失败，请刷新重试</div>';
+    if (badge) badge.textContent = '-';
+    return;
+  }
+
+  tag.textContent = `${risks.length} 项`;
+  if (badge) badge.textContent = String(risks.length);
+  if (!risks.length) {
+    list.innerHTML = '<div class="dashboard-empty">当前没有发现阻断风险</div>';
+    return;
+  }
+
+  list.innerHTML = risks.slice(0, 7).map(risk => `
+    <div class="risk-item">
+      <span class="risk-level risk-${risk.level}"></span>
+      <div class="risk-main">
+        <div class="risk-title">${escapeDashboardHtml(risk.title)}</div>
+        <div class="risk-meta">${risk.level === 'high' ? '高风险' : risk.level === 'medium' ? '中风险' : '低风险'} · ${escapeDashboardHtml(risk.meta)}</div>
+      </div>
+    </div>`).join('');
+}
+
+async function loadDashboardData(token) {
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+  const since24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  const results = await Promise.allSettled([
+    sb.from('releases').select('id,version,name,platform,planned_release_date,status').eq('status','active').limit(1).maybeSingle(),
+    sb.from('qa_tasks').select('id,title,task_type,priority,status,due_date,release_id').eq('assignee_id', currentUser.id).in('status',['todo','in_progress']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
+    sb.from('run_tasks').select('id,status,task_type,platform,created_at,started_at').gte('created_at', since24Hours),
+    sb.from('device_configs').select('id,model_name,platform,is_online'),
+    sb.from('consumables').select('id,name,brand,quantity,threshold,unit'),
+    sb.from('release_checks').select('id,release_id,check_name,severity,status').in('status',['failed','unavailable'])
+  ]);
+
+  if (token !== dashboardLoadToken || currentPage !== 'dashboard') return;
+
+  const releaseResult = dashboardQueryResult(results[0], null);
+  const tasksResult = dashboardQueryResult(results[1], []);
+  const runsResult = dashboardQueryResult(results[2], []);
+  const devicesResult = dashboardQueryResult(results[3], []);
+  const consumablesResult = dashboardQueryResult(results[4], []);
+  const checksResult = dashboardQueryResult(results[5], []);
+  const activeRelease = releaseResult.data;
+
+  const todayTasks = tasksResult.data
+    .filter(task => task.due_date && new Date(task.due_date) <= todayEnd)
+    .sort((a, b) => {
+      const aOverdue = new Date(a.due_date) < todayStart ? 0 : 1;
+      const bOverdue = new Date(b.due_date) < todayStart ? 0 : 1;
+      if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+      const priorityOrder = { P0: 0, P1: 1, P2: 2 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) return priorityOrder[a.priority] - priorityOrder[b.priority];
+      return new Date(a.due_date) - new Date(b.due_date);
+    });
+
+  const automationFailures = runsResult.data.filter(run => run.status === 'failed');
+  const staleBefore = now.getTime() - 2 * 60 * 60 * 1000;
+  const staleRuns = runsResult.data.filter(run => run.status === 'running' && run.started_at && new Date(run.started_at).getTime() < staleBefore);
+  const offlineDevices = devicesResult.data.filter(device => device.is_online === false);
+  const lowStock = consumablesResult.data.filter(item => Number(item.quantity) <= Number(item.threshold));
+  const overdueP0 = todayTasks.filter(task => task.priority === 'P0' && new Date(task.due_date) < todayStart);
+  const overdueNormal = todayTasks.filter(task => task.priority !== 'P0' && new Date(task.due_date) < todayStart);
+  const releaseChecks = activeRelease
+    ? checksResult.data.filter(check => check.release_id === activeRelease.id)
+    : [];
+
+  const risks = [];
+  if (automationFailures.length) risks.push({ level:'high', title:`最近24小时有 ${automationFailures.length} 次自动化失败`, meta:'检查执行历史与失败原因' });
+  if (staleRuns.length) risks.push({ level:'high', title:`${staleRuns.length} 个自动化任务运行超过2小时`, meta:'检查 Runner 和设备状态' });
+  if (offlineDevices.length) risks.push({ level:'high', title:`${offlineDevices.length} 台自动化设备离线`, meta:offlineDevices.map(d => d.model_name || d.platform).slice(0,3).join('、') });
+  if (overdueP0.length) risks.push({ level:'high', title:`${overdueP0.length} 个 P0 任务已逾期`, meta:'请优先处理今日阻断项' });
+  if (overdueNormal.length) risks.push({ level:'medium', title:`${overdueNormal.length} 个任务已逾期`, meta:'调整计划或尽快完成' });
+  if (lowStock.length) risks.push({ level:'medium', title:`${lowStock.length} 项耗材库存不足`, meta:lowStock.map(item => item.name).slice(0,3).join('、') });
+  releaseChecks.forEach(check => risks.push({
+    level: check.severity === 'high' ? 'high' : check.severity === 'low' ? 'low' : 'medium',
+    title: check.check_name,
+    meta: check.status === 'failed' ? '版本检查未通过' : '版本检查数据暂不可用'
+  }));
+  if (!activeRelease && !releaseResult.failed) risks.push({ level:'low', title:'当前活动版本未设置', meta:'由管理员创建并激活测试版本' });
+  const riskOrder = { high: 0, medium: 1, low: 2 };
+  risks.sort((a, b) => riskOrder[a.level] - riskOrder[b.level]);
+
+  const riskDataFailed = runsResult.failed || devicesResult.failed || consumablesResult.failed || checksResult.failed || releaseResult.failed;
+  setDashboardMetric('sc-tasks', todayTasks.length, tasksResult.failed);
+  setDashboardMetric('sc-auto-failed', automationFailures.length, runsResult.failed);
+  setDashboardMetric('sc-offline', offlineDevices.length, devicesResult.failed);
+  setDashboardMetric('sc-low-stock', lowStock.length, consumablesResult.failed);
+  renderDashboardTasks(todayTasks, tasksResult.failed, todayStart, todayEnd);
+  renderDashboardRisks(risks, riskDataFailed);
+
+  const releaseText = document.getElementById('dashboardReleaseText');
+  const statusBadge = document.getElementById('dashboardStatusBadge');
+  const versionTag = document.getElementById('versionTag');
+  if (releaseText) {
+    releaseText.textContent = activeRelease
+      ? `当前版本：${activeRelease.name || activeRelease.version}${activeRelease.planned_release_date ? ` · 计划 ${activeRelease.planned_release_date} 发布` : ''}`
+      : releaseResult.failed ? '当前版本加载失败' : '当前版本：暂未设置';
+  }
+  if (versionTag) versionTag.textContent = releaseResult.failed ? '加载失败' : activeRelease?.version || '暂未设置';
+  if (statusBadge) {
+    statusBadge.textContent = riskDataFailed ? '部分数据加载失败' : risks.length ? `${risks.length} 项风险待处理` : '今日状态良好';
+  }
+
+  dashboardSnapshot = { activeRelease, todayTasks, risks, loadedAt: now };
+}
+
+function openNewTaskModal() {
+  const modal = document.getElementById('newTaskModal');
+  if (!modal) return;
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('newTaskTitle')?.focus(), 0);
+}
+
+function closeNewTaskModal(event) {
+  if (event && event.target !== event.currentTarget) return;
+  document.getElementById('newTaskModal')?.classList.remove('open');
+}
+
+async function saveQaTask() {
+  const title = document.getElementById('newTaskTitle')?.value.trim();
+  const priority = document.getElementById('newTaskPriority')?.value;
+  const taskType = document.getElementById('newTaskType')?.value;
+  const dueDate = document.getElementById('newTaskDueDate')?.value;
+  const button = document.getElementById('saveTaskBtn');
+  if (!title) { showToast('请填写任务标题', 'error'); return; }
+  if (!dueDate) { showToast('请选择截止日期', 'error'); return; }
+
+  button.disabled = true;
   try {
-    const { count } = await sb.from('assets').select('*',{count:'exact',head:true}).eq('status','在用');
-    document.getElementById('sc-devices').textContent = count ?? '-';
-  } catch {}
+    const due = new Date(`${dueDate}T23:59:59`);
+    const { error } = await sb.from('qa_tasks').insert({
+      title,
+      priority,
+      task_type: taskType,
+      status: 'todo',
+      assignee_id: currentUser.id,
+      due_date: due.toISOString(),
+      created_by: currentUser.id
+    });
+    if (error) throw error;
+    closeNewTaskModal();
+    showToast('待办已创建');
+    await loadDashboardData(++dashboardLoadToken);
+  } catch (error) {
+    console.error('[dashboard] create task failed:', error);
+    showToast('创建失败：' + error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function completeQaTask(id) {
   try {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const { count } = await sb.from('run_tasks').select('*',{count:'exact',head:true}).gte('created_at', today.toISOString());
-    document.getElementById('sc-auto').textContent = count ?? 0;
-  } catch { document.getElementById('sc-auto').textContent = '0'; }
+    const { error } = await sb.from('qa_tasks').update({ status:'done' }).eq('id', id);
+    if (error) throw error;
+    showToast('任务已完成');
+    await loadDashboardData(++dashboardLoadToken);
+  } catch (error) {
+    console.error('[dashboard] complete task failed:', error);
+    showToast('更新失败：' + error.message, 'error');
+  }
+}
+
+async function copyTodaySummary() {
+  if (!dashboardSnapshot) { showToast('数据仍在加载，请稍后重试', 'error'); return; }
+  const { activeRelease, todayTasks, risks } = dashboardSnapshot;
+  const lines = [
+    `Liene QA 今日摘要 · ${new Date().toLocaleDateString('zh-CN')}`,
+    `当前版本：${activeRelease?.name || activeRelease?.version || '暂未设置'}`,
+    `今日待办：${todayTasks.length} 项`,
+    ...todayTasks.slice(0, 5).map(task => `- [${task.priority}] ${task.title}`),
+    `风险提醒：${risks.length} 项`,
+    ...risks.slice(0, 5).map(risk => `- [${risk.level === 'high' ? '高' : risk.level === 'medium' ? '中' : '低'}] ${risk.title}`)
+  ];
+  const summary = lines.join('\n');
   try {
-    const { count } = await sb.from('prds').select('*',{count:'exact',head:true});
-    document.getElementById('sc-prd').textContent = count ?? 0;
-  } catch { document.getElementById('sc-prd').textContent = '0'; }
+    await navigator.clipboard.writeText(summary);
+    showToast('今日摘要已复制');
+  } catch (error) {
+    console.error('[dashboard] clipboard failed:', error);
+    showToast('复制失败，请检查浏览器剪贴板权限', 'error');
+  }
 }
 
 function navTo(page) {
