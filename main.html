@@ -144,6 +144,9 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 
 .stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
 .stat-card { border-radius: 12px; padding: 16px; }
+.stat-card.dashboard-link { cursor: pointer; transition: transform .15s, box-shadow .15s; }
+.stat-card.dashboard-link:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(26,16,53,.09); }
+.stat-card.dashboard-link:focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
 .stat-card.p  { background: #FFE8F2; }
 .stat-card.y  { background: #FFF3CC; }
 .stat-card.t  { background: #CCF5EE; }
@@ -181,6 +184,86 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .notice-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
 .notice-text { font-size: 12px; color: var(--text); flex: 1; line-height: 1.5; }
 .notice-time { font-size: 10px; color: var(--sub); white-space: nowrap; }
+
+/* ── 今日工作台 ── */
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr); align-items: start; gap: 14px; margin-bottom: 14px; }
+.dashboard-list { display: flex; flex-direction: column; gap: 8px; min-height: 148px; }
+#dashboardRiskList { min-height: 0; }
+.dashboard-loading { color: var(--sub); font-size: 12px; padding: 24px 0; text-align: center; }
+.dashboard-empty { color: var(--sub); font-size: 12px; padding: 26px 12px; text-align: center; background: #fdfaf6; border-radius: 10px; }
+.task-item, .risk-item { display: flex; align-items: center; gap: 10px; padding: 10px 11px; border-radius: 10px; background: #fdfaf6; }
+.task-main, .risk-main { min-width: 0; flex: 1; }
+.task-title, .risk-title { color: var(--text); font-size: 12px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-meta, .risk-meta { color: var(--sub); font-size: 10px; margin-top: 2px; }
+.task-external { margin-left: 6px; color: var(--purple); font-size: 10px; font-weight: 500; text-decoration: none; }
+.task-external:hover { text-decoration: underline; }
+.task-done { width: 28px; height: 28px; border: none; border-radius: 8px; cursor: pointer; color: #0f6e56; background: #ccf5ee; }
+.task-done:hover { background: #a8ebdd; }
+.risk-level { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.risk-high { background: #e24b4a; }
+.risk-medium { background: #f5a623; }
+.risk-low { background: var(--teal); }
+.risk-group-title { margin: 2px 2px 6px; color: var(--sub); font-size: 10px; font-weight: 600; }
+.risk-action { flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px; padding: 5px 8px; background: #fff; color: var(--purple); font-size: 10px; cursor: pointer; }
+.risk-action:hover { border-color: #cfc3f5; background: #f7f4ff; }
+.risk-more { width: 100%; border: 0; border-radius: 9px; padding: 8px; background: #f6f2ec; color: var(--sub); font-size: 11px; cursor: pointer; }
+.risk-info-group { margin-top: 4px; border-radius: 10px; background: #f8fbfa; }
+.risk-info-group summary { padding: 9px 11px; color: #087f75; font-size: 11px; font-weight: 600; cursor: pointer; }
+.risk-info-group .risk-item { margin: 0 8px 8px; }
+.dashboard-actions { background: #fff; border: 0.5px solid rgba(255,182,193,0.3); border-radius: 12px; padding: 14px 16px; }
+.dashboard-actions-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
+.dashboard-action { border: none; border-radius: 10px; padding: 11px 8px; cursor: pointer; font: 500 11px 'Noto Sans SC', sans-serif; display: flex; justify-content: center; align-items: center; gap: 6px; transition: transform .15s, box-shadow .15s; }
+.dashboard-action:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.dashboard-action i { font-size: 16px; }
+.sync-health { display: none; align-items: center; gap: 10px; margin: -2px 0 14px; padding: 10px 13px; border: 1px solid rgba(255,182,193,.35); border-radius: 11px; background: #fff; }
+.sync-health.visible { display: flex; }
+.sync-health-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--sub); flex-shrink: 0; }
+.sync-health-dot.success { background: var(--mint); }
+.sync-health-dot.running { background: var(--teal); animation: pulse 1.2s ease-in-out infinite; }
+.sync-health-dot.stale { background: #f5a623; }
+.sync-health-dot.failed { background: #e24b4a; }
+.sync-health-main { min-width: 0; flex: 1; }
+.sync-health-title { color: var(--text); font-size: 11px; font-weight: 600; }
+.sync-health-meta { color: var(--sub); font-size: 10px; margin-top: 2px; }
+.sync-health-state { border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 600; background: #f4f1ed; color: var(--sub); }
+.resource-card { display: none; margin-bottom: 14px; overflow: hidden; }
+.resource-card.visible { display: block; }
+.resource-table-wrap { overflow-x: auto; margin-top: 10px; }
+.resource-table { width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 5px; }
+.resource-table th { color: var(--sub); font-size: 10px; font-weight: 500; text-align: center; padding: 3px 5px; }
+.resource-table th:first-child { min-width: 100px; text-align: left; }
+.resource-table td { text-align: center; }
+.resource-member { color: var(--text); font-size: 11px; font-weight: 500; text-align: left !important; white-space: nowrap; }
+.resource-cell { min-width: 64px; border-radius: 9px; padding: 8px 5px; font: 600 11px 'Syne', sans-serif; }
+.resource-under { color: #8a4b08; background: #fff0d1; }
+.resource-normal { color: #0f6e56; background: #ccf5ee; }
+.resource-over { color: #b42318; background: #fee4e2; }
+.resource-legend { color: var(--sub); font-size: 10px; }
+.dashboard-modal { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(26,16,53,.46); }
+.dashboard-modal.open { display: flex; }
+.dashboard-modal-panel { width: min(520px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 16px; padding: 20px; background: #fff; box-shadow: 0 20px 50px rgba(26,16,53,.22); }
+.dashboard-modal-panel.task-editor-panel { width: min(760px, 100%); }
+.dashboard-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.dashboard-modal-title { color: var(--text); font-size: 15px; font-weight: 600; }
+.dashboard-modal-close { border: none; background: #f5f0e8; color: var(--sub); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; }
+.dashboard-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.dashboard-input { width: 100%; padding: 9px 11px; border: .5px solid rgba(61,26,0,.18); border-radius: 8px; color: var(--text); font: 13px 'Noto Sans SC', sans-serif; }
+.dashboard-input:focus { outline: none; border-color: var(--pink); box-shadow: 0 0 0 3px rgba(255,107,157,.1); }
+.dashboard-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+
+@media (max-width: 960px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .dashboard-grid { grid-template-columns: 1fr; }
+  .dashboard-actions-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  :root { --sb-w: 176px; }
+  .content { padding: 16px; }
+  .welcome-banner { align-items: flex-start; flex-wrap: wrap; padding: 16px; }
+  .welcome-badge { margin-left: 0; }
+  .stat-grid { grid-template-columns: 1fr; }
+  .dashboard-form-grid { grid-template-columns: 1fr; }
+}
 
 /* ── 自动化模块样式 ── */
 .auto-header {
@@ -298,6 +381,61 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   border-radius: 50%; animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.testhub-plan-section { grid-column: 1 / -1; }
+.testhub-plan-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  margin: 8px 0; color: var(--sub); font-size: 11px;
+}
+.testhub-plan-grid {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+  max-height: 310px; overflow: auto; padding: 8px;
+  border: 1px solid var(--line); border-radius: 12px; background: #fffaf6;
+}
+.testhub-plan-card {
+  position: relative; display: block; min-width: 0; padding: 11px 34px 11px 12px;
+  border: 1px solid var(--line); border-radius: 12px; background: #fff;
+  cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.testhub-plan-card:hover { border-color: #f5a5c2; transform: translateY(-1px); }
+.testhub-plan-card.selected { border-color: var(--pink); background: #fff5f9; box-shadow: 0 0 0 2px rgba(255,107,157,.14); }
+.testhub-plan-card input { position: absolute; top: 12px; right: 12px; accent-color: var(--pink); }
+.testhub-plan-title { font-size: 12px; font-weight: 700; line-height: 1.45; overflow-wrap: anywhere; }
+.testhub-plan-meta { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.testhub-plan-badge { padding: 2px 7px; border-radius: 999px; background: #f4f1ed; color: var(--sub); font-size: 10px; }
+.testhub-plan-badge.android { background: #dff8f4; color: #087f75; }
+.testhub-plan-badge.ios { background: #eee8ff; color: #6d28d9; }
+.testhub-plan-badge.version { background: #fff1bd; color: #7a5a00; }
+.testhub-plan-empty { grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--sub); font-size: 11px; }
+.assignee-section { grid-column: 1 / -1; }
+.assignee-allocation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
+.assignee-allocation-item { display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-radius: 10px; background: #fffaf6; }
+.assignee-allocation-item span { min-width: 0; flex: 1; color: var(--text); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assignee-allocation-item small { color: var(--sub); }
+.assignee-allocation-note { margin-top: 7px; color: var(--sub); font-size: 10px; line-height: 1.6; }
+.assignee-allocation-note .btn-secondary { margin-left: 6px; padding: 3px 8px; font-size: 10px; }
+.assignee-allocation-name { min-width: 0; flex: 1; color: var(--text); font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.assignee-allocation-item input { width: 90px; }
+.member-daily-details { margin-top: 6px; }
+.member-daily-details summary { color: var(--purple); font-size: 10px; cursor: pointer; }
+.member-daily-table { width: 100%; margin-top: 6px; border-collapse: collapse; font-size: 10px; }
+.member-daily-table th, .member-daily-table td { padding: 5px 6px; border: 1px solid var(--line); text-align: center; white-space: nowrap; }
+.member-daily-table th:first-child, .member-daily-table td:first-child { text-align: left; }
+.member-daily-table td span, .member-daily-table td small { display: block; }
+.member-daily-table td small { color: var(--sub); font-size: 9px; }
+.allocation-history-item { margin-top: 6px; padding: 7px 9px; border-left: 3px solid #d8cff7; border-radius: 6px; background: #faf8ff; color: var(--text); font-size: 10px; }
+.allocation-history-item span { color: var(--sub); }
+.progress-mode-badge { align-self: center; border-radius: 999px; padding: 4px 8px; font-size: 10px; white-space: nowrap; }
+.progress-mode-badge.auto { background: #dff8f4; color: #087f75; }
+.progress-mode-badge.manual { background: #fff0d1; color: #8a4b08; }
+.member-work-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+.member-work-summary > div { padding: 12px 14px; border: 1px solid rgba(255,182,193,.3); border-radius: 12px; background: #fff; }
+.member-work-summary span { display: block; color: var(--sub); font-size: 10px; }
+.member-work-summary strong { margin-right: 3px; color: var(--purple); font: 700 22px 'Syne', sans-serif; }
+.member-work-summary small { color: var(--sub); }
+.member-work-summary .has-gap { background: #fff5e6; }
+.member-work-summary .has-gap strong { color: #b45309; }
+@media (max-width: 720px) { .testhub-plan-grid { grid-template-columns: 1fr; } .member-work-summary { grid-template-columns: repeat(2, 1fr); } }
 </style>
 </head>
 <body>
@@ -317,14 +455,12 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   <a class="sb-item active" onclick="nav(this,'dashboard')">
     <i class="ti ti-layout-dashboard"></i>工作台
   </a>
+  <a class="sb-item" onclick="nav(this,'tasks')">
+    <i class="ti ti-clipboard-list"></i>工作事项
+  </a>
   <a class="sb-item" onclick="nav(this,'report')">
     <i class="ti ti-chart-bar"></i>质量报表
   </a>
-  <a class="sb-item" onclick="nav(this,'risk')">
-    <i class="ti ti-alert-triangle"></i>风险提示
-    <span class="badge red" id="riskBadge">0</span>
-  </a>
-
   <hr class="sb-divider">
   <div class="sb-section">测试资产</div>
   <a class="sb-item" onclick="nav(this,'prd')">
@@ -413,14 +549,33 @@ const SUPABASE_URL = 'https://pgpnyrglrromqqjnvaix.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBncG55cmdscnJvbXFxam52YWl4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2MjY2OTgsImV4cCI6MjA5NjIwMjY5OH0.TmkrxS2mY_95aBC2UL2BARLU7gqNb_gSpHP6ynofDsE';
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const RESOURCE_HORIZON_WORKDAYS = 3;
+const DAILY_PROGRESS_CUTOFF_HOUR = 18;
 
 let currentUser = null;
 let userRole = 'member';
 let currentPage = 'dashboard';
 let autoRealtimeSub = null;
+let dashboardRealtimeSub = null;
+let dashboardLoadToken = 0;
+let dashboardSnapshot = null;
+let dashboardMembers = [];
+let dashboardWorkCalendar = new Map();
+let taskRecordCache = new Map();
+let taskProgressByTask = new Map();
+let taskTestHubProgressByTask = new Map();
+let taskAssigneesByTask = new Map();
+let taskTestHubDailyByTask = new Map();
+let taskAllocationHistoryByTask = new Map();
+let pingCodeDirectoryCache = new Map();
+let testHubPlanChoiceCache = new Map();
+let editingQaTaskId = null;
+let progressQaTaskId = null;
+let taskEditorReadOnly = false;
+let dashboardRiskExpanded = false;
 
 const pageTitles = {
-  dashboard: '工作台', report: '质量报表', risk: '风险提示',
+  dashboard: '工作台', tasks: '工作事项', report: '质量报表',
   prd: 'PRD 管理', assets: '资产管理', ai: 'AI 写用例',
   automation: '自动化测试',
   copy: '文案管理',
@@ -459,6 +614,7 @@ async function init() {
 
   // 监听是否有运行中任务，更新侧边栏角标
   watchRunningTasks();
+  watchDashboardData();
 
   renderDashboard();
 }
@@ -470,18 +626,66 @@ function setUserInfo(name, role) {
   document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
 }
 
-async function watchRunningTasks() {
+async function updateRunningTaskBadge() {
   try {
     const { count } = await sb.from('run_tasks').select('*', {count:'exact',head:true}).eq('status','running');
     const badge = document.getElementById('autoBadge');
     if (count > 0) { badge.style.display = 'flex'; badge.textContent = '运行中'; }
     else { badge.style.display = 'none'; }
   } catch {}
-  // 实时订阅
-  sb.channel('run_tasks_watch')
+}
+
+function watchRunningTasks() {
+  updateRunningTaskBadge();
+  if (autoRealtimeSub) return;
+
+  // 只创建一个实时订阅，避免每次数据库变更时重复订阅。
+  autoRealtimeSub = sb.channel('run_tasks_watch')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'run_tasks' }, () => {
-      watchRunningTasks();
+      updateRunningTaskBadge();
       if (currentPage === 'automation') renderAutomation();
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .subscribe();
+}
+
+function watchDashboardData() {
+  if (dashboardRealtimeSub) return;
+
+  dashboardRealtimeSub = sb.channel('dashboard_watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'qa_tasks' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'releases' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'release_checks' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+      if (currentPage === 'dashboard') {
+        loadTaskAssignees();
+        loadDashboardData(++dashboardLoadToken);
+      }
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'work_calendar' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'task_progress_logs' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+      if (currentPage === 'tasks') renderTaskRecords();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'task_testhub_progress' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+      if (currentPage === 'tasks') renderTaskRecords();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'qa_task_assignees' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+      if (currentPage === 'tasks') renderTaskRecords();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'task_testhub_daily_execution' }, () => {
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+      if (currentPage === 'tasks') renderTaskRecords();
     })
     .subscribe();
 }
@@ -499,6 +703,8 @@ function refreshPage() { renderPage(currentPage); }
 function renderPage(page) {
   const content = document.getElementById('content');
   if (page === 'dashboard') { renderDashboard(); return; }
+  if (page === 'tasks') { renderTaskRecords(); return; }
+  if (page === 'members') { renderMemberMappings(); return; }
   if (page === 'automation') { renderAutomation(); return; }
   if (page === 'assets') {
     content.style.padding = '0';
@@ -507,7 +713,7 @@ function renderPage(page) {
   }
   if (page === 'ai') {
     content.style.padding = '0';
-    content.innerHTML = `<iframe src="liene.html" class="module-frame" style="height:calc(100vh - 56px);border-radius:0;"></iframe>`;
+    content.innerHTML = `<iframe src="https://zihan-qa.github.io/Liene-Photo-APP-Case/liene.html" class="module-frame" style="height:calc(100vh - 56px);border-radius:0;"></iframe>`;
     return;
   }
   if (page === 'copy') {
@@ -535,6 +741,361 @@ function renderPage(page) {
 }
 
 // ── 自动化模块 ────────────────────────────────────────────────
+function normalizePersonName(value) {
+  return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, '');
+}
+
+function getTaskTestHubPlanIds(task) {
+  return [...new Set([
+    ...(Array.isArray(task?.testhub_plan_ids) ? task.testhub_plan_ids : []),
+    ...(task?.testhub_plan_id ? [task.testhub_plan_id] : [])
+  ].map(value => String(value || '').trim()).filter(Boolean))];
+}
+
+async function renderMemberMappings() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  if (userRole !== 'admin') {
+    content.innerHTML = '<div class="history-card"><div class="dashboard-empty">仅管理员可以管理成员映射</div></div>';
+    return;
+  }
+  content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载成员映射…</div></div>';
+
+  try {
+    const [profilesResult, directoryResult] = await Promise.all([
+      sb.from('profiles').select('id,name,role,pingcode_user_id,pingcode_display_name').order('name'),
+      sb.from('pingcode_user_directory').select('pingcode_user_id,display_name,last_seen_at').order('display_name')
+    ]);
+    if (profilesResult.error) throw profilesResult.error;
+    if (directoryResult.error) throw directoryResult.error;
+    pingCodeDirectoryCache = new Map((directoryResult.data || []).map(user => [user.pingcode_user_id, user]));
+    const options = (directoryResult.data || []).map(user =>
+      `<option value="${escapeDashboardHtml(user.pingcode_user_id)}">${escapeDashboardHtml(user.display_name || '未命名')} · ${escapeDashboardHtml(user.pingcode_user_id.slice(-6))}</option>`
+    ).join('');
+    const rows = (profilesResult.data || []).map(profile => {
+      const suggestions = (directoryResult.data || []).filter(user =>
+        normalizePersonName(user.display_name) === normalizePersonName(profile.name));
+      const suggestion = suggestions.length === 1
+        ? `同名建议：${suggestions[0].display_name} · ${suggestions[0].pingcode_user_id.slice(-6)}`
+        : suggestions.length > 1 ? `发现 ${suggestions.length} 个同名账号，请按 ID 确认` : '暂无同名候选';
+      return `<tr>
+        <td><input class="dashboard-input" id="profileName-${profile.id}" value="${escapeDashboardHtml(profile.name || '')}" maxlength="50" placeholder="成员名称"><br><span style="color:var(--sub);font-size:10px;">${profile.role === 'admin' ? '管理员' : '成员'}</span></td>
+        <td><input class="dashboard-input" id="pingcodeMap-${profile.id}" list="pingcodeUserOptions" value="${escapeDashboardHtml(profile.pingcode_user_id || '')}" placeholder="选择候选或粘贴 PingCode 用户 ID"><br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(suggestion)}</span></td>
+        <td>${escapeDashboardHtml(profile.pingcode_display_name || '未绑定')}</td>
+        <td><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button></td>
+      </tr>`;
+    }).join('');
+    content.innerHTML = `
+      <div class="history-card">
+        <div class="card-hd" style="margin-bottom:12px;"><span class="card-title">👥 成员与 PingCode 账号映射</span><span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${(directoryResult.data || []).length} 个候选</span></div>
+        <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">姓名只用于建议；保存时以 PingCode 用户 ID 为唯一依据。候选来自 TestHub 最近执行人。</div>
+        <datalist id="pingcodeUserOptions">${options}</datalist>
+        <div style="overflow-x:auto;"><table class="history-table"><thead><tr><th>平台成员</th><th>PingCode 用户 ID</th><th>当前显示名</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="4">暂无成员</td></tr>'}</tbody></table></div>
+      </div>`;
+  } catch (error) {
+    console.error('[members] load failed:', error);
+    content.innerHTML = `<div class="history-card"><div class="dashboard-empty">成员映射加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
+  }
+}
+
+async function savePingCodeMapping(profileId) {
+  const input = document.getElementById(`pingcodeMap-${profileId}`);
+  const nameInput = document.getElementById(`profileName-${profileId}`);
+  const memberName = nameInput?.value.trim() || '';
+  const pingCodeUserId = input?.value.trim() || null;
+  const candidate = pingCodeUserId ? pingCodeDirectoryCache.get(pingCodeUserId) : null;
+  if (!memberName) {
+    showToast('成员名称不能为空', 'error');
+    nameInput?.focus();
+    return;
+  }
+  try {
+    const { error } = await sb.from('profiles').update({
+      name: memberName,
+      pingcode_user_id: pingCodeUserId,
+      pingcode_display_name: candidate?.display_name || null
+    }).eq('id', profileId);
+    if (error) throw error;
+    if (profileId === currentUser.id) setUserInfo(memberName, userRole);
+    showToast(pingCodeUserId ? '成员信息与 PingCode 映射已保存' : '成员信息已保存');
+    await renderMemberMappings();
+  } catch (error) {
+    console.error('[members] mapping failed:', error);
+    showToast('映射保存失败：该 PingCode 账号可能已绑定其他成员', 'error');
+  }
+}
+
+function taskEditorModalHtml() {
+  return `
+    <div class="dashboard-modal" id="newTaskModal">
+      <div class="dashboard-modal-panel task-editor-panel">
+        <div class="dashboard-modal-hd">
+          <div class="dashboard-modal-title" id="taskModalTitle">查看/编辑工作事项</div>
+          <button class="dashboard-modal-close" onclick="closeNewTaskModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" for="newTaskTitle">任务标题</label>
+          <input class="dashboard-input" id="newTaskTitle" maxlength="300">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" for="newTaskDescription">事项说明（选填）</label>
+          <textarea class="dashboard-input" id="newTaskDescription" rows="3" maxlength="2000"></textarea>
+        </div>
+        <div class="dashboard-form-grid">
+          <div class="form-group"><label class="form-label" for="newTaskType">任务类型</label><select class="form-select" id="newTaskType"><option value="prd_review">PRD 评审</option><option value="case_design">用例设计</option><option value="test_execution">测试执行</option><option value="bug_verify">BUG 验证</option><option value="copy_check">文案检查</option><option value="automation">自动化</option><option value="other">其他</option></select></div>
+          <div class="form-group"><label class="form-label" for="newTaskStatus">状态</label><select class="form-select" id="newTaskStatus"><option value="todo">待处理</option><option value="in_progress">进行中</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></div>
+          <div class="form-group assignee-section"><label class="form-label" for="newTaskAssignee">负责人（点击姓名可多选）</label><select class="form-select" id="newTaskAssignee" multiple size="4" onmousedown="toggleAssigneeOption(event)" onchange="renderAssigneeAllocationInputs()" ${userRole === 'admin' ? '' : 'disabled'}><option value="${currentUser.id}" selected>分配给我</option></select><div id="assigneeAllocationPreview"></div></div>
+          <div class="form-group"><label class="form-label" for="newTaskEffort">事件总人天</label><input class="dashboard-input" id="newTaskEffort" type="number" min="0.25" max="365" step="0.25" onchange="distributeAssigneeEffortEvenly()"></div>
+          <div class="form-group"><label class="form-label" for="newTaskAllocationStart">资源开始日</label><input class="dashboard-input" id="newTaskAllocationStart" type="date"></div>
+          <div class="form-group"><label class="form-label" for="newTaskAllocationEnd">截止日期（包含当天）</label><input class="dashboard-input" id="newTaskAllocationEnd" type="date"></div>
+        </div>
+        <div class="dashboard-form-grid" style="margin-top:12px;">
+          <div class="form-group"><label class="form-label" for="newTaskTestHubLibrary">TestHub 用例库（选填）</label><select class="form-select" id="newTaskTestHubLibrary"><option value="">不关联</option><option value="661e31a128d44167e325552c">消费类</option><option value="6214acdba2fa0b097f549d45">打印机</option><option value="6746eb4a87e7da0dbd43c027">PC</option></select></div>
+          <div class="form-group"><label class="form-label" for="newTaskTestHubSearch">计划关键词</label><div style="display:flex;gap:6px;"><input class="dashboard-input" id="newTaskTestHubSearch" placeholder="可留空查看最近计划"><button class="btn-secondary" type="button" onclick="loadTestHubPlans(this)" style="white-space:nowrap;">查询缓存</button></div></div>
+          <div class="form-group testhub-plan-section"><label class="form-label">TestHub 计划（可多选）</label><div class="testhub-plan-summary"><span id="testHubPlanSummary">未选择计划</span><button class="btn-secondary" type="button" onclick="clearTestHubPlanSelection()">清空选择</button></div><div class="assignee-allocation-note">关联计划后自动按 TestHub 已执行用例数 ÷ 总用例数计算；不关联时才使用手工填报。</div><div id="testHubPlanOptions" class="testhub-plan-grid"><span class="testhub-plan-empty">查询后选择 Android / iOS 计划</span></div><details style="margin-top:7px;"><summary style="color:var(--sub);font-size:10px;cursor:pointer;">高级：手动添加计划 ID</summary><div style="display:flex;gap:6px;margin-top:6px;"><input class="dashboard-input" id="manualTestHubPlanId" placeholder="缓存未同步时填写计划 ID"><button class="btn-secondary" type="button" onclick="addManualTestHubPlan()" style="white-space:nowrap;">添加 ID</button></div></details><div id="testHubPlanHint" style="color:var(--sub);font-size:10px;margin-top:4px;">请先运行本地同步工具，再查询缓存</div></div>
+        </div>
+        <div class="dashboard-form-actions"><button class="btn-secondary" onclick="closeNewTaskModal()">取消</button><button class="btn-primary" id="saveTaskBtn" onclick="saveQaTask()"><i class="ti ti-check"></i><span id="saveTaskBtnText">保存修改</span></button></div>
+      </div>
+    </div>`;
+}
+
+function progressModalHtml() {
+  return `
+    <div class="dashboard-modal" id="progressModal">
+      <div class="dashboard-modal-panel" style="width:min(420px,100%);">
+        <div class="dashboard-modal-hd">
+          <div class="dashboard-modal-title" id="progressModalTitle">填报今日进度</div>
+          <button class="dashboard-modal-close" onclick="closeProgressModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="dashboard-form-grid">
+          <div class="form-group"><label class="form-label" for="progressWorkDate">工作日期</label><input class="dashboard-input" id="progressWorkDate" type="date" value="${dashboardTodayInputValue()}"></div>
+          <div class="form-group"><label class="form-label" for="progressExecutor">实际执行人</label><select class="form-select" id="progressExecutor" onchange="updateProgressPointSuggestion()" ${userRole === 'admin' ? '' : 'disabled'}></select></div>
+          <div class="form-group"><label class="form-label" for="progressPoints">线下实际完成点数</label><input class="dashboard-input" id="progressPoints" type="number" min="0.01" max="50" step="0.01"></div>
+        </div>
+        <div class="form-group" style="margin-top:12px;"><label class="form-label" for="progressNote">工作说明</label><textarea class="dashboard-input" id="progressNote" rows="4" maxlength="1000" placeholder="例如：完成证件照打印链路回归，剩余异常场景待验证"></textarea></div>
+        <div class="dashboard-form-actions"><button class="btn-secondary" onclick="closeProgressModal()">取消</button><button class="btn-primary" id="saveProgressBtn" onclick="saveTaskProgress()"><i class="ti ti-check"></i>提交进度</button></div>
+      </div>
+    </div>`;
+}
+
+function taskAssigneeList(task) {
+  const rows = taskAssigneesByTask.get(task.id) || [];
+  return rows.length ? rows : [{ task_id:task.id, member_id:task.assignee_id, allocated_effort:Number(task.effort_person_days) || 0 }];
+}
+
+function canCurrentUserEditTask(task) {
+  const assignments = taskAssigneeList(task);
+  return userRole === 'admin' || (
+    task.created_by === currentUser.id
+    && assignments.length === 1
+    && assignments[0].member_id === currentUser.id
+  );
+}
+
+function taskMemberDailyPlan(task, memberId, calendar = dashboardWorkCalendar) {
+  const allocation = taskAssigneeList(task).find(item => item.member_id === memberId);
+  const days = task.allocation_start_date && task.allocation_end_date
+    ? resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar).length
+    : 0;
+  return allocation && days ? Number(allocation.allocated_effort) / days : 0;
+}
+
+function taskAllocationSnapshotForDate(task, dateKey) {
+  const history = [...(taskAllocationHistoryByTask.get(task.id) || [])]
+    .sort((a, b) => new Date(a.changed_at) - new Date(b.changed_at));
+  let selected = null;
+  history.forEach(item => {
+    if (dashboardLocalDateKey(new Date(item.changed_at)) <= dateKey) selected = item;
+  });
+  return selected || history[0] || null;
+}
+
+function taskMemberDailyPlanOnDate(task, memberId, dateKey, calendar = dashboardWorkCalendar) {
+  const snapshot = taskAllocationSnapshotForDate(task, dateKey);
+  if (!snapshot) return taskMemberDailyPlan(task, memberId, calendar);
+  const assignment = (Array.isArray(snapshot.assignments) ? snapshot.assignments : []).find(item => item.member_id === memberId);
+  const workdays = resourceWorkDates(snapshot.allocation_start_date, snapshot.allocation_end_date, calendar).length;
+  return assignment && workdays ? Number(assignment.allocated_effort) / workdays : 0;
+}
+
+function taskMemberTestHubPoints(task, memberId, dateKey, snapshot) {
+  const totalCases = Number(snapshot?.total_cases) || 0;
+  const effort = Math.min(Number(task.testhub_effort_person_days) || 0, Number(task.effort_person_days) || 0);
+  if (!totalCases || !effort) return 0;
+  const cases = (taskTestHubDailyByTask.get(task.id) || [])
+    .filter(row => row.member_id === memberId && (!dateKey || row.work_date === dateKey))
+    .reduce((sum, row) => sum + Number(row.executed_cases || 0), 0);
+  return effort * cases / totalCases;
+}
+
+function taskUsesTestHubProgress(task) {
+  return getTaskTestHubPlanIds(task).length > 0 && Number(task.testhub_effort_person_days) > 0;
+}
+
+function renderTaskMemberDailyDetail(task, names, snapshot) {
+  const history = taskAllocationHistoryByTask.get(task.id) || [];
+  const starts = [task.allocation_start_date, ...history.map(item => item.allocation_start_date)].filter(Boolean).sort();
+  const ends = [task.allocation_end_date, ...history.map(item => item.allocation_end_date)].filter(Boolean).sort();
+  const dates = starts.length && ends.length ? resourceWorkDates(starts[0], ends.at(-1)) : [];
+  if (!dates.length) return '';
+  const logs = taskProgressByTask.get(task.id) || [];
+  const allAssignments = new Map(taskAssigneeList(task).map(item => [item.member_id, item]));
+  history.forEach(item => (item.assignments || []).forEach(assignment => {
+    if (!allAssignments.has(assignment.member_id)) allAssignments.set(assignment.member_id, assignment);
+  }));
+  const rows = [...allAssignments.values()].map(allocation => {
+    const planned = taskMemberDailyPlan(task, allocation.member_id);
+    const manualTotal = (taskUsesTestHubProgress(task) ? [] : logs).filter(log => log.executor_id === allocation.member_id && log.source === 'manual')
+      .reduce((sum, log) => sum + Number(log.progress_points || 0), 0);
+    const testHubTotal = taskMemberTestHubPoints(task, allocation.member_id, null, snapshot);
+    const cells = dates.map(date => {
+      const manual = (taskUsesTestHubProgress(task) ? [] : logs).filter(log => log.executor_id === allocation.member_id && log.work_date === date && log.source === 'manual')
+        .reduce((sum, log) => sum + Number(log.progress_points || 0), 0);
+      const testHub = taskMemberTestHubPoints(task, allocation.member_id, date, snapshot);
+      const dayPlan = taskMemberDailyPlanOnDate(task, allocation.member_id, date);
+      return `<td title="计划 ${dayPlan.toFixed(2)} · 线下 ${manual.toFixed(2)} · TestHub ${testHub.toFixed(2)}"><span>${(manual + testHub).toFixed(2)}</span><small>/ ${dayPlan.toFixed(2)}</small></td>`;
+    }).join('');
+    return `<tr><td>${escapeDashboardHtml(names.get(allocation.member_id) || '未命名成员')}</td><td>${Number(allocation.allocated_effort).toFixed(2)}</td><td>${planned.toFixed(2)}</td><td>${(manualTotal + testHubTotal).toFixed(2)}</td>${cells}</tr>`;
+  }).join('');
+  const unmapped = (taskTestHubDailyByTask.get(task.id) || []).filter(row => !row.member_id);
+  const unmappedNote = unmapped.length
+    ? `<div class="assignee-allocation-note">另有 ${unmapped.reduce((sum, row) => sum + Number(row.executed_cases || 0), 0)} 条 TestHub 执行记录尚未映射：${escapeDashboardHtml([...new Set(unmapped.map(row => row.executor_name || '未识别执行人'))].join('、'))}${userRole === 'admin' ? '。请到成员管理绑定 PingCode 用户 ID。' : ''}</div>` : '';
+  return `<details class="member-daily-details"><summary>查看每人每天实际 / 当日计划</summary><div style="overflow-x:auto"><table class="member-daily-table"><thead><tr><th>成员</th><th>当前人天</th><th>当前日计划</th><th>累计实际</th>${dates.map(date => `<th>${date.slice(5).replace('-', '/')}<br>实际/计划</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div>${unmappedNote}</details>`;
+}
+
+function renderTaskAllocationHistory(task, names) {
+  const history = taskAllocationHistoryByTask.get(task.id) || [];
+  if (history.length < 2) return '';
+  return `<details class="member-daily-details"><summary>查看资源分配历史（${history.length} 个版本）</summary>${history.slice(0, 8).map(item => {
+    const assignments = Array.isArray(item.assignments) ? item.assignments : [];
+    const people = assignments.map(row => `${names.get(row.member_id) || '未命名成员'} ${Number(row.allocated_effort || 0).toFixed(2)}`).join('、');
+    return `<div class="allocation-history-item"><strong>版本 ${item.revision}</strong> · ${escapeDashboardHtml(item.allocation_start_date)} 至 ${escapeDashboardHtml(item.allocation_end_date)} · ${Number(item.total_effort).toFixed(2)} 人天<br><span>${escapeDashboardHtml(people)} · ${new Date(item.changed_at).toLocaleString('zh-CN')}</span></div>`;
+  }).join('')}</details>`;
+}
+
+async function renderTaskRecords() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载工作事项…</div></div>';
+
+  try {
+    let query = sb.from('qa_tasks')
+      .select('id,title,description,priority,task_type,status,assignee_id,due_date,created_by,created_at,completed_at,source,related_type,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days')
+      .order('created_at', { ascending:false })
+      .limit(200);
+    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult] = await Promise.all([
+      query,
+      sb.from('profiles').select('id,name'),
+      sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at').order('work_date', { ascending:false }),
+      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,sync_error,synced_at'),
+      sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
+      sb.from('task_testhub_daily_execution').select('task_id,work_date,executor_key,member_id,executor_name,executed_cases,synced_at'),
+      sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false })
+    ]);
+    if (tasksResult.error) throw tasksResult.error;
+    if (profilesResult.error) throw profilesResult.error;
+    if (progressResult.error) throw progressResult.error;
+    if (testHubResult.error) throw testHubResult.error;
+    if (assigneesResult.error) throw assigneesResult.error;
+    if (dailyResult.error) throw dailyResult.error;
+    if (historyResult.error) throw historyResult.error;
+    dashboardMembers = profilesResult.data || [];
+    taskRecordCache = new Map((tasksResult.data || []).map(task => [task.id, task]));
+    taskProgressByTask = new Map();
+    (progressResult.data || []).forEach(log => {
+      const logs = taskProgressByTask.get(log.task_id) || [];
+      logs.push(log);
+      taskProgressByTask.set(log.task_id, logs);
+    });
+    taskTestHubProgressByTask = new Map((testHubResult.data || []).map(snapshot => [snapshot.task_id, snapshot]));
+    taskAssigneesByTask = new Map();
+    (assigneesResult.data || []).forEach(item => {
+      const list = taskAssigneesByTask.get(item.task_id) || [];
+      list.push(item);
+      taskAssigneesByTask.set(item.task_id, list);
+    });
+    taskTestHubDailyByTask = new Map();
+    (dailyResult.data || []).forEach(item => {
+      const list = taskTestHubDailyByTask.get(item.task_id) || [];
+      list.push(item);
+      taskTestHubDailyByTask.set(item.task_id, list);
+    });
+    taskAllocationHistoryByTask = new Map();
+    (historyResult.data || []).forEach(item => {
+      const list = taskAllocationHistoryByTask.get(item.task_id) || [];
+      list.push(item);
+      taskAllocationHistoryByTask.set(item.task_id, list);
+    });
+
+    const names = new Map((profilesResult.data || []).map(profile => [profile.id, profile.name || '未命名成员']));
+    const statuses = {
+      todo: '<span class="status-badge status-queued">待处理</span>',
+      in_progress: '<span class="status-badge status-running">进行中</span>',
+      done: '<span class="status-badge status-done">已完成</span>',
+      cancelled: '<span class="status-badge status-failed">已取消</span>'
+    };
+    const rows = (tasksResult.data || []).map(task => {
+      const range = task.allocation_start_date
+        ? `${task.allocation_start_date} → ${task.allocation_end_date}（含截止日）`
+        : '-';
+      const assignments = taskAssigneeList(task);
+      const points = task.effort_person_days
+        ? `${Number(task.effort_person_days).toFixed(2)} 人天 / ${assignments.length} 人 / 事件每日 ${resourceDailyPoints(task).toFixed(2)} 点`
+        : '-';
+      const snapshot = taskTestHubProgressByTask.get(task.id);
+      const actual = taskActualProgressPoints(task, taskProgressByTask.get(task.id) || [], snapshot);
+      const testHubPlanCount = getTaskTestHubPlanIds(task).length;
+      const testHubText = testHubPlanCount
+        ? ` · TestHub ${testHubPlanCount} 个计划 ${snapshot?.executed_cases || 0}/${snapshot?.total_cases || 0}`
+        : '';
+      const canEdit = canCurrentUserEditTask(task);
+      return `<tr>
+        <td><strong>${escapeDashboardHtml(task.title)}</strong></td>
+        <td>${assignments.map(item => escapeDashboardHtml(names.get(item.member_id) || '未命名成员')).join('、')}</td>
+        <td>${statuses[task.status] || escapeDashboardHtml(task.status)}</td>
+        <td>${escapeDashboardHtml(range)}<br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(points)} · 实际累计 ${actual.totalActual.toFixed(2)} 点${escapeDashboardHtml(testHubText)}</span>${renderTaskMemberDailyDetail(task, names, snapshot)}${renderTaskAllocationHistory(task, names)}</td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="openEditQaTask('${task.id}', ${canEdit ? 'false' : 'true'})">${canEdit ? '查看/编辑' : '查看'}</button>${testHubPlanCount ? '<span class="progress-mode-badge auto">TestHub 自动</span>' : `<button class="btn-primary" onclick="openProgressModal('${task.id}')">填报进度</button><span class="progress-mode-badge manual">手工</span>`}${userRole === 'admin' && testHubPlanCount ? `<button class="btn-secondary" onclick="syncTestHubProgress('${task.id}', this)">刷新进度</button>` : ''}</div></td>
+      </tr>`;
+    }).join('');
+
+    const todayKey = dashboardTodayInputValue();
+    const memberActiveTasks = (tasksResult.data || []).filter(task =>
+      task.status !== 'done' && task.status !== 'cancelled'
+      && taskAssigneeList(task).some(item => item.member_id === currentUser.id)
+      && task.allocation_start_date <= todayKey && task.allocation_end_date >= todayKey
+      && isResourceWorkday(todayKey)
+    );
+    const memberPlannedToday = memberActiveTasks.reduce((sum, task) => sum + taskMemberDailyPlan(task, currentUser.id), 0);
+    const memberActualToday = memberActiveTasks.reduce((sum, task) => {
+      if (taskUsesTestHubProgress(task)) return sum + taskMemberTestHubPoints(task, currentUser.id, todayKey, taskTestHubProgressByTask.get(task.id));
+      return sum + (taskProgressByTask.get(task.id) || [])
+        .filter(log => log.executor_id === currentUser.id && log.work_date === todayKey && log.source === 'manual')
+        .reduce((subtotal, log) => subtotal + Number(log.progress_points || 0), 0);
+    }, 0);
+    const memberGapToday = Math.max(memberPlannedToday - memberActualToday, 0);
+    const memberSummary = userRole === 'admin' ? '' : `<div class="member-work-summary"><div><span>今日计划</span><strong>${memberPlannedToday.toFixed(2)}</strong><small>点</small></div><div><span>今日实际</span><strong>${memberActualToday.toFixed(2)}</strong><small>点</small></div><div class="${memberGapToday > 0.01 ? 'has-gap' : ''}"><span>今日差额</span><strong>${memberGapToday.toFixed(2)}</strong><small>点</small></div><div><span>负责事项</span><strong>${memberActiveTasks.length}</strong><small>项</small></div></div>`;
+
+    content.innerHTML = `
+      ${memberSummary}
+      <div class="history-card">
+        <div class="card-hd" style="margin-bottom:12px;">
+          <span class="card-title">📋 ${userRole === 'admin' ? '团队工作事项' : '我的工作事项'}</span>
+          <div style="display:flex;align-items:center;gap:8px;">${userRole === 'admin' ? '<button class="btn-secondary" onclick="copyLocalSyncAuthorization(this)">复制本地同步授权</button><button class="btn-secondary" onclick="syncTestHubProgress(null, this)">刷新全部进度</button>' : ''}<span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${(tasksResult.data || []).length} 项</span></div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="history-table" style="min-width:760px;">
+            <thead><tr><th>事项</th><th>负责人</th><th>状态</th><th>资源与截止日期</th><th>操作</th></tr></thead>
+            <tbody>${rows || '<tr><td colspan="5" style="text-align:center;color:var(--sub);padding:30px;">暂无工作事项</td></tr>'}</tbody>
+          </table>
+        </div>
+      </div>${taskEditorModalHtml()}${progressModalHtml()}`;
+    loadTaskAssignees();
+  } catch (error) {
+    console.error('[tasks] load failed:', error);
+    content.innerHTML = `<div class="history-card"><div class="dashboard-empty">工作事项加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
+  }
+}
+
 async function renderAutomation() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
@@ -692,11 +1253,15 @@ async function triggerTask() {
   btn.innerHTML = '<i class="ti ti-loader" style="animation:spin 0.7s linear infinite"></i> 提交中...';
 
   try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) throw new Error('登录状态已失效，请重新登录');
+
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/smooth-task`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${session.access_token}`,
       },
       body: JSON.stringify({ task_type, platform, device_id, triggered_by, task_module }),
     });
@@ -734,103 +1299,1393 @@ function renderDashboard() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
   const name = document.getElementById('userName').textContent;
+  const safeName = escapeDashboardHtml(name);
+  const token = ++dashboardLoadToken;
+  dashboardRiskExpanded = false;
 
   content.innerHTML = `
     <div class="welcome-banner">
       <div class="welcome-emoji">👋</div>
       <div>
-        <div class="welcome-title">你好，${name}！</div>
-        <div class="welcome-sub">欢迎回到 Liene QA 测试管理平台</div>
+        <div class="welcome-title">你好，${safeName}！</div>
+        <div class="welcome-sub" id="dashboardReleaseText">正在读取当前测试版本…</div>
       </div>
-      <div class="welcome-badge">今日状态良好</div>
+      <div class="welcome-badge" id="dashboardStatusBadge" role="button" tabindex="0" onclick="scrollToDashboardRisks()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();scrollToDashboardRisks();}">数据加载中</div>
+    </div>
+
+    <div class="sync-health ${userRole === 'admin' ? 'visible' : ''}" id="testHubSyncHealth">
+      <span class="sync-health-dot" id="testHubSyncHealthDot"></span>
+      <div class="sync-health-main">
+        <div class="sync-health-title" id="testHubSyncHealthTitle">TestHub 本地同步状态读取中…</div>
+        <div class="sync-health-meta" id="testHubSyncHealthMeta">每 30 分钟同步一次</div>
+      </div>
+      <span class="sync-health-state" id="testHubSyncHealthState">加载中</span>
     </div>
 
     <div class="stat-grid">
-      <div class="stat-card p">
-        <div class="sc-icon p"><i class="ti ti-bug"></i></div>
-        <div class="sc-val" id="sc-bugs">-</div>
-        <div class="sc-label">待处理 BUG</div>
+      <div class="stat-card p dashboard-link" role="button" tabindex="0" onclick="navTo('tasks')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navTo('tasks');}">
+        <div class="sc-icon p"><i class="ti ti-checkbox"></i></div>
+        <div class="sc-val" id="sc-tasks">…</div>
+        <div class="sc-label">今日待办</div>
       </div>
-      <div class="stat-card y">
-        <div class="sc-icon y"><i class="ti ti-device-mobile"></i></div>
-        <div class="sc-val" id="sc-devices">-</div>
-        <div class="sc-label">在用设备</div>
+      <div class="stat-card y dashboard-link" role="button" tabindex="0" onclick="navTo('automation')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navTo('automation');}">
+        <div class="sc-icon y"><i class="ti ti-alert-circle"></i></div>
+        <div class="sc-val" id="sc-auto-failed">…</div>
+        <div class="sc-label">24小时自动化失败</div>
       </div>
-      <div class="stat-card t">
-        <div class="sc-icon t"><i class="ti ti-player-play"></i></div>
-        <div class="sc-val" id="sc-auto">-</div>
-        <div class="sc-label">今日自动化执行</div>
+      <div class="stat-card t dashboard-link" role="button" tabindex="0" onclick="navTo('automation')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navTo('automation');}">
+        <div class="sc-icon t"><i class="ti ti-device-mobile-off"></i></div>
+        <div class="sc-val" id="sc-offline">…</div>
+        <div class="sc-label">离线自动化设备</div>
       </div>
-      <div class="stat-card pu">
-        <div class="sc-icon pu"><i class="ti ti-file-description"></i></div>
-        <div class="sc-val" id="sc-prd">-</div>
-        <div class="sc-label">PRD 版本</div>
+      <div class="stat-card pu dashboard-link" role="button" tabindex="0" onclick="navTo('assets')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navTo('assets');}">
+        <div class="sc-icon pu"><i class="ti ti-package-off"></i></div>
+        <div class="sc-val" id="sc-low-stock">…</div>
+        <div class="sc-label">低库存耗材</div>
       </div>
     </div>
 
-    <div class="bottom-grid">
+    <div class="dashboard-grid">
       <div class="card">
         <div class="card-hd">
-          <span class="card-title">⚡ 快捷入口</span>
+          <span class="card-title" id="dashboardTaskTitle">✅ 我的今日任务</span>
+          <span class="card-tag" id="dashboardTaskTag" style="background:#FFE8F2;color:#c0265a;">加载中</span>
         </div>
-        <div class="quick-grid">
-          <div class="quick-item" style="background:#FFE8F2;" onclick="navTo('assets')">
-            <i class="ti ti-device-mobile" style="color:var(--pink);"></i>
-            <span style="color:var(--pink);">资产管理</span>
-          </div>
-          <div class="quick-item" style="background:#EDE8FF;" onclick="navTo('prd')">
-            <i class="ti ti-file-description" style="color:var(--purple);"></i>
-            <span style="color:var(--purple);">PRD 管理</span>
-          </div>
-          <div class="quick-item" style="background:#CCF5EE;" onclick="navTo('automation')">
-            <i class="ti ti-player-play" style="color:#0F6E56;"></i>
-            <span style="color:#0F6E56;">自动化测试</span>
-          </div>
-          <div class="quick-item" style="background:#FFF3CC;" onclick="navTo('ai')">
-            <i class="ti ti-robot" style="color:#7a5a00;"></i>
-            <span style="color:#7a5a00;">AI 写用例</span>
-          </div>
+        <div class="dashboard-list" id="dashboardTaskList">
+          <div class="dashboard-loading">正在加载今日任务…</div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-hd">
-          <span class="card-title">🔔 系统公告</span>
-          <span class="card-tag" style="background:#FFE8F2;color:#c0265a;">最新</span>
+          <span class="card-title">⚠️ 风险提醒</span>
+          <span class="card-tag" id="dashboardRiskTag" style="background:#FFF3CC;color:#7a5a00;">加载中</span>
         </div>
-        <div>
-          <div class="notice-item">
-            <div class="notice-dot" style="background:var(--teal);"></div>
-            <div class="notice-text">自动化测试模块上线，支持 Android/iOS 双端触发</div>
-            <div class="notice-time">今天</div>
+        <div class="dashboard-list" id="dashboardRiskList">
+          <div class="dashboard-loading">正在计算版本风险…</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card resource-card ${userRole === 'admin' ? 'visible' : ''}" id="resourceCapacityCard">
+      <div class="card-hd">
+        <span class="card-title">👥 未来 ${RESOURCE_HORIZON_WORKDAYS} 个工作日团队资源</span>
+        <span class="resource-legend">橙色不足 · 绿色正常 · 红色超负荷</span>
+      </div>
+      <div class="resource-table-wrap" id="resourceCapacityGrid">
+        <div class="dashboard-loading">正在计算成员资源点数…</div>
+      </div>
+    </div>
+
+    <div class="dashboard-actions">
+      <div class="card-title">⚡ 快捷操作</div>
+      <div class="dashboard-actions-row">
+        <button class="dashboard-action" style="background:#CCF5EE;color:#0F6E56;" onclick="navTo('automation')"><i class="ti ti-player-play"></i>运行冒烟</button>
+        <button class="dashboard-action" style="background:#FFE8F2;color:#c0265a;" onclick="openNewTaskModal()"><i class="ti ti-square-plus"></i>新建待办</button>
+        <button class="dashboard-action" style="background:#EDE8FF;color:var(--purple);" onclick="navTo('prd')"><i class="ti ti-file-description"></i>打开 PRD</button>
+        <button class="dashboard-action" style="background:#FFF3CC;color:#7a5a00;" onclick="navTo('ai')"><i class="ti ti-robot"></i>AI 写用例</button>
+        <button class="dashboard-action" style="background:#f3ecff;color:#6d28d9;" onclick="copyTodaySummary()"><i class="ti ti-copy"></i>复制今日摘要</button>
+      </div>
+    </div>
+
+    <div class="dashboard-modal" id="newTaskModal">
+      <div class="dashboard-modal-panel task-editor-panel" onclick="event.stopPropagation()">
+        <div class="dashboard-modal-hd">
+          <div class="dashboard-modal-title" id="taskModalTitle">新建今日待办</div>
+          <button class="dashboard-modal-close" onclick="closeNewTaskModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" for="newTaskTitle">任务标题</label>
+          <input class="dashboard-input" id="newTaskTitle" maxlength="300" placeholder="例如：评审 Perilla 首页 PRD">
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" for="newTaskDescription">事项说明（选填）</label>
+          <textarea class="dashboard-input" id="newTaskDescription" rows="3" maxlength="2000" placeholder="填写范围、交付物或验收要求"></textarea>
+        </div>
+        <div class="dashboard-form-grid">
+          <div class="form-group">
+            <label class="form-label" for="newTaskType">任务类型</label>
+            <select class="form-select" id="newTaskType">
+              <option value="prd_review">PRD 评审</option>
+              <option value="case_design">用例设计</option>
+              <option value="test_execution">测试执行</option>
+              <option value="bug_verify">BUG 验证</option>
+              <option value="copy_check">文案检查</option>
+              <option value="automation">自动化</option>
+              <option value="other" selected>其他</option>
+            </select>
           </div>
-          <div class="notice-item">
-            <div class="notice-dot" style="background:var(--pink);"></div>
-            <div class="notice-text">Liene QA 平台正式上线，欢迎使用！</div>
-            <div class="notice-time">本周</div>
+          <div class="form-group">
+            <label class="form-label" for="newTaskStatus">状态</label>
+            <select class="form-select" id="newTaskStatus">
+              <option value="todo" selected>待处理</option>
+              <option value="in_progress">进行中</option>
+              <option value="done">已完成</option>
+              <option value="cancelled">已取消</option>
+            </select>
           </div>
-          <div class="notice-item">
-            <div class="notice-dot" style="background:var(--yellow);"></div>
-            <div class="notice-text">PingCode 数据对接开发中</div>
-            <div class="notice-time">本月</div>
+          <div class="form-group assignee-section">
+            <label class="form-label" for="newTaskAssignee">负责人（点击姓名可多选）</label>
+            <select class="form-select" id="newTaskAssignee" multiple size="4" onmousedown="toggleAssigneeOption(event)" onchange="renderAssigneeAllocationInputs()" ${userRole === 'admin' ? '' : 'disabled'}>
+              <option value="${currentUser.id}" selected>分配给我</option>
+            </select>
+            <div id="assigneeAllocationPreview"></div>
           </div>
+          <div class="form-group">
+            <label class="form-label" for="newTaskEffort">事件总人天</label>
+            <input class="dashboard-input" id="newTaskEffort" type="number" min="0.25" max="365" step="0.25" value="1" onchange="distributeAssigneeEffortEvenly()">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="newTaskAllocationStart">资源开始日</label>
+            <input class="dashboard-input" id="newTaskAllocationStart" type="date" value="${dashboardDateInputValue(0)}">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="newTaskAllocationEnd">截止日期（包含当天）</label>
+            <input class="dashboard-input" id="newTaskAllocationEnd" type="date" value="${dashboardDateInputValue(0)}">
+          </div>
+        </div>
+        <div class="dashboard-form-grid" style="margin-top:12px;">
+          <div class="form-group"><label class="form-label" for="newTaskTestHubLibrary">TestHub 用例库（选填）</label><select class="form-select" id="newTaskTestHubLibrary"><option value="">不关联</option><option value="661e31a128d44167e325552c">消费类</option><option value="6214acdba2fa0b097f549d45">打印机</option><option value="6746eb4a87e7da0dbd43c027">PC</option></select></div>
+          <div class="form-group"><label class="form-label" for="newTaskTestHubSearch">计划关键词</label><div style="display:flex;gap:6px;"><input class="dashboard-input" id="newTaskTestHubSearch" placeholder="可留空查看最近计划"><button class="btn-secondary" type="button" onclick="loadTestHubPlans(this)" style="white-space:nowrap;">查询缓存</button></div></div>
+          <div class="form-group testhub-plan-section"><label class="form-label">TestHub 计划（可多选）</label><div class="testhub-plan-summary"><span id="testHubPlanSummary">未选择计划</span><button class="btn-secondary" type="button" onclick="clearTestHubPlanSelection()">清空选择</button></div><div class="assignee-allocation-note">关联计划后自动按 TestHub 已执行用例数 ÷ 总用例数计算；不关联时才使用手工填报。</div><div id="testHubPlanOptions" class="testhub-plan-grid"><span class="testhub-plan-empty">查询后选择 Android / iOS 计划</span></div><details style="margin-top:7px;"><summary style="color:var(--sub);font-size:10px;cursor:pointer;">高级：手动添加计划 ID</summary><div style="display:flex;gap:6px;margin-top:6px;"><input class="dashboard-input" id="manualTestHubPlanId" placeholder="缓存未同步时填写计划 ID"><button class="btn-secondary" type="button" onclick="addManualTestHubPlan()" style="white-space:nowrap;">添加 ID</button></div></details><div id="testHubPlanHint" style="color:var(--sub);font-size:10px;margin-top:4px;">请先运行本地同步工具，再查询缓存</div></div>
+        </div>
+        <div class="dashboard-form-actions">
+          <button class="btn-secondary" onclick="closeNewTaskModal()">取消</button>
+          <button class="btn-primary" id="saveTaskBtn" onclick="saveQaTask()"><i class="ti ti-check"></i><span id="saveTaskBtnText">保存待办</span></button>
         </div>
       </div>
     </div>`;
 
-  loadDashboardStats();
+  loadDashboardData(token);
+  loadTaskAssignees();
 }
 
-async function loadDashboardStats() {
+function dashboardTodayInputValue() {
+  return dashboardDateInputValue(0);
+}
+
+function dashboardDateInputValue(dayOffset) {
+  const now = new Date();
+  now.setDate(now.getDate() + dayOffset);
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function escapeDashboardHtml(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function safeDashboardExternalUrl(value) {
   try {
-    const { count } = await sb.from('assets').select('*',{count:'exact',head:true}).eq('status','在用');
-    document.getElementById('sc-devices').textContent = count ?? '-';
-  } catch {}
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol) ? url.toString() : '';
+  } catch {
+    return '';
+  }
+}
+
+function addDashboardDate(dateKey, dayOffset) {
+  const date = new Date(`${dateKey}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + dayOffset);
+  return date.toISOString().slice(0, 10);
+}
+
+function isResourceWorkday(dateKey, calendar = dashboardWorkCalendar) {
+  if (calendar.has(dateKey)) return calendar.get(dateKey).is_workday;
+  const weekday = new Date(`${dateKey}T00:00:00Z`).getUTCDay();
+  return weekday !== 0 && weekday !== 6;
+}
+
+function resourceWorkDates(startDate, endDate, calendar = dashboardWorkCalendar) {
+  const dates = [];
+  for (let date = startDate; date <= endDate; date = addDashboardDate(date, 1)) {
+    if (isResourceWorkday(date, calendar)) dates.push(date);
+  }
+  return dates;
+}
+
+function futureResourceWorkDates(count, calendar = dashboardWorkCalendar) {
+  const dates = [];
+  let date = dashboardTodayInputValue();
+  while (dates.length < count) {
+    if (isResourceWorkday(date, calendar)) dates.push(date);
+    date = addDashboardDate(date, 1);
+  }
+  return dates;
+}
+
+function resourceDailyPoints(task, calendar = dashboardWorkCalendar) {
+  if (!task.allocation_start_date || !task.allocation_end_date || !task.effort_person_days) return 0;
+  const dayCount = resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar).length;
+  return dayCount > 0 ? Number(task.effort_person_days) / dayCount : 0;
+}
+
+function taskOfflineDailyPoints(task, calendar = dashboardWorkCalendar) {
+  const totalEffort = Number(task.effort_person_days) || 0;
+  const onlineEffort = Math.min(Number(task.testhub_effort_person_days) || 0, totalEffort);
+  const workdayCount = task.allocation_start_date && task.allocation_end_date
+    ? resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar).length
+    : 0;
+  return workdayCount ? Math.max(totalEffort - onlineEffort, 0) / workdayCount : 0;
+}
+
+function taskActualProgressPoints(task, progressLogs = [], testHubSnapshot = null) {
+  const totalEffort = Number(task.effort_person_days) || 0;
+  const testHubEffort = Math.min(Number(task.testhub_effort_person_days) || 0, totalEffort);
+  const offlineEffort = Math.max(totalEffort - testHubEffort, 0);
+  const manualPoints = progressLogs
+    .filter(log => log.source === 'manual')
+    .reduce((total, log) => total + Number(log.progress_points), 0);
+  const manualActual = Math.min(manualPoints, offlineEffort || (testHubEffort ? 0 : totalEffort));
+  const testHubRatio = Math.min(Math.max(Number(testHubSnapshot?.progress_ratio) || 0, 0), 1);
+  const testHubActual = testHubEffort * testHubRatio;
+  return {
+    manualActual,
+    testHubActual,
+    totalActual: Math.min(manualActual + testHubActual, totalEffort),
+    testHubRatio,
+  };
+}
+
+function resourcePointsOnDate(tasks, memberId, dateKey, calendar = dashboardWorkCalendar) {
+  if (!isResourceWorkday(dateKey, calendar)) return 0;
+  return tasks
+    .filter(task => taskAssigneeList(task).some(item => item.member_id === memberId)
+      && task.allocation_start_date <= dateKey
+      && task.allocation_end_date >= dateKey)
+    .reduce((total, task) => total + taskMemberDailyPlan(task, memberId, calendar), 0);
+}
+
+function buildResourceCapacity(members, tasks, calendar = dashboardWorkCalendar) {
+  const dates = futureResourceWorkDates(RESOURCE_HORIZON_WORKDAYS, calendar);
+  const rows = members.map(member => {
+    const capacity = Number(member.daily_capacity) || 1;
+    const cells = dates.map(date => {
+      const points = resourcePointsOnDate(tasks, member.id, date, calendar);
+      const level = points > capacity + 0.001 ? 'over' : points < capacity - 0.001 ? 'under' : 'normal';
+      return { date, points, capacity, level };
+    });
+    return { member, cells };
+  });
+
+  const risks = [];
+  rows.forEach(row => {
+    const over = row.cells.filter(cell => cell.level === 'over');
+    const under = row.cells.filter(cell => cell.level === 'under');
+    if (over.length) {
+      const first = over[0];
+      risks.push({
+        level: 'high',
+        title: `${row.member.name || '未命名成员'}未来${RESOURCE_HORIZON_WORKDAYS}个工作日有 ${over.length} 天资源超负荷`,
+        meta: `${first.date.slice(5).replace('-', '/')}：${first.points.toFixed(2)} / ${first.capacity.toFixed(2)} 点`,
+        action: 'resource', actionLabel: '调整资源'
+      });
+    }
+    if (under.length) {
+      const first = under[0];
+      risks.push({
+        level: 'low',
+        title: `${row.member.name || '未命名成员'}未来${RESOURCE_HORIZON_WORKDAYS}个工作日有 ${under.length} 天资源不足`,
+        meta: `${first.date.slice(5).replace('-', '/')}：${first.points.toFixed(2)} / ${first.capacity.toFixed(2)} 点`,
+        action: 'resource', actionLabel: '查看资源'
+      });
+    }
+  });
+  return { dates, rows, risks };
+}
+
+function dashboardLocalDateKey(date) {
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, now, calendar = dashboardWorkCalendar) {
+  const memberMap = new Map(members.map(member => [member.id, member]));
+  const snapshotMap = new Map(testHubSnapshots.map(snapshot => [snapshot.task_id, snapshot]));
+  const todayKey = dashboardLocalDateKey(now);
+  const todayClosed = now.getHours() >= DAILY_PROGRESS_CUTOFF_HOUR;
+  const risks = [];
+
+  tasks.forEach(task => {
+    taskAssigneeList(task).forEach(assignment => {
+    const member = memberMap.get(assignment.member_id);
+    const memberName = member?.name || (assignment.member_id === currentUser.id ? '我' : '未命名成员');
+    const due = task.due_date ? new Date(task.due_date) : null;
+    const label = `${memberName} · ${task.title}`;
+    const logs = progressLogs.filter(log => log.task_id === task.id && log.executor_id === assignment.member_id && log.work_date <= todayKey);
+    const manualCumulative = taskUsesTestHubProgress(task) ? 0 : logs.reduce((sum, log) => sum + Number(log.progress_points || 0), 0);
+    const testHubCumulative = taskMemberTestHubPoints(task, assignment.member_id, null, snapshotMap.get(task.id));
+    const actualCumulative = Math.min(manualCumulative + testHubCumulative, Number(assignment.allocated_effort));
+
+    if (due && due < now) {
+      risks.push({
+        level: 'high',
+        title: `${label} 已超过截止日期`,
+        meta: `截止 ${due.toLocaleDateString('zh-CN')}，当前仍为${task.status === 'todo' ? '待处理' : '进行中'}`,
+        action: 'task', actionLabel: '查看任务', taskId: task.id
+      });
+      return;
+    }
+
+    const startReached = task.allocation_start_date
+      && (task.allocation_start_date < todayKey || (task.allocation_start_date === todayKey && todayClosed));
+    const notStarted = task.status === 'todo'
+      && actualCumulative <= 0.001
+      && startReached;
+    if (notStarted) {
+      risks.push({
+        level: 'medium',
+        title: `${label} 到计划开始日仍未开始`,
+        meta: `计划 ${task.allocation_start_date} 开始，实际累计仍为 0 点`,
+        action: 'task', actionLabel: '开始处理', taskId: task.id
+      });
+      return;
+    }
+
+    const workDates = task.allocation_start_date && task.allocation_end_date
+      ? resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar)
+      : [];
+    const elapsedWorkDates = workDates.filter(date => date < todayKey || (date === todayKey && todayClosed));
+    const plannedCumulative = elapsedWorkDates.reduce(
+      (sum, date) => sum + taskMemberDailyPlanOnDate(task, assignment.member_id, date, calendar),
+      0
+    );
+    const progressGap = plannedCumulative - actualCumulative;
+
+    if (plannedCumulative > 0 && progressGap > 0.01) {
+      risks.push({
+        level: 'medium',
+        title: `${label} 实际进度落后，可能延期`,
+        meta: `截至今日计划 ${plannedCumulative.toFixed(2)} 点，实际 ${actualCumulative.toFixed(2)} 点，差 ${progressGap.toFixed(2)} 点`,
+        action: taskUsesTestHubProgress(task) ? 'task' : 'progress',
+        actionLabel: taskUsesTestHubProgress(task) ? '查看自动进度' : '填报进度',
+        taskId: task.id
+      });
+    }
+    });
+  });
+
+  return risks;
+}
+
+function renderResourceCapacity(resource, failed) {
+  const wrap = document.getElementById('resourceCapacityGrid');
+  if (!wrap || userRole !== 'admin') return;
+  if (failed) {
+    wrap.innerHTML = '<div class="dashboard-empty">资源数据加载失败，请先执行资源容量迁移后刷新</div>';
+    return;
+  }
+  if (!resource.rows.length) {
+    wrap.innerHTML = '<div class="dashboard-empty">暂无成员，请先添加团队账号</div>';
+    return;
+  }
+  const header = resource.dates.map(date => {
+    const parsed = new Date(`${date}T00:00:00`);
+    return `<th>${date.slice(5).replace('-', '/')}<br>${parsed.toLocaleDateString('zh-CN', { weekday:'short' })}</th>`;
+  }).join('');
+  const body = resource.rows.map(row => `
+    <tr>
+      <td class="resource-member">${escapeDashboardHtml(row.member.name || '未命名成员')}</td>
+      ${row.cells.map(cell => `<td class="resource-cell resource-${cell.level}" title="容量 ${cell.capacity.toFixed(2)} 点">${cell.points.toFixed(2)}</td>`).join('')}
+    </tr>`).join('');
+  wrap.innerHTML = `<table class="resource-table"><thead><tr><th>成员</th>${header}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function dashboardQueryResult(result, fallback) {
+  if (result.status !== 'fulfilled' || result.value?.error) {
+    const error = result.status === 'rejected' ? result.reason : result.value?.error;
+    console.error('[dashboard] query failed:', error);
+    return { data: fallback, failed: true };
+  }
+  return { data: result.value.data ?? fallback, failed: false };
+}
+
+function setDashboardMetric(id, value, failed) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.textContent = failed ? '加载失败' : String(value);
+  el.style.fontSize = failed ? '12px' : '';
+}
+
+function getTestHubSyncHealth(record, failed = false, now = new Date()) {
+  if (failed) return { state:'failed', label:'不可用', stale:false };
+  if (!record) return { state:'stale', label:'尚未同步', stale:true };
+  if (record.status === 'running') return { state:'running', label:'同步中', stale:false };
+  if (record.status === 'failed') return { state:'failed', label:'同步失败', stale:true };
+  const lastSuccess = record.last_success_at ? new Date(record.last_success_at) : null;
+  const stale = !lastSuccess || now.getTime() - lastSuccess.getTime() > 60 * 60 * 1000;
+  return stale ? { state:'stale', label:'超过 1 小时', stale:true } : { state:'success', label:'运行正常', stale:false };
+}
+
+function renderTestHubSyncHealth(record, failed) {
+  if (userRole !== 'admin') return;
+  const dot = document.getElementById('testHubSyncHealthDot');
+  const title = document.getElementById('testHubSyncHealthTitle');
+  const meta = document.getElementById('testHubSyncHealthMeta');
+  const state = document.getElementById('testHubSyncHealthState');
+  if (!dot || !title || !meta || !state) return;
+  const health = getTestHubSyncHealth(record, failed);
+  dot.className = `sync-health-dot ${health.state}`;
+  state.textContent = health.label;
+  title.textContent = failed ? 'TestHub 同步健康状态尚未启用' : record?.status === 'failed' ? 'TestHub 本地同步最近一次失败' : 'TestHub 本地同步';
+  const lastText = record?.last_success_at ? new Date(record.last_success_at).toLocaleString('zh-CN') : '暂无成功记录';
+  const nextText = record?.next_expected_at ? new Date(record.next_expected_at).toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' }) : '--:--';
+  const diagnosticText = record
+    ? ` · 执行记录 ${Number(record.execution_record_count || 0)} · 已映射 ${Number(record.mapped_executor_count || 0)} 人 · 未映射 ${Number(record.unmapped_executor_count || 0)} 人`
+    : '';
+  meta.textContent = record?.status === 'failed' && record.error_message
+    ? `上次成功：${lastText} · ${record.error_message}${diagnosticText}`
+    : `上次成功：${lastText} · 下次预计：${nextText}${diagnosticText}`;
+}
+
+function formatDashboardDue(value, todayStart, todayEnd) {
+  if (!value) return '未设置截止时间';
+  const date = new Date(value);
+  if (date < todayStart) return `已逾期 · ${date.toLocaleDateString('zh-CN', { month:'numeric', day:'numeric' })}`;
+  if (date <= todayEnd) return '今天截止';
+  return date.toLocaleDateString('zh-CN', { month:'numeric', day:'numeric' }) + ' 截止';
+}
+
+function renderDashboardTasks(tasks, upcomingTasks, failed, todayStart, todayEnd) {
+  const list = document.getElementById('dashboardTaskList');
+  const tag = document.getElementById('dashboardTaskTag');
+  const title = document.getElementById('dashboardTaskTitle');
+  if (!list || !tag || !title) return;
+
+  if (failed) {
+    tag.textContent = '加载失败';
+    list.innerHTML = '<div class="dashboard-empty">任务加载失败，请点击右上角刷新重试</div>';
+    return;
+  }
+
+  const displayTasks = tasks.length ? tasks : upcomingTasks;
+  title.textContent = tasks.length ? '✅ 我的今日任务' : upcomingTasks.length ? '📅 未来 3 天我的任务' : '✅ 我的今日任务';
+  tag.textContent = `${displayTasks.length} 项`;
+  if (!displayTasks.length) {
+    list.innerHTML = '<div class="dashboard-empty">未来 3 天没有待办<br><button class="btn-primary" style="margin-top:10px;" onclick="openNewTaskModal()"><i class="ti ti-square-plus"></i> 新建任务</button></div>';
+    return;
+  }
+
+  list.innerHTML = displayTasks.slice(0, 6).map(task => {
+    return `
+    <div class="task-item">
+      <div class="task-main">
+        <div class="task-title" title="${escapeDashboardHtml(task.title)}">
+          ${escapeDashboardHtml(task.title)}
+        </div>
+        <div class="task-meta">${formatDashboardDue(task.due_date, todayStart, todayEnd)} · ${task.status === 'in_progress' ? '进行中' : '待处理'}${task.effort_person_days ? ` · 我的每日 ${taskMemberDailyPlan(task, currentUser.id).toFixed(2)} 点` : ''} · ${taskUsesTestHubProgress(task) ? 'TestHub 自动' : '手工填报'}</div>
+      </div>
+      ${canCurrentUserEditTask(task) ? `<button class="task-done" title="标记完成" onclick="completeQaTask('${task.id}', this)"><i class="ti ti-check"></i></button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function dashboardRiskItemHtml(risk, index) {
+  const label = risk.level === 'high' ? '高风险' : risk.level === 'medium' ? '中风险' : '提醒';
+  const action = risk.action
+    ? `<button class="risk-action" onclick="handleDashboardRiskAction(${index})">${escapeDashboardHtml(risk.actionLabel || '处理')}</button>`
+    : '';
+  const adminActions = userRole === 'admin'
+    ? `<button class="risk-action" title="24 小时后再次提醒" onclick="setDashboardRiskAction(${index}, 'snoozed')">稍后</button><button class="risk-action" title="当前风险内容不再提醒；内容变化后会重新出现" onclick="setDashboardRiskAction(${index}, 'acknowledged')">已处理</button>`
+    : '';
+  return `<div class="risk-item"><span class="risk-level risk-${risk.level}"></span><div class="risk-main"><div class="risk-title">${escapeDashboardHtml(risk.title)}</div><div class="risk-meta">${label} · ${escapeDashboardHtml(risk.meta)}</div></div>${action}${adminActions}</div>`;
+}
+
+function dashboardRiskKey(risk) {
+  const value = `${risk.level}|${risk.title}|${risk.meta}|${risk.taskId || ''}|${risk.action || ''}`;
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `risk_${(hash >>> 0).toString(16)}`;
+}
+
+async function setDashboardRiskAction(index, action) {
+  if (userRole !== 'admin') return;
+  const risk = dashboardSnapshot?.risks?.[index];
+  if (!risk?._key) return;
+  const snoozedUntil = action === 'snoozed' ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() : null;
   try {
-    const today = new Date(); today.setHours(0,0,0,0);
-    const { count } = await sb.from('run_tasks').select('*',{count:'exact',head:true}).gte('created_at', today.toISOString());
-    document.getElementById('sc-auto').textContent = count ?? 0;
-  } catch { document.getElementById('sc-auto').textContent = '0'; }
+    const { error } = await sb.from('admin_risk_actions').upsert({
+      risk_key: risk._key,
+      action,
+      snoozed_until: snoozedUntil,
+      updated_by: currentUser.id,
+      updated_at: new Date().toISOString()
+    });
+    if (error) throw error;
+    showToast(action === 'snoozed' ? '该风险已暂停提醒 24 小时' : '该风险已标记处理');
+    await loadDashboardData(++dashboardLoadToken);
+  } catch (error) {
+    console.error('[risk] action failed:', error);
+    showToast('风险状态保存失败：' + error.message, 'error');
+  }
+}
+
+function renderDashboardRisks(risks, failed) {
+  const list = document.getElementById('dashboardRiskList');
+  const tag = document.getElementById('dashboardRiskTag');
+  if (!list || !tag) return;
+
+  if (failed) {
+    tag.textContent = '部分失败';
+    list.innerHTML = '<div class="dashboard-empty">部分风险数据加载失败，请刷新重试</div>';
+    return;
+  }
+
+  const actionable = risks.filter(risk => risk.level !== 'low');
+  const information = risks.filter(risk => risk.level === 'low');
+  tag.textContent = information.length ? `${actionable.length} 风险 · ${information.length} 提醒` : `${actionable.length} 项`;
+  if (!risks.length) {
+    list.innerHTML = '<div class="dashboard-empty">当前没有发现阻断风险</div>';
+    return;
+  }
+
+  const visible = dashboardRiskExpanded ? actionable : actionable.slice(0, 5);
+  const activeHtml = actionable.length
+    ? `<div class="risk-group-title">待处理风险</div>${visible.map(risk => dashboardRiskItemHtml(risk, risks.indexOf(risk))).join('')}${actionable.length > 5 ? `<button class="risk-more" onclick="toggleDashboardRisks()">${dashboardRiskExpanded ? '收起风险' : `查看全部 ${actionable.length} 项风险`}</button>` : ''}`
+    : '<div class="dashboard-empty">当前没有需要立即处理的风险</div>';
+  const infoHtml = information.length
+    ? `<details class="risk-info-group"><summary>提醒信息（${information.length}）</summary>${information.map(risk => dashboardRiskItemHtml(risk, risks.indexOf(risk))).join('')}</details>`
+    : '';
+  list.innerHTML = activeHtml + infoHtml;
+}
+
+function toggleDashboardRisks() {
+  dashboardRiskExpanded = !dashboardRiskExpanded;
+  if (dashboardSnapshot) renderDashboardRisks(dashboardSnapshot.risks, false);
+}
+
+function scrollToDashboardRisks() {
+  document.getElementById('dashboardRiskList')?.closest('.card')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+async function openTaskFromDashboard(taskId, mode = 'edit') {
+  const item = document.querySelector(`.sb-item[onclick*="'tasks'"]`);
+  document.querySelectorAll('.sb-item').forEach(element => element.classList.remove('active'));
+  item?.classList.add('active');
+  document.getElementById('pageTitle').textContent = pageTitles.tasks;
+  currentPage = 'tasks';
+  await renderTaskRecords();
+  if (mode === 'progress') openProgressModal(taskId);
+  else {
+    const task = taskRecordCache.get(taskId);
+    await openEditQaTask(taskId, task ? !canCurrentUserEditTask(task) : true);
+  }
+}
+
+async function handleDashboardRiskAction(index) {
+  const risk = dashboardSnapshot?.risks?.[index];
+  if (!risk) return;
+  if (risk.action === 'task') { await openTaskFromDashboard(risk.taskId, 'edit'); return; }
+  if (risk.action === 'progress') { await openTaskFromDashboard(risk.taskId, 'progress'); return; }
+  if (risk.action === 'resource') {
+    document.getElementById('resourceCapacityCard')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
+  if (risk.action === 'sync_health') {
+    document.getElementById('testHubSyncHealth')?.scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+  navTo(risk.action);
+}
+
+async function loadDashboardData(token) {
+  const now = new Date();
+  const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+  const since24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+
+  const results = await Promise.allSettled([
+    sb.from('releases').select('id,version,name,platform,planned_release_date,status').eq('status','active').limit(1).maybeSingle(),
+    sb.from('qa_tasks').select('id,title,task_type,priority,status,due_date,release_id,source,external_id,external_url,assignee_id,created_by,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days').in('status',['todo','in_progress']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
+    sb.from('run_tasks').select('id,status,task_type,platform,created_at,started_at').gte('created_at', since24Hours),
+    sb.from('device_configs').select('id,model_name,platform,is_online'),
+    sb.from('consumables').select('id,name,brand,quantity,threshold,unit'),
+    sb.from('release_checks').select('id,release_id,check_name,severity,status').in('status',['failed','unavailable']),
+    userRole === 'admin'
+      ? sb.from('profiles').select('id,name,daily_capacity').order('name')
+      : sb.from('profiles').select('id,name,daily_capacity').eq('id', currentUser.id),
+    userRole === 'admin'
+      ? sb.from('qa_tasks').select('id,title,priority,assignee_id,status,due_date,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days').in('status',['todo','in_progress'])
+      : Promise.resolve({ data: [], error: null }),
+    sb.from('work_calendar').select('work_date,is_workday,name'),
+    sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id').lte('work_date', dashboardTodayInputValue()).limit(2000),
+    sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),
+    userRole === 'admin'
+      ? sb.from('testhub_sync_status').select('sync_name,status,last_started_at,last_success_at,last_failure_at,next_expected_at,error_message,cached_plan_count,progress_success,progress_failed,execution_record_count,mapped_executor_count,unmapped_executor_count,updated_at').eq('sync_name','testhub_local').maybeSingle()
+      : Promise.resolve({ data:null, error:null }),
+    sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
+    sb.from('task_testhub_daily_execution').select('task_id,work_date,executor_key,member_id,executor_name,executed_cases,synced_at'),
+    sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false }),
+    userRole === 'admin'
+      ? sb.from('admin_risk_actions').select('risk_key,action,snoozed_until,updated_at')
+      : Promise.resolve({ data:[], error:null })
+  ]);
+
+  if (token !== dashboardLoadToken || currentPage !== 'dashboard') return;
+
+  const releaseResult = dashboardQueryResult(results[0], null);
+  const tasksResult = dashboardQueryResult(results[1], []);
+  const runsResult = dashboardQueryResult(results[2], []);
+  const devicesResult = dashboardQueryResult(results[3], []);
+  const consumablesResult = dashboardQueryResult(results[4], []);
+  const checksResult = dashboardQueryResult(results[5], []);
+  const resourceMembersResult = dashboardQueryResult(results[6], []);
+  const resourceTasksResult = dashboardQueryResult(results[7], []);
+  const workCalendarResult = dashboardQueryResult(results[8], []);
+  const progressResult = dashboardQueryResult(results[9], []);
+  const testHubProgressResult = dashboardQueryResult(results[10], []);
+  const syncHealthResult = dashboardQueryResult(results[11], null);
+  const taskAssigneesResult = dashboardQueryResult(results[12], []);
+  const testHubDailyResult = dashboardQueryResult(results[13], []);
+  const allocationHistoryResult = dashboardQueryResult(results[14], []);
+  const riskActionsResult = dashboardQueryResult(results[15], []);
+  taskAssigneesByTask = new Map();
+  taskAssigneesResult.data.forEach(item => {
+    const list = taskAssigneesByTask.get(item.task_id) || [];
+    list.push(item);
+    taskAssigneesByTask.set(item.task_id, list);
+  });
+  taskTestHubDailyByTask = new Map();
+  testHubDailyResult.data.forEach(item => {
+    const list = taskTestHubDailyByTask.get(item.task_id) || [];
+    list.push(item);
+    taskTestHubDailyByTask.set(item.task_id, list);
+  });
+  taskAllocationHistoryByTask = new Map();
+  allocationHistoryResult.data.forEach(item => {
+    const list = taskAllocationHistoryByTask.get(item.task_id) || [];
+    list.push(item);
+    taskAllocationHistoryByTask.set(item.task_id, list);
+  });
+  const activeRelease = releaseResult.data;
+  if (!workCalendarResult.failed) {
+    dashboardWorkCalendar = new Map(workCalendarResult.data.map(day => [day.work_date, day]));
+  }
+
+  const myAssignedTasks = tasksResult.data.filter(task =>
+    taskAssigneeList(task).some(assignment => assignment.member_id === currentUser.id)
+  );
+
+  const todayTasks = myAssignedTasks
+    .filter(task => !dashboardCompletingTaskIds.has(task.id) && task.due_date && new Date(task.due_date) <= todayEnd)
+    .sort((a, b) => {
+      const aOverdue = new Date(a.due_date) < todayStart ? 0 : 1;
+      const bOverdue = new Date(b.due_date) < todayStart ? 0 : 1;
+      if (aOverdue !== bOverdue) return aOverdue - bOverdue;
+      const priorityOrder = { P0: 0, P1: 1, P2: 2 };
+      if (priorityOrder[a.priority] !== priorityOrder[b.priority]) return priorityOrder[a.priority] - priorityOrder[b.priority];
+      return new Date(a.due_date) - new Date(b.due_date);
+    });
+
+  const upcomingEnd = new Date(todayEnd);
+  upcomingEnd.setDate(upcomingEnd.getDate() + 3);
+  const upcomingTasks = myAssignedTasks
+    .filter(task => !dashboardCompletingTaskIds.has(task.id)
+      && task.due_date
+      && new Date(task.due_date) > todayEnd
+      && new Date(task.due_date) <= upcomingEnd)
+    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+
+  const automationFailures = runsResult.data.filter(run => run.status === 'failed');
+  const staleBefore = now.getTime() - 2 * 60 * 60 * 1000;
+  const staleRuns = runsResult.data.filter(run => run.status === 'running' && run.started_at && new Date(run.started_at).getTime() < staleBefore);
+  const offlineDevices = devicesResult.data.filter(device => device.is_online === false);
+  const lowStock = consumablesResult.data.filter(item => Number(item.quantity) <= Number(item.threshold));
+  const releaseChecks = activeRelease
+    ? checksResult.data.filter(check => check.release_id === activeRelease.id)
+    : [];
+  const resource = userRole === 'admin'
+    ? buildResourceCapacity(resourceMembersResult.data, resourceTasksResult.data, dashboardWorkCalendar)
+    : { dates: [], rows: [], risks: [] };
+  const scheduleTasks = userRole === 'admin' ? resourceTasksResult.data : myAssignedTasks;
+  const taskScheduleRisks = buildTaskScheduleRisks(scheduleTasks, resourceMembersResult.data, progressResult.data, testHubProgressResult.data, now, dashboardWorkCalendar);
+
+  const risks = [];
+  if (automationFailures.length) risks.push({ level:'high', title:`最近24小时有 ${automationFailures.length} 次自动化失败`, meta:'检查执行历史与失败原因', action:'automation', actionLabel:'查看结果' });
+  if (staleRuns.length) risks.push({ level:'high', title:`${staleRuns.length} 个自动化任务运行超过2小时`, meta:'检查 Runner 和设备状态', action:'automation', actionLabel:'查看任务' });
+  if (offlineDevices.length) risks.push({ level:'high', title:`${offlineDevices.length} 台自动化设备离线`, meta:offlineDevices.map(d => d.model_name || d.platform).slice(0,3).join('、'), action:'automation', actionLabel:'检查设备' });
+  risks.push(...taskScheduleRisks);
+  if (lowStock.length) risks.push({ level:'medium', title:`${lowStock.length} 项耗材库存不足`, meta:lowStock.map(item => item.name).slice(0,3).join('、'), action:'assets', actionLabel:'查看库存' });
+  releaseChecks.forEach(check => risks.push({
+    level: check.severity === 'high' ? 'high' : check.severity === 'low' ? 'low' : 'medium',
+    title: check.check_name,
+    meta: check.status === 'failed' ? '版本检查未通过' : '版本检查数据暂不可用',
+    action: 'prd', actionLabel: '查看版本'
+  }));
+  if (!activeRelease && !releaseResult.failed) risks.push({ level:'low', title:'当前活动版本未设置', meta:'由管理员创建并激活测试版本', action:'prd', actionLabel:'去设置' });
+  if (userRole === 'admin' && !syncHealthResult.failed) {
+    const syncHealth = getTestHubSyncHealth(syncHealthResult.data, false, now);
+    if (syncHealthResult.data?.status === 'failed') {
+      risks.push({ level:'high', title:'TestHub 本地同步失败', meta:syncHealthResult.data.error_message || '请检查本地定时任务日志', action:'sync_health', actionLabel:'查看状态' });
+    } else if (syncHealth.stale) {
+      risks.push({ level:'medium', title:'TestHub 超过 1 小时未成功同步', meta:'请确认电脑未休眠且 Windows 定时任务正常运行', action:'sync_health', actionLabel:'查看状态' });
+    }
+    if (Number(syncHealthResult.data?.unmapped_executor_count || 0) > 0) {
+      const names = [...new Set(testHubDailyResult.data.filter(row => !row.member_id).map(row => row.executor_name).filter(Boolean))];
+      risks.push({
+        level:'medium',
+        title:`TestHub 有 ${syncHealthResult.data.unmapped_executor_count} 位执行人尚未映射`,
+        meta:names.length ? names.slice(0, 4).join('、') : '请在成员管理中绑定 PingCode 用户 ID',
+        action:'members', actionLabel:'去映射'
+      });
+    }
+  }
+  if (userRole === 'admin' && !resourceMembersResult.failed && !resourceTasksResult.failed) {
+    risks.push(...resource.risks);
+  }
+  const riskActionMap = new Map(riskActionsResult.data.map(item => [item.risk_key, item]));
+  const deduplicatedRisks = [];
+  const seenRiskKeys = new Set();
+  risks.forEach(risk => {
+    risk._key = dashboardRiskKey(risk);
+    if (seenRiskKeys.has(risk._key)) return;
+    seenRiskKeys.add(risk._key);
+    const savedAction = riskActionMap.get(risk._key);
+    const isHidden = savedAction?.action === 'acknowledged'
+      || (savedAction?.action === 'snoozed' && new Date(savedAction.snoozed_until) > now);
+    if (!isHidden) deduplicatedRisks.push(risk);
+  });
+  if (userRole === 'admin') {
+    const resolvedKeys = riskActionsResult.data.map(item => item.risk_key).filter(key => !seenRiskKeys.has(key));
+    if (resolvedKeys.length) {
+      sb.from('admin_risk_actions').delete().in('risk_key', resolvedKeys)
+        .then(({ error }) => { if (error) console.warn('[risk] resolved action cleanup failed:', error); });
+    }
+  }
+  risks.length = 0;
+  risks.push(...deduplicatedRisks);
+  const riskOrder = { high: 0, medium: 1, low: 2 };
+  risks.sort((a, b) => riskOrder[a.level] - riskOrder[b.level]);
+
+  const resourceDataFailed = userRole === 'admin' && (resourceMembersResult.failed || resourceTasksResult.failed || workCalendarResult.failed);
+  const riskDataFailed = tasksResult.failed || progressResult.failed || testHubProgressResult.failed || allocationHistoryResult.failed || riskActionsResult.failed || runsResult.failed || devicesResult.failed || consumablesResult.failed || checksResult.failed || releaseResult.failed || resourceDataFailed;
+  setDashboardMetric('sc-tasks', todayTasks.length, tasksResult.failed);
+  setDashboardMetric('sc-auto-failed', automationFailures.length, runsResult.failed);
+  setDashboardMetric('sc-offline', offlineDevices.length, devicesResult.failed);
+  setDashboardMetric('sc-low-stock', lowStock.length, consumablesResult.failed);
+  renderDashboardTasks(todayTasks, upcomingTasks, tasksResult.failed, todayStart, todayEnd);
+  renderResourceCapacity(resource, resourceDataFailed);
+  renderTestHubSyncHealth(syncHealthResult.data, syncHealthResult.failed);
+  renderDashboardRisks(risks, riskDataFailed);
+
+  const releaseText = document.getElementById('dashboardReleaseText');
+  const statusBadge = document.getElementById('dashboardStatusBadge');
+  const versionTag = document.getElementById('versionTag');
+  if (releaseText) {
+    releaseText.textContent = activeRelease
+      ? `当前版本：${activeRelease.name || activeRelease.version}${activeRelease.planned_release_date ? ` · 计划 ${activeRelease.planned_release_date} 发布` : ''}`
+      : releaseResult.failed ? '当前版本加载失败' : '当前版本：暂未设置';
+  }
+  if (versionTag) versionTag.textContent = releaseResult.failed ? '加载失败' : activeRelease?.version || '暂未设置';
+  if (statusBadge) {
+    const actionableRiskCount = risks.filter(risk => risk.level !== 'low').length;
+    statusBadge.textContent = riskDataFailed ? '部分数据加载失败' : actionableRiskCount ? `${actionableRiskCount} 项风险待处理` : risks.length ? `${risks.length} 项提醒` : '今日状态良好';
+  }
+
+  dashboardSnapshot = { activeRelease, todayTasks, upcomingTasks, risks, resource, loadedAt: now };
+}
+
+async function openNewTaskModal() {
+  const modal = document.getElementById('newTaskModal');
+  if (!modal) return;
+  editingQaTaskId = null;
+  taskEditorReadOnly = false;
+  modal.querySelectorAll('input, textarea, select').forEach(element => {
+    element.disabled = element.id === 'newTaskAssignee' && userRole !== 'admin';
+  });
+  modal.querySelectorAll('button').forEach(element => { element.disabled = false; });
+  document.getElementById('saveTaskBtn').style.display = '';
+  const title = document.getElementById('taskModalTitle');
+  const buttonText = document.getElementById('saveTaskBtnText');
+  if (title) title.textContent = '新建今日待办';
+  if (buttonText) buttonText.textContent = '保存待办';
+  document.getElementById('newTaskTitle').value = '';
+  document.getElementById('newTaskDescription').value = '';
+  document.getElementById('newTaskType').value = 'other';
+  document.getElementById('newTaskStatus').value = 'todo';
+  document.getElementById('newTaskEffort').value = '1';
+  document.getElementById('newTaskAllocationStart').value = dashboardTodayInputValue();
+  document.getElementById('newTaskAllocationEnd').value = dashboardTodayInputValue();
+  document.getElementById('newTaskTestHubLibrary').value = '';
+  await loadTaskAssignees([currentUser.id], [{ member_id:currentUser.id, allocated_effort:1 }]);
+  const testHubSearch = document.getElementById('newTaskTestHubSearch');
+  const testHubOptions = document.getElementById('testHubPlanOptions');
+  const testHubHint = document.getElementById('testHubPlanHint');
+  const manualPlanId = document.getElementById('manualTestHubPlanId');
+  testHubPlanChoiceCache = new Map();
+  if (testHubSearch) testHubSearch.value = '';
+  if (manualPlanId) manualPlanId.value = '';
+  if (testHubOptions) testHubOptions.innerHTML = '<span class="testhub-plan-empty">查询后选择 Android / iOS 计划</span>';
+  updateTestHubPlanSummary();
+  if (testHubHint) testHubHint.textContent = '请先运行本地同步工具，再查询缓存';
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('newTaskTitle')?.focus(), 0);
+}
+
+async function openEditQaTask(id, readOnly = false) {
+  const task = taskRecordCache.get(id);
+  const modal = document.getElementById('newTaskModal');
+  if (!task || !modal) { showToast('未找到工作事项，请刷新后重试', 'error'); return; }
+  editingQaTaskId = id;
+  taskEditorReadOnly = readOnly;
+  const assignments = taskAssigneeList(task);
+  await loadTaskAssignees(assignments.map(item => item.member_id), assignments);
+
+  document.getElementById('taskModalTitle').textContent = readOnly ? '查看工作事项' : '查看/编辑工作事项';
+  document.getElementById('saveTaskBtnText').textContent = '保存修改';
+  document.getElementById('newTaskTitle').value = task.title || '';
+  document.getElementById('newTaskDescription').value = task.description || '';
+  document.getElementById('newTaskType').value = task.task_type || 'other';
+  document.getElementById('newTaskStatus').value = task.status || 'todo';
+  document.getElementById('newTaskEffort').value = task.effort_person_days || '';
+  renderAssigneeAllocationInputs(new Map(assignments.map(item => [item.member_id, Number(item.allocated_effort)])));
+  document.getElementById('newTaskAllocationStart').value = task.allocation_start_date || '';
+  document.getElementById('newTaskAllocationEnd').value = task.allocation_end_date || '';
+  document.getElementById('newTaskTestHubLibrary').value = task.testhub_library_id || '';
+  document.getElementById('newTaskTestHubSearch').value = '';
+  const selectedPlanIds = getTaskTestHubPlanIds(task);
+  testHubPlanChoiceCache = new Map();
+  renderTestHubPlanChoices([], selectedPlanIds);
+  document.getElementById('testHubPlanHint').textContent = selectedPlanIds.length
+    ? `当前已关联 ${selectedPlanIds.length} 个计划，可重新拉取后调整`
+    : '请先运行本地同步工具，再查询缓存';
+  modal.querySelectorAll('input, textarea, select').forEach(element => {
+    element.disabled = readOnly || (element.id === 'newTaskAssignee' && userRole !== 'admin');
+  });
+  modal.querySelectorAll('button').forEach(element => {
+    if (element.classList.contains('dashboard-modal-close') || element.textContent.trim() === '取消') return;
+    element.disabled = readOnly;
+  });
+  document.getElementById('saveTaskBtn').style.display = readOnly ? 'none' : '';
+  modal.classList.add('open');
+}
+
+function openProgressModal(id) {
+  const task = taskRecordCache.get(id);
+  const modal = document.getElementById('progressModal');
+  if (!task || !modal) { showToast('未找到工作事项，请刷新后重试', 'error'); return; }
+  if (taskUsesTestHubProgress(task)) { showToast('该事项已关联 TestHub，进度由执行用例自动计算，无需手工填报', 'error'); return; }
+  progressQaTaskId = id;
+  const dateInput = document.getElementById('progressWorkDate');
+  const pointsInput = document.getElementById('progressPoints');
+  const executorSelect = document.getElementById('progressExecutor');
+  const assignments = taskAssigneeList(task);
+  const names = new Map(dashboardMembers.map(member => [member.id, member.name || '未命名成员']));
+  if (executorSelect) {
+    executorSelect.innerHTML = assignments.map(item => `<option value="${escapeDashboardHtml(item.member_id)}" ${item.member_id === currentUser.id ? 'selected' : ''}>${escapeDashboardHtml(names.get(item.member_id) || (item.member_id === currentUser.id ? '我' : '未命名成员'))}</option>`).join('');
+    if (userRole !== 'admin') executorSelect.value = currentUser.id;
+  }
+  document.getElementById('progressModalTitle').textContent = `填报进度 · ${task.title}`;
+  dateInput.value = dashboardTodayInputValue();
+  dateInput.max = dashboardTodayInputValue();
+  pointsInput.value = taskMemberDailyPlan(task, executorSelect?.value || currentUser.id).toFixed(2);
+  document.getElementById('progressNote').value = '';
+  modal.classList.add('open');
+  setTimeout(() => pointsInput.focus(), 0);
+}
+
+function updateProgressPointSuggestion() {
+  const task = taskRecordCache.get(progressQaTaskId);
+  const executorId = document.getElementById('progressExecutor')?.value;
+  const pointsInput = document.getElementById('progressPoints');
+  if (task && executorId && pointsInput) pointsInput.value = taskMemberDailyPlan(task, executorId).toFixed(2);
+}
+
+function closeProgressModal() {
+  document.getElementById('progressModal')?.classList.remove('open');
+  progressQaTaskId = null;
+}
+
+async function saveTaskProgress() {
+  const task = taskRecordCache.get(progressQaTaskId);
+  const workDate = document.getElementById('progressWorkDate')?.value;
+  const points = Number(document.getElementById('progressPoints')?.value);
+  const executorId = document.getElementById('progressExecutor')?.value || currentUser.id;
+  const note = document.getElementById('progressNote')?.value.trim() || '';
+  const button = document.getElementById('saveProgressBtn');
+  if (!task) { showToast('未找到工作事项', 'error'); return; }
+  if (taskUsesTestHubProgress(task)) { showToast('已关联 TestHub 的事项不允许手工填报', 'error'); return; }
+  if (!workDate || workDate > dashboardTodayInputValue()) { showToast('进度日期不能晚于今天', 'error'); return; }
+  if (!Number.isFinite(points) || points <= 0) { showToast('实际完成点数必须大于 0', 'error'); return; }
+  if (!taskAssigneeList(task).some(item => item.member_id === executorId)) { showToast('执行人必须是该事项负责人', 'error'); return; }
+
+  button.disabled = true;
+  try {
+    const { error } = await sb.from('task_progress_logs').insert({
+      task_id: task.id,
+      work_date: workDate,
+      progress_points: points,
+      source: 'manual',
+      note,
+      executor_id: executorId,
+      reported_by: currentUser.id
+    });
+    if (error) throw error;
+    if (task.status === 'todo') {
+      const { error: statusError } = await sb.from('qa_tasks').update({ status:'in_progress' }).eq('id', task.id);
+      if (statusError) console.warn('[progress] status update failed:', statusError);
+    }
+    closeProgressModal();
+    showToast('实际进度已记录');
+    await renderTaskRecords();
+  } catch (error) {
+    console.error('[progress] save failed:', error);
+    showToast('进度保存失败：' + error.message, 'error');
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
+function getSelectedTestHubPlanIds() {
+  return [...document.querySelectorAll('#testHubPlanOptions input[type="checkbox"]:checked')]
+    .map(input => input.value.trim())
+    .filter(Boolean);
+}
+
+function testHubPlanPlatform(name) {
+  const text = String(name || '');
+  if (/android/i.test(text)) return 'Android';
+  if (/\bios\b/i.test(text)) return 'iOS';
+  return '通用';
+}
+
+function testHubPlanVersion(name) {
+  return String(name || '').match(/\b\d+\.\d+\.\d+\b/)?.[0] || '';
+}
+
+function testHubPlanDisplayName(name) {
+  const original = String(name || '未命名计划').trim();
+  const version = testHubPlanVersion(original);
+  const simplified = original
+    .replace(/^Liene Photo App Release\s*-\s*/i, '')
+    .replace(/\b(?:Android|iOS)\b/gi, '')
+    .replace(version, '')
+    .replace(/^\s*[-·]\s*/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return simplified || original;
+}
+
+function testHubPlanDate(value) {
+  if (!value) return '';
+  const numeric = Number(value);
+  const date = Number.isFinite(numeric)
+    ? new Date(numeric < 1e12 ? numeric * 1000 : numeric)
+    : new Date(value);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('zh-CN');
+}
+
+function updateTestHubPlanSummary() {
+  const summary = document.getElementById('testHubPlanSummary');
+  if (!summary) return;
+  const count = getSelectedTestHubPlanIds().length;
+  summary.textContent = count ? `已选择 ${count} 个计划` : '未选择计划';
+}
+
+function handleTestHubPlanSelectionChange(input) {
+  input.closest('.testhub-plan-card')?.classList.toggle('selected', input.checked);
+  updateTestHubPlanSummary();
+}
+
+function clearTestHubPlanSelection() {
+  document.querySelectorAll('#testHubPlanOptions input[type="checkbox"]').forEach(input => {
+    input.checked = false;
+    input.closest('.testhub-plan-card')?.classList.remove('selected');
+  });
+  updateTestHubPlanSummary();
+}
+
+function renderTestHubPlanChoices(plans, selectedIds = []) {
+  const container = document.getElementById('testHubPlanOptions');
+  if (!container) return;
+  const selected = new Set(selectedIds);
+  for (const plan of (plans || [])) {
+    if (plan?.id) testHubPlanChoiceCache.set(String(plan.id), plan);
+  }
+  for (const id of selected) {
+    if (!testHubPlanChoiceCache.has(id)) {
+      testHubPlanChoiceCache.set(id, { id, name:`手动关联计划 · ${id.slice(-8)}`, status:'已保存' });
+    }
+  }
+  container.innerHTML = [...testHubPlanChoiceCache.values()].map(plan => {
+    const id = String(plan.id || '');
+    const state = plan.state?.name || plan.status || '未知状态';
+    const assignee = plan.assignee?.display_name || '';
+    const platform = testHubPlanPlatform(plan.name);
+    const version = testHubPlanVersion(plan.name);
+    const displayName = testHubPlanDisplayName(plan.name);
+    const endDate = testHubPlanDate(plan.end_at);
+    const platformClass = platform === 'Android' ? 'android' : platform === 'iOS' ? 'ios' : '';
+    return `<label class="testhub-plan-card ${selected.has(id) ? 'selected' : ''}" title="${escapeDashboardHtml(plan.name || '')}"><input type="checkbox" value="${escapeDashboardHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="handleTestHubPlanSelectionChange(this)"><div class="testhub-plan-title">${escapeDashboardHtml(displayName)}</div><div class="testhub-plan-meta"><span class="testhub-plan-badge ${platformClass}">${escapeDashboardHtml(platform)}</span>${version ? `<span class="testhub-plan-badge version">${escapeDashboardHtml(version)}</span>` : ''}<span class="testhub-plan-badge">${escapeDashboardHtml(state)}</span>${assignee ? `<span class="testhub-plan-badge">${escapeDashboardHtml(assignee)}</span>` : ''}${endDate ? `<span class="testhub-plan-badge">截止 ${escapeDashboardHtml(endDate)}</span>` : ''}</div></label>`;
+  }).join('') || '<span class="testhub-plan-empty">没有可选计划，可换关键词查询</span>';
+  updateTestHubPlanSummary();
+}
+
+function addManualTestHubPlan() {
+  const input = document.getElementById('manualTestHubPlanId');
+  const hint = document.getElementById('testHubPlanHint');
+  const planId = input?.value.trim() || '';
+  if (!/^[A-Za-z0-9_-]{8,128}$/.test(planId)) {
+    showToast('请输入正确的 TestHub 计划 ID', 'error');
+    return;
+  }
+  const selectedIds = [...new Set([...getSelectedTestHubPlanIds(), planId])];
+  if (!testHubPlanChoiceCache.has(planId)) {
+    testHubPlanChoiceCache.set(planId, { id:planId, name:`手动添加计划 · ${planId.slice(-8)}`, status:'待同步验证' });
+  }
+  renderTestHubPlanChoices([], selectedIds);
+  if (input) input.value = '';
+  if (hint) hint.textContent = `已选择 ${selectedIds.length} 个计划；保存后运行本地同步工具验证计划 ID`;
+  showToast('计划 ID 已添加');
+}
+
+async function getEdgeFunctionErrorMessage(error) {
+  try {
+    const response = error?.context;
+    if (response && typeof response.clone === 'function') {
+      const payload = await response.clone().json();
+      if (payload?.error) return String(payload.error);
+    }
+  } catch (parseError) {
+    console.warn('[edge-function] error payload parse failed:', parseError);
+  }
+  return error?.message || '未知错误';
+}
+
+async function loadTestHubPlans(button) {
+  if (userRole !== 'admin') { showToast('仅管理员可以拉取 TestHub 计划', 'error'); return; }
+  const libraryId = document.getElementById('newTaskTestHubLibrary')?.value || '';
+  const searchInput = document.getElementById('newTaskTestHubSearch');
+  const hint = document.getElementById('testHubPlanHint');
+  const selectedPlanIds = getSelectedTestHubPlanIds();
+  const keyword = searchInput?.value.trim() || '';
+  if (!libraryId) { showToast('请先选择 TestHub 用例库', 'error'); return; }
+
+  if (button) button.disabled = true;
+  if (hint) hint.textContent = `正在查询${keyword ? `“${keyword}”相关` : '最近'}计划缓存…`;
+  try {
+    let query = sb.from('testhub_plan_cache')
+      .select('plan_id,name,short_id,status,state_name,assignee_name,start_at,end_at,html_url,synced_at')
+      .eq('library_id', libraryId)
+      .order('end_at', { ascending:false, nullsFirst:false })
+      .limit(keyword ? 200 : 50);
+    if (keyword) query = query.ilike('name', `%${keyword}%`);
+    const { data, error } = await query;
+    if (error) throw error;
+    const plans = (data || []).map(plan => ({
+      id: plan.plan_id,
+      name: plan.name,
+      short_id: plan.short_id,
+      status: plan.status,
+      state: { name:plan.state_name },
+      assignee: { display_name:plan.assignee_name },
+      start_at: plan.start_at,
+      end_at: plan.end_at,
+      html_url: plan.html_url,
+      synced_at: plan.synced_at
+    }));
+    const nextSelected = selectedPlanIds.length ? selectedPlanIds : (plans.length === 1 ? [String(plans[0].id || '')] : []);
+    testHubPlanChoiceCache = new Map();
+    renderTestHubPlanChoices(plans, nextSelected);
+    const syncedText = plans[0]?.synced_at ? `，缓存于 ${new Date(plans[0].synced_at).toLocaleString('zh-CN')}` : '';
+    if (hint) hint.textContent = plans.length
+      ? `缓存中找到 ${plans.length} 个计划${syncedText}，可同时勾选 Android / iOS`
+      : `缓存中没有${keyword ? `包含“${keyword}”的` : ''}计划，请先运行本地同步工具或手动添加计划 ID`;
+    showToast(plans.length ? `已读取 ${plans.length} 个 TestHub 缓存计划` : '缓存中没有匹配计划', plans.length ? 'success' : 'error');
+  } catch (error) {
+    console.error('[testhub] plan cache load failed:', error);
+    if (hint) hint.textContent = '计划缓存读取失败，请先执行本地缓存表迁移和本地同步工具';
+    showToast('TestHub 缓存读取失败：' + error.message, 'error');
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
+async function syncTestHubProgress(taskId, button) {
+  if (userRole !== 'admin') { showToast('仅管理员可以同步 TestHub', 'error'); return; }
+  if (button) button.disabled = true;
+  try {
+    showToast('请先双击本地 scripts/同步TestHub.cmd；这里将刷新已写入的进度');
+    await renderTaskRecords();
+  } catch (error) {
+    console.error('[testhub] sync failed:', error);
+    showToast('TestHub 同步失败：' + error.message, 'error');
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
+async function copyLocalSyncAuthorization(button) {
+  if (userRole !== 'admin') { showToast('仅管理员可以生成本地同步授权', 'error'); return; }
+  if (button) button.disabled = true;
+  try {
+    let { data: { session }, error } = await sb.auth.getSession();
+    if (error) throw error;
+    const expiresSoon = !session?.expires_at || session.expires_at * 1000 < Date.now() + 5 * 60 * 1000;
+    if (expiresSoon) {
+      const refreshed = await sb.auth.refreshSession();
+      if (refreshed.error) throw refreshed.error;
+      session = refreshed.data.session;
+    }
+    if (!session?.access_token) throw new Error('当前登录会话不存在，请重新登录');
+    await navigator.clipboard.writeText(session.access_token);
+    showToast('本地同步授权已复制；请立即粘贴到同步工具，授权不会保存到项目');
+  } catch (error) {
+    console.error('[testhub] copy local sync authorization failed:', error);
+    showToast('复制本地同步授权失败：' + error.message, 'error');
+  } finally {
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
+function getSelectedAssigneeIds() {
+  const select = document.getElementById('newTaskAssignee');
+  return select ? [...select.selectedOptions].map(option => option.value).filter(Boolean) : [];
+}
+
+function toggleAssigneeOption(event) {
+  if (event.target?.tagName !== 'OPTION' || event.currentTarget.disabled) return;
+  event.preventDefault();
+  event.target.selected = !event.target.selected;
+  event.currentTarget.focus();
+  event.currentTarget.dispatchEvent(new Event('change', { bubbles:true }));
+}
+
+function currentAssigneeAllocationValues() {
+  const values = new Map();
+  document.querySelectorAll('#assigneeAllocationPreview .assignee-effort-input').forEach(input => {
+    values.set(input.dataset.memberId, Number(input.value) || 0);
+  });
+  return values;
+}
+
+function renderAssigneeAllocationInputs(values = null) {
+  const preview = document.getElementById('assigneeAllocationPreview');
+  const select = document.getElementById('newTaskAssignee');
+  if (!preview || !select) return;
+  const selected = [...select.selectedOptions];
+  if (!selected.length) {
+    preview.innerHTML = '<div class="assignee-allocation-note">请至少选择 1 位负责人</div>';
+    return;
+  }
+  const saved = values instanceof Map ? values : currentAssigneeAllocationValues();
+  const total = Number(document.getElementById('newTaskEffort')?.value) || 0;
+  const even = selected.length ? total / selected.length : 0;
+  preview.innerHTML = `<div class="assignee-allocation-note">总人天只计算一次，可按成员调整；各成员之和必须等于 ${total.toFixed(2)} 人天。<button class="btn-secondary" type="button" onclick="distributeAssigneeEffortEvenly()">平均分配</button></div><div class="assignee-allocation-grid">${selected.map((option, index) => {
+    const fallback = index === selected.length - 1 ? total - even * (selected.length - 1) : even;
+    const value = saved.has(option.value) ? saved.get(option.value) : fallback;
+    return `<label class="assignee-allocation-item"><span>${escapeDashboardHtml(option.textContent)}</span><input class="dashboard-input assignee-effort-input" data-member-id="${escapeDashboardHtml(option.value)}" type="number" min="0.01" max="365" step="0.01" value="${Math.max(value, 0).toFixed(2)}"><small>人天</small></label>`;
+  }).join('')}</div>`;
+}
+
+function distributeAssigneeEffortEvenly() {
+  const select = document.getElementById('newTaskAssignee');
+  const selected = select ? [...select.selectedOptions] : [];
+  const total = Number(document.getElementById('newTaskEffort')?.value) || 0;
+  const values = new Map();
+  if (selected.length) {
+    const cents = Math.round(total * 100);
+    const base = Math.floor(cents / selected.length);
+    selected.forEach((option, index) => values.set(option.value, (base + (index < cents % selected.length ? 1 : 0)) / 100));
+  }
+  renderAssigneeAllocationInputs(values);
+}
+
+function getAssigneeAllocations() {
+  return [...document.querySelectorAll('#assigneeAllocationPreview .assignee-effort-input')].map(input => ({
+    member_id: input.dataset.memberId,
+    allocated_effort: Number(input.value)
+  }));
+}
+
+async function loadTaskAssignees(selectedIds = null, allocations = null) {
+  const select = document.getElementById('newTaskAssignee');
+  if (!select) return;
+  const selected = new Set(selectedIds || getSelectedAssigneeIds());
+  if (!selected.size) selected.add(currentUser.id);
+  try {
+    let data = dashboardMembers;
+    if (userRole === 'admin' || !data.length) {
+      const result = userRole === 'admin'
+        ? await sb.from('profiles').select('id,name,role').order('name')
+        : { data:[{ id:currentUser.id, name:document.getElementById('userName')?.textContent || '我', role:userRole }], error:null };
+      if (result.error) throw result.error;
+      data = result.data || [];
+      dashboardMembers = data;
+    }
+    select.innerHTML = dashboardMembers.map(member =>
+      `<option value="${escapeDashboardHtml(member.id)}" ${selected.has(member.id) ? 'selected' : ''}>${escapeDashboardHtml(member.name || '未命名成员')}${member.id === currentUser.id ? '（我）' : ''}</option>`
+    ).join('');
+    if (!dashboardMembers.some(member => member.id === currentUser.id)) {
+      select.insertAdjacentHTML('afterbegin', `<option value="${currentUser.id}">分配给我</option>`);
+    }
+    if (allocations) renderAssigneeAllocationInputs(new Map(allocations.map(item => [item.member_id, Number(item.allocated_effort)])));
+    else renderAssigneeAllocationInputs();
+  } catch (error) {
+    console.error('[dashboard] load assignees failed:', error);
+    select.innerHTML = `<option value="${currentUser.id}">分配给我（成员加载失败）</option>`;
+  }
+}
+
+function parsePingCodeReference(value) {
+  const raw = value.trim();
+  if (!raw) return null;
+  const url = new URL(raw);
+  if (!['http:', 'https:'].includes(url.protocol)) throw new Error('PingCode 链接格式不正确');
+  const segments = url.pathname.split('/').filter(Boolean);
+  const externalId = url.searchParams.get('id') || segments.at(-1);
+  if (!externalId) throw new Error('无法从链接中识别 PingCode 工作项 ID');
+  return { externalUrl: url.toString(), externalId };
+}
+
+function closeNewTaskModal() {
+  document.getElementById('newTaskModal')?.classList.remove('open');
+}
+
+async function saveQaTask() {
+  if (taskEditorReadOnly) { showToast('该事项为只读，请联系管理员或主负责人修改', 'error'); return; }
+  const existingTask = editingQaTaskId ? taskRecordCache.get(editingQaTaskId) : null;
+  const title = document.getElementById('newTaskTitle')?.value.trim();
+  const description = document.getElementById('newTaskDescription')?.value.trim() || '';
+  const priority = existingTask?.priority || 'P1';
+  const taskType = document.getElementById('newTaskType')?.value;
+  const status = document.getElementById('newTaskStatus')?.value || 'todo';
+  const assigneeIds = getSelectedAssigneeIds();
+  const effort = Number(document.getElementById('newTaskEffort')?.value);
+  const allocationStart = document.getElementById('newTaskAllocationStart')?.value;
+  const allocationEnd = document.getElementById('newTaskAllocationEnd')?.value;
+  const dueDate = allocationEnd;
+  const testHubLibraryId = document.getElementById('newTaskTestHubLibrary')?.value.trim() || '';
+  const testHubPlanIds = getSelectedTestHubPlanIds();
+  const testHubEffort = testHubPlanIds.length ? effort : null;
+  const button = document.getElementById('saveTaskBtn');
+  if (!title) { showToast('请填写任务标题', 'error'); return; }
+  if (!Number.isFinite(effort) || effort <= 0) { showToast('预估人天必须大于 0', 'error'); return; }
+  if (!assigneeIds.length) { showToast('请至少选择 1 位负责人', 'error'); return; }
+  const allocations = getAssigneeAllocations();
+  if (allocations.length !== assigneeIds.length || allocations.some(item => !Number.isFinite(item.allocated_effort) || item.allocated_effort <= 0)) {
+    showToast('请为每位负责人填写大于 0 的分配人天', 'error'); return;
+  }
+  const allocationTotal = allocations.reduce((sum, item) => sum + item.allocated_effort, 0);
+  if (Math.abs(allocationTotal - effort) > 0.011) {
+    showToast(`成员分配合计 ${allocationTotal.toFixed(2)} 人天，必须等于事件总人天 ${effort.toFixed(2)}`, 'error'); return;
+  }
+  if (!allocationStart || !allocationEnd || allocationEnd < allocationStart) {
+    showToast('截止日期不能早于资源开始日', 'error'); return;
+  }
+  if (!resourceWorkDates(allocationStart, allocationEnd).length) {
+    showToast('所选资源区间没有可用工作日', 'error'); return;
+  }
+  if ((testHubLibraryId || testHubPlanIds.length) && (!testHubLibraryId || !testHubPlanIds.length)) {
+    showToast('关联 TestHub 时需要同时选择用例库和至少一个计划', 'error'); return;
+  }
+
+  button.disabled = true;
+  try {
+    const due = new Date(`${dueDate}T23:59:59`);
+    const payload = {
+      title,
+      description,
+      priority,
+      task_type: taskType,
+      status,
+      completed_at: status === 'done' ? (existingTask?.completed_at || new Date().toISOString()) : null,
+      assignee_id: assigneeIds[0],
+      due_date: due.toISOString(),
+      source: existingTask?.source || 'manual',
+      related_type: existingTask?.related_type || null,
+      external_id: existingTask?.external_id || null,
+      external_url: existingTask?.external_url || null,
+      effort_person_days: effort,
+      allocation_start_date: allocationStart,
+      allocation_end_date: allocationEnd,
+      testhub_library_id: testHubLibraryId || null,
+      testhub_plan_id: testHubPlanIds[0] || null,
+      testhub_plan_ids: testHubPlanIds,
+      testhub_effort_person_days: testHubEffort
+    };
+    const { data, error } = await sb.rpc('save_qa_task_with_assignees', {
+      task_payload: { ...payload, id:editingQaTaskId || null },
+      assignee_payload: allocations
+    });
+    if (error) throw error;
+    if (!data) throw new Error('未找到可保存的工作事项');
+    const wasEditing = Boolean(editingQaTaskId);
+    editingQaTaskId = null;
+    closeNewTaskModal();
+    showToast(wasEditing ? '工作事项已更新' : '待办已创建');
+    if (currentPage === 'tasks') await renderTaskRecords();
+    else await loadDashboardData(++dashboardLoadToken);
+  } catch (error) {
+    console.error('[dashboard] save task failed:', error);
+    showToast('保存失败：' + error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+const dashboardCompletingTaskIds = new Set();
+
+async function completeQaTask(id, button) {
+  if (dashboardCompletingTaskIds.has(id)) return;
+  const previousTasks = dashboardSnapshot?.todayTasks ? [...dashboardSnapshot.todayTasks] : null;
+  dashboardCompletingTaskIds.add(id);
+  if (button) button.disabled = true;
+
+  if (previousTasks) {
+    const now = new Date();
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
+    const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999);
+    const remainingTasks = previousTasks.filter(task => task.id !== id);
+    dashboardSnapshot = { ...dashboardSnapshot, todayTasks: remainingTasks };
+    setDashboardMetric('sc-tasks', remainingTasks.length, false);
+    renderDashboardTasks(remainingTasks, false, todayStart, todayEnd);
+  }
+
+  try {
+    const { data, error } = await sb.from('qa_tasks').update({ status:'done' }).eq('id', id).select('id').maybeSingle();
+    if (error) throw error;
+    if (!data) throw new Error('未找到可更新的任务');
+    showToast('任务已完成');
+    await loadDashboardData(++dashboardLoadToken);
+  } catch (error) {
+    console.error('[dashboard] complete task failed:', error);
+    showToast('更新失败：' + error.message, 'error');
+    dashboardCompletingTaskIds.delete(id);
+    await loadDashboardData(++dashboardLoadToken);
+  } finally {
+    dashboardCompletingTaskIds.delete(id);
+    if (button?.isConnected) button.disabled = false;
+  }
+}
+
+async function copyTodaySummary() {
+  if (!dashboardSnapshot) { showToast('数据仍在加载，请稍后重试', 'error'); return; }
+  const { activeRelease, todayTasks, risks } = dashboardSnapshot;
+  const lines = [
+    `Liene QA 今日摘要 · ${new Date().toLocaleDateString('zh-CN')}`,
+    `当前版本：${activeRelease?.name || activeRelease?.version || '暂未设置'}`,
+    `今日待办：${todayTasks.length} 项`,
+    ...todayTasks.slice(0, 5).map(task => `- [${task.priority}] ${task.title}`),
+    `风险提醒：${risks.length} 项`,
+    ...risks.slice(0, 5).map(risk => `- [${risk.level === 'high' ? '高' : risk.level === 'medium' ? '中' : '低'}] ${risk.title}`)
+  ];
+  const summary = lines.join('\n');
+  try {
+    await navigator.clipboard.writeText(summary);
+    showToast('今日摘要已复制');
+  } catch (error) {
+    console.error('[dashboard] clipboard failed:', error);
+    showToast('复制失败，请检查浏览器剪贴板权限', 'error');
+  }
 }
 
 function navTo(page) {

@@ -18,29 +18,52 @@ CREATE TABLE IF NOT EXISTS onboarding_docs (
 -- 2. 启用 RLS
 ALTER TABLE onboarding_docs ENABLE ROW LEVEL SECURITY;
 
--- 3. 所有人都可读
-CREATE POLICY "Anyone can read onboarding_docs"
-  ON onboarding_docs FOR SELECT
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = ''
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles
+    WHERE id = auth.uid()
+      AND role = 'admin'
+  );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_admin() FROM public;
+GRANT EXECUTE ON FUNCTION public.is_admin() TO authenticated;
+
+-- 3. 登录成员可读，管理员可写；禁止匿名访问
+DROP POLICY IF EXISTS "Anyone can read onboarding_docs" ON public.onboarding_docs;
+DROP POLICY IF EXISTS "Admins can insert onboarding_docs" ON public.onboarding_docs;
+DROP POLICY IF EXISTS "Admins can update onboarding_docs" ON public.onboarding_docs;
+DROP POLICY IF EXISTS "Admins can delete onboarding_docs" ON public.onboarding_docs;
+DROP POLICY IF EXISTS onboarding_docs_read_authenticated ON public.onboarding_docs;
+DROP POLICY IF EXISTS onboarding_docs_write_admin ON public.onboarding_docs;
+
+CREATE POLICY onboarding_docs_read_authenticated
+  ON public.onboarding_docs FOR SELECT
+  TO authenticated
   USING (true);
 
--- 4. 仅管理员可写入
-CREATE POLICY "Admins can insert onboarding_docs"
-  ON onboarding_docs FOR INSERT
-  WITH CHECK (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+CREATE POLICY onboarding_docs_write_admin
+  ON public.onboarding_docs FOR ALL
+  TO authenticated
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
-CREATE POLICY "Admins can update onboarding_docs"
-  ON onboarding_docs FOR UPDATE
-  USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
-
-CREATE POLICY "Admins can delete onboarding_docs"
-  ON onboarding_docs FOR DELETE
-  USING (
-    EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role = 'admin')
-  );
+REVOKE ALL ON public.onboarding_docs FROM anon;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.onboarding_docs TO authenticated;
+DO $$
+BEGIN
+  IF to_regclass('public.onboarding_docs_id_seq') IS NOT NULL THEN
+    GRANT USAGE, SELECT ON SEQUENCE public.onboarding_docs_id_seq TO authenticated;
+  END IF;
+END
+$$;
 
 -- 5. 预填默认数据（中文 Markdown，可以后续在页面上修改）
 INSERT INTO onboarding_docs (category, title, icon, content, sort_order) VALUES

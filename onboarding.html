@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/dompurify@3.2.6/dist/purify.min.js"></script>
 <style>
 :root {
   --pink:   #FF6B9D;
@@ -669,7 +670,7 @@ function renderContent() {
 
 function renderCard(doc) {
   const iconClass = ICON_KEYS[doc.category] || 'env';
-  const contentHtml = doc.content ? marked.parse(doc.content) : '';
+  const contentHtml = doc.content ? DOMPurify.sanitize(marked.parse(doc.content)) : '';
   const highlights = ['BUG 提交规范', '软件质量日常行为规范', 'BUG 闭合规范'];
   const hlClass = highlights.includes(doc.title) ? ' highlight' : '';
   const hlBadge = highlights.includes(doc.title) ? '<span style="font-size:10px;background:var(--pink);color:#fff;padding:1px 7px;border-radius:10px;margin-left:6px;font-weight:400;">重点</span>' : '';

@@ -1,0 +1,274 @@
+-- Liene QA 今日工作台基础数据结构草案
+-- 仅供审查；执行前必须核对生产表结构、RLS和备份。
+
+begin;
+
+create or replace function public.set_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
+create or replace function public.is_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and role = 'admin'
+  );
+$$;
+
+revoke all on function public.is_admin() from public;
+grant execute on function public.is_admin() to authenticated;
+
+create table if not exists public.releases (
+  id uuid primary key default gen_random_uuid(),
+  version text not null,
+  name text,
+  platform text not null default 'both'
+    check (platform in ('android', 'ios', 'both')),
+  products text[] not null default '{}',
+  status text not null default 'planned'
+    check (status in ('planned', 'active', 'released', 'archived')),
+  owner_id uuid references auth.users(id) on delete set null,
+  planned_release_date date,
+  notes text,
+  created_by uuid not null default auth.uid()
+    references auth.users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create unique index if not exists releases_one_active_idx
+  on public.releases (status)
+  where status = 'active';
+
+create unique index if not exists releases_version_platform_idx
+  on public.releases (lower(version), platform);
+
+create table if not exists public.qa_tasks (
+  id uuid primary key default gen_random_uuid(),
+  release_id uuid references public.releases(id) on delete set null,
+  title text not null check (length(btrim(title)) between 1 and 300),
+  description text not null default '',
+  task_type text not null default 'other'
+    check (task_type in (
+      'prd_review', 'case_design', 'test_execution', 'bug_verify',
+      'copy_check', 'automation', 'other'
+    )),
+  priority text not null default 'P1'
+    check (priority in ('P0', 'P1', 'P2')),
+  status text not null default 'todo'
+    check (status in ('todo', 'in_progress', 'done', 'cancelled')),
+  assignee_id uuid not null references auth.users(id) on delete restrict,
+  due_date timestamptz,
+  related_type text,
+  related_id text,
+  source text not null default 'manual'
+    check (source in ('manual', 'pingcode', 'automation')),
+  external_id text,
+  external_url text,
+  sync_status text not null default 'not_synced'
+    check (sync_status in ('not_synced', 'pending', 'synced', 'failed')),
+  last_synced_at timestamptz,
+  sync_error text,
+  completed_at timestamptz,
+  created_by uuid not null default auth.uid()
+    references auth.users(id) on delete restrict,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check ((status = 'done') = (completed_at is not null))
+);
+
+create index if not exists qa_tasks_assignee_status_due_idx
+  on public.qa_tasks (assignee_id, status, due_date);
+
+create index if not exists qa_tasks_release_idx
+  on public.qa_tasks (release_id);
+
+create unique index if not exists qa_tasks_external_object_idx
+  on public.qa_tasks (source, external_id)
+  where external_id is not null;
+
+create table if not exists public.release_checks (
+  id uuid primary key default gen_random_uuid(),
+  release_id uuid not null references public.releases(id) on delete cascade,
+  check_key text not null check (length(btrim(check_key)) between 1 and 100),
+  check_name text not null check (length(btrim(check_name)) between 1 and 200),
+  category text not null default 'general',
+  severity text not null default 'medium'
+    check (severity in ('high', 'medium', 'low')),
+  status text not null default 'pending'
+    check (status in ('pending', 'passed', 'failed', 'waived', 'unavailable')),
+  source_type text not null default 'manual'
+    check (source_type in ('manual', 'automation', 'pingcode', 'system')),
+  details jsonb not null default '{}'::jsonb,
+  last_evaluated_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (release_id, check_key)
+);
+
+create index if not exists release_checks_release_status_idx
+  on public.release_checks (release_id, status, severity);
+
+create or replace function public.prepare_qa_task_update()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if new.created_by is distinct from old.created_by then
+    raise exception 'qa_tasks.created_by cannot be changed';
+  end if;
+
+  if new.assignee_id is distinct from old.assignee_id
+     and not public.is_admin() then
+    raise exception 'only admins can reassign qa_tasks';
+  end if;
+
+  if new.status = 'done' and old.status is distinct from 'done' then
+    new.completed_at = coalesce(new.completed_at, now());
+  elsif new.status <> 'done' then
+    new.completed_at = null;
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists set_releases_updated_at on public.releases;
+create trigger set_releases_updated_at
+before update on public.releases
+for each row execute function public.set_updated_at();
+
+drop trigger if exists set_qa_tasks_updated_at on public.qa_tasks;
+create trigger set_qa_tasks_updated_at
+before update on public.qa_tasks
+for each row execute function public.set_updated_at();
+
+drop trigger if exists prepare_qa_tasks_update on public.qa_tasks;
+create trigger prepare_qa_tasks_update
+before update on public.qa_tasks
+for each row execute function public.prepare_qa_task_update();
+
+drop trigger if exists set_release_checks_updated_at on public.release_checks;
+create trigger set_release_checks_updated_at
+before update on public.release_checks
+for each row execute function public.set_updated_at();
+
+alter table public.releases enable row level security;
+alter table public.qa_tasks enable row level security;
+alter table public.release_checks enable row level security;
+
+drop policy if exists "Authenticated users read releases" on public.releases;
+create policy "Authenticated users read releases"
+on public.releases for select
+to authenticated
+using (true);
+
+drop policy if exists "Admins insert releases" on public.releases;
+create policy "Admins insert releases"
+on public.releases for insert
+to authenticated
+with check (public.is_admin() and created_by = auth.uid());
+
+drop policy if exists "Admins update releases" on public.releases;
+create policy "Admins update releases"
+on public.releases for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Admins delete releases" on public.releases;
+create policy "Admins delete releases"
+on public.releases for delete
+to authenticated
+using (public.is_admin());
+
+drop policy if exists "Users read own tasks" on public.qa_tasks;
+create policy "Users read own tasks"
+on public.qa_tasks for select
+to authenticated
+using (
+  assignee_id = auth.uid()
+  or created_by = auth.uid()
+  or public.is_admin()
+);
+
+drop policy if exists "Users insert allowed tasks" on public.qa_tasks;
+create policy "Users insert allowed tasks"
+on public.qa_tasks for insert
+to authenticated
+with check (
+  created_by = auth.uid()
+  and (assignee_id = auth.uid() or public.is_admin())
+);
+
+drop policy if exists "Users update allowed tasks" on public.qa_tasks;
+create policy "Users update allowed tasks"
+on public.qa_tasks for update
+to authenticated
+using (
+  assignee_id = auth.uid()
+  or created_by = auth.uid()
+  or public.is_admin()
+)
+with check (
+  assignee_id = auth.uid()
+  or created_by = auth.uid()
+  or public.is_admin()
+);
+
+drop policy if exists "Users delete created tasks" on public.qa_tasks;
+create policy "Users delete created tasks"
+on public.qa_tasks for delete
+to authenticated
+using (created_by = auth.uid() or public.is_admin());
+
+drop policy if exists "Authenticated users read release checks" on public.release_checks;
+create policy "Authenticated users read release checks"
+on public.release_checks for select
+to authenticated
+using (true);
+
+drop policy if exists "Admins insert release checks" on public.release_checks;
+create policy "Admins insert release checks"
+on public.release_checks for insert
+to authenticated
+with check (public.is_admin());
+
+drop policy if exists "Admins update release checks" on public.release_checks;
+create policy "Admins update release checks"
+on public.release_checks for update
+to authenticated
+using (public.is_admin())
+with check (public.is_admin());
+
+drop policy if exists "Admins delete release checks" on public.release_checks;
+create policy "Admins delete release checks"
+on public.release_checks for delete
+to authenticated
+using (public.is_admin());
+
+revoke all on public.releases, public.qa_tasks, public.release_checks from anon;
+
+grant select on public.releases, public.qa_tasks, public.release_checks to authenticated;
+grant insert, update, delete on public.releases, public.qa_tasks, public.release_checks to authenticated;
+
+comment on table public.releases is 'Liene QA团队版本与发布周期';
+comment on table public.qa_tasks is 'Liene QA个人待办及外部对象关联';
+comment on table public.release_checks is '版本发布检查和风险结果';
+
+commit;
