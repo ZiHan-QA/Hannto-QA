@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import atexit
 import base64
 import getpass
 import json
@@ -11,6 +12,7 @@ import os
 import random
 import subprocess
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -42,6 +44,39 @@ RUN_PAGE_SIZE = 5
 UNTESTED_STATUSES = {
     "", "未测试", "untested", "not_tested", "not tested", "not_run", "not run", "pending"
 }
+SYNC_LOCK_MAX_AGE_SECONDS = 2 * 60 * 60
+
+
+def acquire_sync_lock() -> None:
+    """Prevent the scheduled task and a manual launch from syncing concurrently."""
+    lock_dir = os.environ.get("LOCALAPPDATA") or tempfile.gettempdir()
+    lock_path = os.path.join(lock_dir, "LieneQA", "testhub-sync.lock")
+    os.makedirs(os.path.dirname(lock_path), exist_ok=True)
+    if os.path.exists(lock_path):
+        age = time.time() - os.path.getmtime(lock_path)
+        if age < SYNC_LOCK_MAX_AGE_SECONDS:
+            raise SystemExit("已有 TestHub 同步正在运行，本次任务已安全跳过")
+        try:
+            os.remove(lock_path)
+        except OSError:
+            raise SystemExit("旧同步锁仍被占用，请稍后重试") from None
+    try:
+        descriptor = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    except FileExistsError:
+        raise SystemExit("已有 TestHub 同步正在运行，本次任务已安全跳过") from None
+    os.write(descriptor, str(os.getpid()).encode("ascii"))
+
+    def cleanup() -> None:
+        try:
+            os.close(descriptor)
+        except OSError:
+            pass
+        try:
+            os.remove(lock_path)
+        except OSError:
+            pass
+
+    atexit.register(cleanup)
 
 
 class HttpStatusError(RuntimeError):
@@ -530,6 +565,7 @@ def main() -> None:
     mode_group.add_argument("--progress-only", action="store_true", help="只同步已关联任务进度，不重复拉取计划目录")
     parser.add_argument("--stored-credentials", action="store_true", help="从当前 Windows 用户的凭据管理器读取授权")
     args = parser.parse_args()
+    acquire_sync_lock()
 
     stored_email = stored_password = ""
     if args.stored_credentials:
