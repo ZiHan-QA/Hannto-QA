@@ -21,6 +21,8 @@ def main() -> None:
     html = (ROOT / "main.html").read_text(encoding="utf-8")
     migration = (ROOT / "supabase/migrations/20260717_task_workflow_hardening.sql").read_text(encoding="utf-8")
     closure_migration = (ROOT / "supabase/migrations/20260720_task_management_closure.sql").read_text(encoding="utf-8")
+    release_migration = (ROOT / "supabase/migrations/20260720_release_management.sql").read_text(encoding="utf-8")
+    defect_migration = (ROOT / "supabase/migrations/20260720_quality_defect_review.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
 
     require(html, [
@@ -46,6 +48,21 @@ def main() -> None:
         "function batchUpdateTaskDeadline",
         "blocked_reason",
         "completion_note",
+        "function renderReleaseManagement",
+        "function transitionRelease",
+        "function addReleaseCheck",
+        "transition_release_status",
+        "function renderQualityReport",
+        "function renderQualityReportResults",
+        "function copyQualityReportSummary",
+        "function downloadQualityReportCsv",
+        "function renderBugManagement",
+        "function saveQualityDefect",
+        "function qualityDefectMatches",
+        "BUG 复盘完成率",
+        "function renderRetrospectiveReport",
+        "function qualityRetrospectiveText",
+        "function copyRetrospectiveReport",
     ], "main.html")
     require(migration, [
         "create table if not exists public.qa_task_allocation_history",
@@ -60,6 +77,17 @@ def main() -> None:
         "Blocked reason is required",
         "Completion note is required",
     ], "task management closure migration")
+    require(release_migration, [
+        "create or replace function public.transition_release_status",
+        "Only administrators can change release status",
+        "where status = 'active'",
+    ], "release management migration")
+    require(defect_migration, [
+        "create table if not exists public.quality_defects",
+        "exposed_stage in ('integration', 'production')",
+        "review_status in ('pending', 'in_review', 'completed')",
+        "quality_defects_update_owner_or_admin",
+    ], "quality defect review migration")
     require(sync_script, [
         "RUN_PAGE_SIZE = 5",
         "mapped_executor_count",
