@@ -238,6 +238,49 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .task-summary-chip { border: 1px solid var(--line); border-radius: 999px; padding: 5px 9px; background: #fff; color: var(--sub); font-size: 10px; cursor: pointer; }
 .task-summary-chip strong { margin-left: 4px; color: var(--text); }
 .task-summary-chip.danger strong { color: #b42318; }
+.release-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(330px,1fr)); gap: 14px; margin-top: 14px; }
+.release-card { border: 1px solid var(--line); border-radius: 14px; padding: 16px; background: #fff; }
+.release-card.active { border-color: rgba(95,39,205,.4); box-shadow: 0 7px 18px rgba(95,39,205,.08); }
+.release-card-hd { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.release-card h3 { margin:0; color:var(--text); font-size:15px; }
+.release-meta { color:var(--sub); font-size:10px; margin-top:4px; }
+.release-readiness { border-radius:999px; padding:4px 8px; font-size:9px; white-space:nowrap; }
+.release-ready { background:#ccf5ee; color:#0f6e56; }
+.release-warning { background:#fff0d1; color:#8a4b08; }
+.release-danger { background:#fee4e2; color:#b42318; }
+.release-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin:12px 0; }
+.release-stat { padding:8px; border-radius:9px; background:#f8f5f1; text-align:center; }
+.release-stat strong { display:block; color:var(--text); font:700 16px 'Syne',sans-serif; }
+.release-stat span { color:var(--sub); font-size:9px; }
+.release-check-row { display:grid; grid-template-columns:minmax(120px,1fr) 78px 90px auto; gap:7px; align-items:center; padding:7px 0; border-bottom:1px solid #f1ece6; font-size:10px; }
+.release-check-form { display:grid; grid-template-columns:minmax(140px,1fr) 100px auto; gap:7px; margin-top:9px; }
+.quality-metrics { display:grid; grid-template-columns:repeat(6,minmax(115px,1fr)); gap:10px; margin:14px 0; }
+.quality-metric { padding:13px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+.quality-metric span { display:block; color:var(--sub); font-size:10px; }
+.quality-metric strong { display:block; margin-top:5px; color:var(--text); font:700 23px 'Syne',sans-serif; }
+.quality-metric small { color:var(--sub); font-size:9px; }
+.quality-progress { height:7px; overflow:hidden; border-radius:999px; background:#eee9e3; margin-top:7px; }
+.quality-progress > i { display:block; height:100%; border-radius:999px; background:var(--teal); }
+.quality-section-grid { display:grid; grid-template-columns:minmax(0,1.15fr) minmax(300px,.85fr); gap:14px; margin-top:14px; }
+.quality-member-row { display:grid; grid-template-columns:minmax(90px,1fr) repeat(4,70px); gap:7px; align-items:center; padding:8px 0; border-bottom:1px solid #f1ece6; font-size:10px; }
+.defect-stage { display:inline-flex; border-radius:999px; padding:3px 7px; font-size:9px; }
+.defect-stage.production { background:#fee4e2; color:#b42318; }
+.defect-stage.integration { background:#fff0d1; color:#8a4b08; }
+.defect-review-card { padding:12px; border-radius:11px; background:#fdfaf6; margin-top:8px; }
+.defect-review-card strong { color:var(--text); font-size:11px; }
+.defect-review-card p { margin:5px 0 0; color:var(--sub); font-size:10px; white-space:pre-wrap; }
+.retro-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:12px; }
+.retro-panel { padding:13px; border:1px solid var(--line); border-radius:12px; background:#fff; }
+.retro-panel h4 { margin:0 0 9px; color:var(--text); font-size:11px; }
+.retro-bar-row { display:grid; grid-template-columns:minmax(72px,1fr) minmax(80px,2fr) 32px; gap:7px; align-items:center; margin:7px 0; color:var(--sub); font-size:9px; }
+.retro-bar { height:7px; overflow:hidden; border-radius:999px; background:#eee9e3; }
+.retro-bar i { display:block; height:100%; border-radius:999px; background:var(--purple); }
+.retro-action-item { padding:9px 0; border-bottom:1px solid #f1ece6; }
+.retro-action-item strong { display:block; color:var(--text); font-size:10px; }
+.retro-action-item span { color:var(--sub); font-size:9px; }
+@media (max-width:900px) { .retro-grid { grid-template-columns:1fr; } }
+@media (max-width:1100px) { .quality-metrics { grid-template-columns:repeat(3,1fr); } .quality-section-grid { grid-template-columns:1fr; } }
+@media (max-width:720px) { .quality-metrics { grid-template-columns:repeat(2,1fr); } }
 .dashboard-filter { min-width: 130px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: #fff; color: var(--text); font: 11px 'Noto Sans SC', sans-serif; }
 .dashboard-filter[type="search"] { min-width: 190px; }
 .resource-table-wrap { overflow-x: auto; margin-top: 10px; }
@@ -476,6 +519,9 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   <a class="sb-item" onclick="nav(this,'tasks')">
     <i class="ti ti-clipboard-list"></i>工作事项
   </a>
+  <a class="sb-item" onclick="nav(this,'releases')">
+    <i class="ti ti-rocket"></i>版本发布
+  </a>
   <a class="sb-item" onclick="nav(this,'report')">
     <i class="ti ti-chart-bar"></i>质量报表
   </a>
@@ -518,7 +564,7 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   </a>
   <a class="sb-item" onclick="nav(this,'bugs')">
     <i class="ti ti-bug"></i>BUG 管理
-    <span class="badge pink" id="bugBadge">-</span>
+    <span class="badge pink" id="bugBadge" style="display:none"></span>
   </a>
 
   <hr class="sb-divider">
@@ -604,7 +650,7 @@ let dashboardResourceLoadFilter = 'all';
 let resourceCellDetailCache = new Map();
 
 const pageTitles = {
-  dashboard: '工作台', tasks: '工作事项', report: '质量报表',
+  dashboard: '工作台', tasks: '工作事项', releases: '版本发布', report: '质量报表',
   prd: 'PRD 管理', assets: '资产管理', ai: 'AI 写用例',
   automation: '自动化测试',
   copy: '文案管理',
@@ -644,6 +690,7 @@ async function init() {
   // 监听是否有运行中任务，更新侧边栏角标
   watchRunningTasks();
   watchDashboardData();
+  updateDefectBadge();
 
   renderDashboard();
 }
@@ -662,6 +709,21 @@ async function updateRunningTaskBadge() {
     if (count > 0) { badge.style.display = 'flex'; badge.textContent = '运行中'; }
     else { badge.style.display = 'none'; }
   } catch {}
+}
+
+async function updateDefectBadge() {
+  try {
+    const { count, error } = await sb.from('quality_defects').select('*', { count:'exact', head:true }).in('status', ['open','fixing']);
+    if (error) throw error;
+    const badge = document.getElementById('bugBadge');
+    if (badge) {
+      badge.textContent = String(count || 0);
+      badge.style.display = count > 0 ? 'flex' : 'none';
+    }
+  } catch {
+    const badge = document.getElementById('bugBadge');
+    if (badge) badge.style.display = 'none';
+  }
 }
 
 function watchRunningTasks() {
@@ -688,9 +750,11 @@ function watchDashboardData() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'releases' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+      if (currentPage === 'releases') renderReleaseManagement();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'release_checks' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
+      if (currentPage === 'releases') renderReleaseManagement();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
       if (currentPage === 'dashboard') {
@@ -720,6 +784,11 @@ function watchDashboardData() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'qa_task_activity' }, () => {
       if (currentPage === 'tasks') renderTaskRecords();
     })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'quality_defects' }, () => {
+      updateDefectBadge();
+      if (currentPage === 'bugs') renderBugManagement();
+      if (currentPage === 'report') renderQualityReport();
+    })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'testhub_sync_status' }, () => {
       if (currentPage === 'dashboard' && userRole === 'admin') loadDashboardData(++dashboardLoadToken);
     })
@@ -740,6 +809,9 @@ function renderPage(page) {
   const content = document.getElementById('content');
   if (page === 'dashboard') { renderDashboard(); return; }
   if (page === 'tasks') { renderTaskRecords(); return; }
+  if (page === 'releases') { renderReleaseManagement(); return; }
+  if (page === 'report') { renderQualityReport(); return; }
+  if (page === 'bugs') { renderBugManagement(); return; }
   if (page === 'members') { renderMemberMappings(); return; }
   if (page === 'automation') { renderAutomation(); return; }
   if (page === 'assets') {
@@ -1179,6 +1251,507 @@ async function batchUpdateTaskDeadline() {
   } catch (error) {
     console.error('[tasks] batch deadline failed:', error);
     showToast('批量修改失败：' + error.message, 'error');
+  }
+}
+
+function releaseStatusText(status) {
+  return ({ planned:'计划中', active:'当前活动', released:'已发布', archived:'已归档' })[status] || status;
+}
+
+function releasePlatformText(platform) {
+  return ({ android:'Android', ios:'iOS', both:'双端' })[platform] || platform;
+}
+
+function releaseModalHtml() {
+  return `<div class="dashboard-modal" id="releaseEditorModal" onclick="closeReleaseEditor()"><div class="dashboard-modal-panel" style="width:min(620px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="releaseEditorTitle">新建版本</div><button class="dashboard-modal-close" onclick="closeReleaseEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">版本号</label><input class="dashboard-input" id="releaseVersion" maxlength="80" placeholder="例如 2.5.705"></div><div class="form-group"><label class="form-label">版本名称</label><input class="dashboard-input" id="releaseName" maxlength="160" placeholder="例如 证件照功能重构"></div><div class="form-group"><label class="form-label">平台</label><select class="form-select" id="releasePlatform"><option value="both">Android + iOS</option><option value="android">Android</option><option value="ios">iOS</option></select></div><div class="form-group"><label class="form-label">计划发布日期</label><input class="dashboard-input" id="releaseDate" type="date"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="releaseNotes" rows="3" maxlength="1000" placeholder="填写版本范围、主要改动或发布说明"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeReleaseEditor()">取消</button><button class="btn-primary" id="saveReleaseBtn" onclick="saveRelease()">保存版本</button></div></div></div>`;
+}
+
+function openReleaseEditor(id = '') {
+  const release = id ? releaseRecordCache.get(id) : null;
+  document.getElementById('releaseEditorTitle').textContent = release ? '编辑版本' : '新建版本';
+  document.getElementById('releaseVersion').value = release?.version || '';
+  document.getElementById('releaseName').value = release?.name || '';
+  document.getElementById('releasePlatform').value = release?.platform || 'both';
+  document.getElementById('releaseDate').value = release?.planned_release_date || '';
+  document.getElementById('releaseNotes').value = release?.notes || '';
+  document.getElementById('releaseEditorModal').dataset.releaseId = id;
+  document.getElementById('releaseEditorModal').classList.add('open');
+  setTimeout(() => document.getElementById('releaseVersion')?.focus(), 0);
+}
+
+function closeReleaseEditor() {
+  document.getElementById('releaseEditorModal')?.classList.remove('open');
+}
+
+async function saveRelease() {
+  const modal = document.getElementById('releaseEditorModal');
+  const id = modal?.dataset.releaseId || '';
+  const version = document.getElementById('releaseVersion')?.value.trim();
+  const name = document.getElementById('releaseName')?.value.trim() || null;
+  const platform = document.getElementById('releasePlatform')?.value || 'both';
+  const plannedReleaseDate = document.getElementById('releaseDate')?.value || null;
+  const notes = document.getElementById('releaseNotes')?.value.trim() || null;
+  if (!version) { showToast('请填写版本号', 'error'); return; }
+  const button = document.getElementById('saveReleaseBtn');
+  button.disabled = true;
+  try {
+    const payload = { version, name, platform, planned_release_date:plannedReleaseDate, notes, owner_id:currentUser.id };
+    const result = id
+      ? await sb.from('releases').update(payload).eq('id', id).select('id').maybeSingle()
+      : await sb.from('releases').insert({ ...payload, created_by:currentUser.id }).select('id').single();
+    if (result.error) throw result.error;
+    closeReleaseEditor();
+    showToast(id ? '版本已更新' : '版本已创建');
+    await renderReleaseManagement();
+  } catch (error) {
+    console.error('[release] save failed:', error);
+    showToast('保存版本失败：' + error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function transitionRelease(id, status) {
+  const release = releaseRecordCache.get(id);
+  if (!release || userRole !== 'admin') return;
+  if (status === 'released') {
+    const tasks = releaseTaskCache.get(id) || [];
+    const checks = releaseCheckCache.get(id) || [];
+    const blockingTask = tasks.some(task => ['todo','in_progress','blocked'].includes(task.status));
+    const blockingCheck = checks.some(check => ['pending','failed','unavailable'].includes(check.status) && check.severity === 'high');
+    if (blockingTask || blockingCheck) { showToast('仍有未完成事项或高风险检查项，暂不能标记已发布', 'error'); return; }
+  }
+  try {
+    const { error } = await sb.rpc('transition_release_status', { target_release_id:id, target_status:status });
+    if (error) throw error;
+    showToast(`版本已更新为${releaseStatusText(status)}`);
+    await renderReleaseManagement();
+  } catch (error) {
+    console.error('[release] transition failed:', error);
+    showToast('版本状态更新失败：' + error.message, 'error');
+  }
+}
+
+async function addReleaseCheck(releaseId) {
+  const name = document.getElementById(`releaseCheckName-${releaseId}`)?.value.trim();
+  const severity = document.getElementById(`releaseCheckSeverity-${releaseId}`)?.value || 'medium';
+  if (!name) { showToast('请填写检查项名称', 'error'); return; }
+  try {
+    const { error } = await sb.from('release_checks').insert({ release_id:releaseId, check_key:`manual_${Date.now()}`, check_name:name, category:'manual', severity, status:'pending', source_type:'manual' });
+    if (error) throw error;
+    showToast('发布检查项已添加');
+    await renderReleaseManagement();
+  } catch (error) {
+    console.error('[release] check create failed:', error);
+    showToast('添加检查项失败：' + error.message, 'error');
+  }
+}
+
+async function updateReleaseCheck(id, status) {
+  try {
+    const { error } = await sb.from('release_checks').update({ status, last_evaluated_at:new Date().toISOString() }).eq('id', id);
+    if (error) throw error;
+    await renderReleaseManagement();
+  } catch (error) {
+    showToast('更新检查项失败：' + error.message, 'error');
+  }
+}
+
+let releaseRecordCache = new Map();
+let releaseTaskCache = new Map();
+let releaseCheckCache = new Map();
+
+async function renderReleaseManagement() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载版本发布信息…</div></div>';
+  try {
+    const [releaseResult, taskResult, checkResult] = await Promise.all([
+      sb.from('releases').select('id,version,name,platform,products,status,owner_id,planned_release_date,notes,created_by,created_at,updated_at').order('created_at', { ascending:false }),
+      sb.from('qa_tasks').select('id,release_id,title,status,due_date,blocked_reason').not('release_id', 'is', null),
+      sb.from('release_checks').select('id,release_id,check_name,category,severity,status,source_type,last_evaluated_at').order('created_at', { ascending:true })
+    ]);
+    if (releaseResult.error) throw releaseResult.error;
+    if (taskResult.error) throw taskResult.error;
+    if (checkResult.error) throw checkResult.error;
+    const releases = releaseResult.data || [];
+    releaseRecordCache = new Map(releases.map(release => [release.id, release]));
+    releaseTaskCache = new Map();
+    (taskResult.data || []).forEach(task => { const items = releaseTaskCache.get(task.release_id) || []; items.push(task); releaseTaskCache.set(task.release_id, items); });
+    releaseCheckCache = new Map();
+    (checkResult.data || []).forEach(check => { const items = releaseCheckCache.get(check.release_id) || []; items.push(check); releaseCheckCache.set(check.release_id, items); });
+    const cards = releases.map(release => {
+      const tasks = releaseTaskCache.get(release.id) || [];
+      const checks = releaseCheckCache.get(release.id) || [];
+      const done = tasks.filter(task => task.status === 'done').length;
+      const blocked = tasks.filter(task => task.status === 'blocked').length;
+      const failed = checks.filter(check => ['failed','unavailable'].includes(check.status)).length;
+      const passed = checks.filter(check => ['passed','waived'].includes(check.status)).length;
+      const ready = tasks.length > 0 && done === tasks.length && checks.length > 0 && failed === 0 && passed === checks.length;
+      const danger = blocked > 0 || checks.some(check => check.severity === 'high' && ['failed','unavailable'].includes(check.status));
+      const readinessClass = ready ? 'release-ready' : danger ? 'release-danger' : 'release-warning';
+      const readinessText = release.status === 'released' ? '已发布' : ready ? '可发布' : danger ? '存在阻塞' : '准备中';
+      const taskList = tasks.length ? tasks.map(task => `<div class="release-check-row"><span>${escapeDashboardHtml(task.title)}</span><span>${escapeDashboardHtml(taskStatusText(task.status))}</span><span>${task.due_date ? escapeDashboardHtml(task.due_date.slice(0,10)) : '-'}</span><button class="risk-action" onclick="openTaskFromDashboard('${task.id}','edit')">查看</button></div>`).join('') : '<div class="dashboard-empty">暂无关联工作事项</div>';
+      const checkList = checks.length ? checks.map(check => `<div class="release-check-row"><span>${escapeDashboardHtml(check.check_name)}</span><span>${check.severity === 'high' ? '高' : check.severity === 'medium' ? '中' : '低'}风险</span><select class="dashboard-filter" style="min-width:88px;padding:5px;" onchange="updateReleaseCheck('${check.id}',this.value)" ${userRole === 'admin' ? '' : 'disabled'}><option value="pending" ${check.status === 'pending' ? 'selected' : ''}>待检查</option><option value="passed" ${check.status === 'passed' ? 'selected' : ''}>通过</option><option value="failed" ${check.status === 'failed' ? 'selected' : ''}>失败</option><option value="waived" ${check.status === 'waived' ? 'selected' : ''}>豁免</option><option value="unavailable" ${check.status === 'unavailable' ? 'selected' : ''}>不可用</option></select><span>${check.source_type === 'manual' ? '手工' : escapeDashboardHtml(check.source_type)}</span></div>`).join('') : '<div class="dashboard-empty">尚未添加发布检查项</div>';
+      return `<div class="release-card ${release.status === 'active' ? 'active' : ''}"><div class="release-card-hd"><div><h3>${escapeDashboardHtml(release.name || release.version)}</h3><div class="release-meta">${escapeDashboardHtml(release.version)} · ${releasePlatformText(release.platform)} · ${releaseStatusText(release.status)}${release.planned_release_date ? ` · ${release.planned_release_date}` : ''}</div></div><span class="release-readiness ${readinessClass}">${readinessText}</span></div><div class="release-stats"><div class="release-stat"><strong>${tasks.length}</strong><span>关联事项</span></div><div class="release-stat"><strong>${done}</strong><span>已完成</span></div><div class="release-stat"><strong>${blocked}</strong><span>已阻塞</span></div><div class="release-stat"><strong>${failed}</strong><span>检查失败</span></div></div>${release.notes ? `<div class="release-meta">${escapeDashboardHtml(release.notes)}</div>` : ''}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">${userRole === 'admin' ? `<button class="btn-secondary" onclick="openReleaseEditor('${release.id}')">编辑</button>${release.status === 'planned' ? `<button class="btn-primary" onclick="transitionRelease('${release.id}','active')">设为当前版本</button>` : ''}${release.status === 'active' ? `<button class="btn-primary" onclick="transitionRelease('${release.id}','released')">标记已发布</button>` : ''}${!['released','archived'].includes(release.status) ? `<button class="btn-secondary" onclick="transitionRelease('${release.id}','archived')">归档</button>` : ''}` : ''}</div><details class="member-daily-details"><summary>关联事项（${tasks.length}）</summary>${taskList}</details><details class="member-daily-details"><summary>发布检查（${checks.length}）</summary>${checkList}${userRole === 'admin' ? `<div class="release-check-form"><input class="dashboard-input" id="releaseCheckName-${release.id}" placeholder="新增检查项，例如：P0 用例全部通过"><select class="dashboard-filter" id="releaseCheckSeverity-${release.id}"><option value="high">高风险</option><option value="medium" selected>中风险</option><option value="low">低风险</option></select><button class="btn-secondary" onclick="addReleaseCheck('${release.id}')">添加</button></div>` : ''}</details></div>`;
+    }).join('');
+    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">🚀 版本发布管理</span><div class="release-meta">版本关联工作事项与发布检查，自动判断是否具备发布条件</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openReleaseEditor()"><i class="ti ti-plus"></i> 新建版本</button>' : ''}</div><div class="release-grid">${cards || '<div class="dashboard-empty">暂无版本，管理员可先创建第一个测试版本</div>'}</div></div>${releaseModalHtml()}`;
+  } catch (error) {
+    console.error('[release] load failed:', error);
+    content.innerHTML = `<div class="history-card"><div class="dashboard-empty">版本发布数据加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
+  }
+}
+
+let qualityReportRaw = null;
+let qualityReportFilteredTasks = [];
+let defectRecordCache = new Map();
+let defectMemberCache = [];
+let defectReleaseCache = [];
+
+function defectRootCauseText(value) {
+  return ({ requirement:'需求遗漏', design:'设计问题', code:'代码问题', test_case:'用例遗漏', environment:'环境问题', data:'数据问题', communication:'沟通问题', process:'流程问题', other:'其他' })[value] || '待分析';
+}
+
+function defectReviewStatusText(value) {
+  return ({ pending:'待复盘', in_review:'复盘中', completed:'已完成' })[value] || value;
+}
+
+function defectStatusText(value) {
+  return ({ open:'待处理', fixing:'修复中', verified:'已验证', closed:'已关闭' })[value] || value;
+}
+
+function safeDefectExternalUrl(value) {
+  try {
+    const url = new URL(value);
+    return ['http:','https:'].includes(url.protocol) ? url.toString() : '';
+  } catch { return ''; }
+}
+
+function defectEditorHtml() {
+  return `<div class="dashboard-modal" id="defectEditorModal" onclick="closeDefectEditor()"><div class="dashboard-modal-panel" style="width:min(760px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="defectEditorTitle">登记暴露 BUG</div><button class="dashboard-modal-close" onclick="closeDefectEditor()"><i class="ti ti-x"></i></button></div><div class="form-group"><label class="form-label">BUG 标题</label><input class="dashboard-input" id="defectTitle" maxlength="300"></div><div class="dashboard-form-grid" style="margin-top:12px;"><div class="form-group"><label class="form-label">暴露阶段</label><select class="form-select" id="defectStage"><option value="integration">集成阶段</option><option value="production">已上线</option></select></div><div class="form-group"><label class="form-label">严重程度</label><select class="form-select" id="defectSeverity"><option value="P0">P0</option><option value="P1" selected>P1</option><option value="P2">P2</option><option value="P3">P3</option></select></div><div class="form-group"><label class="form-label">执行负责人</label><select class="form-select" id="defectExecutor"></select></div><div class="form-group"><label class="form-label">所属版本</label><select class="form-select" id="defectRelease"><option value="">不关联版本</option></select></div><div class="form-group"><label class="form-label">发现日期</label><input class="dashboard-input" id="defectFoundAt" type="date"></div><div class="form-group"><label class="form-label">BUG 状态</label><select class="form-select" id="defectStatus"><option value="open">待处理</option><option value="fixing">修复中</option><option value="verified">已验证</option><option value="closed">已关闭</option></select></div><div class="form-group"><label class="form-label">根因分类</label><select class="form-select" id="defectRootCause"><option value="">待分析</option><option value="requirement">需求遗漏</option><option value="design">设计问题</option><option value="code">代码问题</option><option value="test_case">用例遗漏</option><option value="environment">环境问题</option><option value="data">数据问题</option><option value="communication">沟通问题</option><option value="process">流程问题</option><option value="other">其他</option></select></div><div class="form-group"><label class="form-label">复盘状态</label><select class="form-select" id="defectReviewStatus"><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div></div><div class="dashboard-form-grid" style="margin-top:12px;"><div class="form-group"><label class="form-label">PingCode 工作项 ID（选填）</label><input class="dashboard-input" id="defectPingCodeId"></div><div class="form-group"><label class="form-label">PingCode 链接（选填）</label><input class="dashboard-input" id="defectExternalUrl" type="url"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">影响范围</label><textarea class="dashboard-input" id="defectImpact" rows="2"></textarea></div><div class="form-group" style="margin-top:10px;"><label class="form-label">漏出原因</label><textarea class="dashboard-input" id="defectEscapeReason" rows="2" placeholder="为什么在当前阶段之前没有发现"></textarea></div><div class="form-group" style="margin-top:10px;"><label class="form-label">纠正措施</label><textarea class="dashboard-input" id="defectCorrectiveAction" rows="2" placeholder="本次问题如何修复和验证"></textarea></div><div class="form-group" style="margin-top:10px;"><label class="form-label">预防措施</label><textarea class="dashboard-input" id="defectPreventionAction" rows="2" placeholder="后续如何通过用例、流程或检查避免再次发生"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeDefectEditor()">取消</button><button class="btn-primary" id="saveDefectBtn" onclick="saveQualityDefect()">保存 BUG</button></div></div></div>`;
+}
+
+function openDefectEditor(id = '') {
+  const defect = id ? defectRecordCache.get(id) : null;
+  const canEditIdentity = userRole === 'admin';
+  if (!defect && !canEditIdentity) { showToast('仅管理员可以登记新的暴露 BUG', 'error'); return; }
+  document.getElementById('defectEditorTitle').textContent = defect ? '编辑 BUG 与复盘' : '登记暴露 BUG';
+  document.getElementById('defectTitle').value = defect?.title || '';
+  document.getElementById('defectStage').value = defect?.exposed_stage || 'integration';
+  document.getElementById('defectSeverity').value = defect?.severity || 'P1';
+  document.getElementById('defectExecutor').innerHTML = defectMemberCache.map(member => `<option value="${member.id}">${escapeDashboardHtml(member.name || '未命名成员')}</option>`).join('');
+  document.getElementById('defectExecutor').value = defect?.executor_id || currentUser.id;
+  document.getElementById('defectRelease').innerHTML = `<option value="">不关联版本</option>${defectReleaseCache.map(release => `<option value="${release.id}">${escapeDashboardHtml(release.name || release.version)} · ${releasePlatformText(release.platform)}</option>`).join('')}`;
+  document.getElementById('defectRelease').value = defect?.release_id || '';
+  document.getElementById('defectFoundAt').value = defect?.found_at || dashboardTodayInputValue();
+  document.getElementById('defectStatus').value = defect?.status || 'open';
+  document.getElementById('defectRootCause').value = defect?.root_cause_category || '';
+  document.getElementById('defectReviewStatus').value = defect?.review_status || 'pending';
+  document.getElementById('defectPingCodeId').value = defect?.pingcode_id || '';
+  document.getElementById('defectExternalUrl').value = defect?.external_url || '';
+  document.getElementById('defectImpact').value = defect?.impact || '';
+  document.getElementById('defectEscapeReason').value = defect?.escape_reason || '';
+  document.getElementById('defectCorrectiveAction').value = defect?.corrective_action || '';
+  document.getElementById('defectPreventionAction').value = defect?.prevention_action || '';
+  ['defectTitle','defectStage','defectSeverity','defectExecutor','defectRelease','defectFoundAt','defectPingCodeId','defectExternalUrl'].forEach(field => { document.getElementById(field).disabled = !canEditIdentity; });
+  document.getElementById('defectEditorModal').dataset.defectId = id;
+  document.getElementById('defectEditorModal').classList.add('open');
+}
+
+function closeDefectEditor() { document.getElementById('defectEditorModal')?.classList.remove('open'); }
+
+async function saveQualityDefect() {
+  const id = document.getElementById('defectEditorModal')?.dataset.defectId || '';
+  const existing = id ? defectRecordCache.get(id) : null;
+  const title = document.getElementById('defectTitle')?.value.trim();
+  const reviewStatus = document.getElementById('defectReviewStatus')?.value || 'pending';
+  const rootCause = document.getElementById('defectRootCause')?.value || null;
+  const escapeReason = document.getElementById('defectEscapeReason')?.value.trim() || '';
+  const preventionAction = document.getElementById('defectPreventionAction')?.value.trim() || '';
+  const externalUrlRaw = document.getElementById('defectExternalUrl')?.value.trim() || '';
+  if (!title) { showToast('请填写 BUG 标题', 'error'); return; }
+  if (reviewStatus === 'completed' && (!rootCause || !escapeReason || !preventionAction)) { showToast('完成复盘前必须填写根因、漏出原因和预防措施', 'error'); return; }
+  if (externalUrlRaw && !safeDefectExternalUrl(externalUrlRaw)) { showToast('PingCode 链接格式不正确', 'error'); return; }
+  const status = document.getElementById('defectStatus')?.value || 'open';
+  const payload = {
+    title,
+    pingcode_id:document.getElementById('defectPingCodeId')?.value.trim() || null,
+    external_url:externalUrlRaw || null,
+    source:document.getElementById('defectPingCodeId')?.value.trim() ? 'pingcode' : (existing?.source || 'manual'),
+    release_id:document.getElementById('defectRelease')?.value || null,
+    exposed_stage:document.getElementById('defectStage')?.value || 'integration',
+    severity:document.getElementById('defectSeverity')?.value || 'P1',
+    status,
+    executor_id:document.getElementById('defectExecutor')?.value || currentUser.id,
+    found_at:document.getElementById('defectFoundAt')?.value || dashboardTodayInputValue(),
+    closed_at:status === 'closed' ? (existing?.closed_at || dashboardTodayInputValue()) : null,
+    root_cause_category:rootCause,
+    impact:document.getElementById('defectImpact')?.value.trim() || '',
+    escape_reason:escapeReason,
+    corrective_action:document.getElementById('defectCorrectiveAction')?.value.trim() || '',
+    prevention_action:preventionAction,
+    review_status:reviewStatus
+  };
+  const button = document.getElementById('saveDefectBtn'); button.disabled = true;
+  try {
+    const result = id ? await sb.from('quality_defects').update(payload).eq('id',id).select('id').maybeSingle() : await sb.from('quality_defects').insert({ ...payload, created_by:currentUser.id }).select('id').single();
+    if (result.error) throw result.error;
+    closeDefectEditor(); showToast(id ? 'BUG 与复盘已更新' : 'BUG 已登记'); await renderBugManagement();
+  } catch (error) { console.error('[defect] save failed:',error); showToast('保存失败：'+error.message,'error'); }
+  finally { button.disabled = false; }
+}
+
+function filterDefectRows() {
+  const stage=document.getElementById('defectStageFilter')?.value||'all';
+  const executor=document.getElementById('defectExecutorFilter')?.value||'all';
+  const review=document.getElementById('defectReviewFilter')?.value||'all';
+  const keyword=(document.getElementById('defectKeywordFilter')?.value||'').trim().toLowerCase();
+  let visible=0;
+  document.querySelectorAll('[data-defect-row]').forEach(row=>{ const matches=(stage==='all'||row.dataset.stage===stage)&&(executor==='all'||row.dataset.executor===executor)&&(review==='all'||row.dataset.review===review)&&(!keyword||row.dataset.title.includes(keyword)); row.style.display=matches?'':'none'; if(matches)visible+=1; });
+  const count=document.getElementById('defectVisibleCount'); if(count)count.textContent=`${visible} 项`;
+}
+
+async function renderBugManagement() {
+  const content=document.getElementById('content'); content.style.padding='24px'; content.innerHTML='<div class="history-card"><div class="dashboard-loading">正在加载 BUG 与复盘数据…</div></div>';
+  try {
+    const [defectsResult,membersResult,releasesResult]=await Promise.all([sb.from('quality_defects').select('*').order('found_at',{ascending:false}),sb.from('profiles').select('id,name').order('name'),sb.from('releases').select('id,version,name,platform').order('created_at',{ascending:false})]);
+    if(defectsResult.error)throw defectsResult.error;if(membersResult.error)throw membersResult.error;if(releasesResult.error)throw releasesResult.error;
+    defectMemberCache=membersResult.data||[];defectReleaseCache=releasesResult.data||[];defectRecordCache=new Map((defectsResult.data||[]).map(item=>[item.id,item]));
+    const names=new Map(defectMemberCache.map(item=>[item.id,item.name||'未命名成员'])); const releaseNames=new Map(defectReleaseCache.map(item=>[item.id,item.name||item.version]));
+    const rows=(defectsResult.data||[]).map(defect=>{const canEdit=userRole==='admin'||defect.executor_id===currentUser.id;const externalUrl=safeDefectExternalUrl(defect.external_url);return `<tr data-defect-row data-title="${escapeDashboardHtml(defect.title.toLowerCase())}" data-stage="${defect.exposed_stage}" data-executor="${defect.executor_id}" data-review="${defect.review_status}"><td><strong>${escapeDashboardHtml(defect.title)}</strong>${externalUrl?`<br><a class="risk-action" href="${escapeDashboardHtml(externalUrl)}" target="_blank" rel="noopener">打开 PingCode</a>`:''}</td><td><span class="defect-stage ${defect.exposed_stage}">${defect.exposed_stage==='production'?'已上线':'集成阶段'}</span></td><td>${escapeDashboardHtml(names.get(defect.executor_id)||'未命名成员')}</td><td>${escapeDashboardHtml(releaseNames.get(defect.release_id)||'-')}</td><td>${defect.severity}</td><td>${escapeDashboardHtml(defectStatusText(defect.status))}</td><td>${defectReviewStatusText(defect.review_status)}<br><span class="release-meta">${defectRootCauseText(defect.root_cause_category)}</span></td><td>${defect.found_at}</td><td>${canEdit?`<button class="btn-secondary" onclick="openDefectEditor('${defect.id}')">查看/复盘</button>`:'-'}</td></tr>`;}).join('');
+    content.innerHTML=`<div class="history-card"><div class="card-hd"><div><span class="card-title">🐞 BUG 管理与复盘</span><div class="release-meta">记录集成阶段与已上线暴露问题，归属执行负责人并跟踪预防措施</div></div><div style="display:flex;gap:7px;align-items:center;">${userRole==='admin'?'<button class="btn-primary" onclick="openDefectEditor()"><i class="ti ti-plus"></i> 登记 BUG</button>':''}<span class="card-tag" id="defectVisibleCount">${(defectsResult.data||[]).length} 项</span></div></div><div class="team-task-filters"><input class="dashboard-filter" id="defectKeywordFilter" type="search" placeholder="搜索 BUG" oninput="filterDefectRows()"><select class="dashboard-filter" id="defectStageFilter" onchange="filterDefectRows()"><option value="all">全部暴露阶段</option><option value="integration">集成阶段</option><option value="production">已上线</option></select><select class="dashboard-filter" id="defectExecutorFilter" onchange="filterDefectRows()"><option value="all">全部负责人</option>${defectMemberCache.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||'未命名成员')}</option>`).join('')}</select><select class="dashboard-filter" id="defectReviewFilter" onchange="filterDefectRows()"><option value="all">全部复盘状态</option><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:1050px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>版本</th><th>级别</th><th>状态</th><th>复盘/根因</th><th>发现日期</th><th>操作</th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="dashboard-empty">暂无暴露 BUG 记录</td></tr>'}</tbody></table></div></div>${defectEditorHtml()}`;
+  } catch(error){console.error('[defect] load failed:',error);content.innerHTML=`<div class="history-card"><div class="dashboard-empty">BUG 数据加载失败：${escapeDashboardHtml(error.message)}</div></div>`;}
+}
+
+function qualityPercent(value, total) {
+  return total > 0 ? Math.round(value / total * 100) : 0;
+}
+
+function qualityMetricHtml(label, value, note, percent = null, tone = 'var(--teal)') {
+  return `<div class="quality-metric"><span>${escapeDashboardHtml(label)}</span><strong>${escapeDashboardHtml(String(value))}</strong><small>${escapeDashboardHtml(note || '')}</small>${percent === null ? '' : `<div class="quality-progress"><i style="width:${Math.max(0,Math.min(100,percent))}%;background:${tone};"></i></div>`}</div>`;
+}
+
+function qualityTaskMatches(task) {
+  const releaseId = document.getElementById('qualityReleaseFilter')?.value || 'all';
+  const platform = document.getElementById('qualityPlatformFilter')?.value || 'all';
+  const memberId = document.getElementById('qualityMemberFilter')?.value || 'all';
+  const from = document.getElementById('qualityFromFilter')?.value || '';
+  const to = document.getElementById('qualityToFilter')?.value || '';
+  const release = qualityReportRaw.releaseMap.get(task.release_id);
+  const assignments = qualityReportRaw.assigneeMap.get(task.id) || [];
+  const taskStart = task.allocation_start_date || task.created_at?.slice(0,10) || '';
+  const taskEnd = task.allocation_end_date || task.due_date?.slice(0,10) || taskStart;
+  return (releaseId === 'all' || task.release_id === releaseId)
+    && (platform === 'all' || release?.platform === platform || release?.platform === 'both')
+    && (memberId === 'all' || assignments.some(item => item.member_id === memberId))
+    && (!from || !taskEnd || taskEnd >= from)
+    && (!to || !taskStart || taskStart <= to);
+}
+
+function qualityDefectMatches(defect) {
+  const releaseId = document.getElementById('qualityReleaseFilter')?.value || 'all';
+  const platform = document.getElementById('qualityPlatformFilter')?.value || 'all';
+  const memberId = document.getElementById('qualityMemberFilter')?.value || 'all';
+  const from = document.getElementById('qualityFromFilter')?.value || '';
+  const to = document.getElementById('qualityToFilter')?.value || '';
+  const release = qualityReportRaw.releaseMap.get(defect.release_id);
+  return (releaseId === 'all' || defect.release_id === releaseId)
+    && (platform === 'all' || release?.platform === platform || release?.platform === 'both')
+    && (memberId === 'all' || defect.executor_id === memberId)
+    && (!from || defect.found_at >= from)
+    && (!to || defect.found_at <= to);
+}
+
+function renderQualityReportResults() {
+  if (!qualityReportRaw) return;
+  const tasks = qualityReportRaw.tasks.filter(qualityTaskMatches);
+  qualityReportFilteredTasks = tasks;
+  const nowKey = dashboardTodayInputValue();
+  const done = tasks.filter(task => task.status === 'done').length;
+  const blocked = tasks.filter(task => task.status === 'blocked').length;
+  const overdue = tasks.filter(task => ['todo','in_progress','blocked'].includes(task.status) && task.due_date && task.due_date.slice(0,10) < nowKey).length;
+  const effort = tasks.reduce((sum, task) => sum + Number(task.effort_person_days || 0), 0);
+  const actual = tasks.reduce((sum, task) => {
+    const snapshot = qualityReportRaw.snapshotMap.get(task.id);
+    return sum + taskActualProgressPoints(task, qualityReportRaw.progressMap.get(task.id) || [], snapshot).totalActual;
+  }, 0);
+  const snapshots = tasks.map(task => qualityReportRaw.snapshotMap.get(task.id)).filter(Boolean);
+  const totalCases = snapshots.reduce((sum, item) => sum + Number(item.total_cases || 0), 0);
+  const executedCases = snapshots.reduce((sum, item) => sum + Number(item.executed_cases || 0), 0);
+  const releaseIds = new Set(tasks.map(task => task.release_id).filter(Boolean));
+  const checks = qualityReportRaw.checks.filter(check => releaseIds.has(check.release_id));
+  const passedChecks = checks.filter(check => ['passed','waived'].includes(check.status)).length;
+  const taskRate = qualityPercent(done, tasks.length);
+  const caseRate = qualityPercent(executedCases, totalCases);
+  const checkRate = qualityPercent(passedChecks, checks.length);
+  const defects = qualityReportRaw.defects.filter(qualityDefectMatches);
+  const productionDefects = defects.filter(defect => defect.exposed_stage === 'production').length;
+  const integrationDefects = defects.filter(defect => defect.exposed_stage === 'integration').length;
+  const reviewedDefects = defects.filter(defect => defect.review_status === 'completed').length;
+  const reviewRate = qualityPercent(reviewedDefects, defects.length);
+  const metrics = document.getElementById('qualityMetrics');
+  metrics.innerHTML = [
+    qualityMetricHtml('事项完成率', `${taskRate}%`, `${done}/${tasks.length} 项`, taskRate),
+    qualityMetricHtml('TestHub 执行率', `${caseRate}%`, `${executedCases}/${totalCases} 条`, caseRate, 'var(--purple)'),
+    qualityMetricHtml('计划/实际人天', `${actual.toFixed(1)}/${effort.toFixed(1)}`, '实际累计 / 计划', qualityPercent(actual, effort), 'var(--pink)'),
+    qualityMetricHtml('延期事项', overdue, tasks.length ? `占 ${qualityPercent(overdue,tasks.length)}%` : '暂无事项', null),
+    qualityMetricHtml('阻塞事项', blocked, blocked ? '需要优先处理' : '当前无阻塞', null),
+    qualityMetricHtml('发布检查通过率', `${checkRate}%`, `${passedChecks}/${checks.length} 项`, checkRate, 'var(--yellow)'),
+    qualityMetricHtml('集成暴露 BUG', integrationDefects, '集成阶段发现', null),
+    qualityMetricHtml('已上线暴露 BUG', productionDefects, '需要重点复盘', null),
+    qualityMetricHtml('BUG 复盘完成率', `${reviewRate}%`, `${reviewedDefects}/${defects.length} 项`, reviewRate, 'var(--purple)')
+  ].join('');
+
+  const names = qualityReportRaw.memberMap;
+  const memberStats = new Map();
+  tasks.forEach(task => {
+    const snapshot = qualityReportRaw.snapshotMap.get(task.id);
+    const taskActual = taskActualProgressPoints(task, qualityReportRaw.progressMap.get(task.id) || [], snapshot).totalActual;
+    const assignments = qualityReportRaw.assigneeMap.get(task.id) || [];
+    const totalAllocated = assignments.reduce((sum,item) => sum + Number(item.allocated_effort || 0), 0) || Number(task.effort_person_days || 0) || 1;
+    assignments.forEach(item => {
+      const stat = memberStats.get(item.member_id) || { tasks:0, done:0, blocked:0, plan:0, actual:0 };
+      const allocated = Number(item.allocated_effort || 0);
+      stat.tasks += 1;
+      stat.done += task.status === 'done' ? 1 : 0;
+      stat.blocked += task.status === 'blocked' ? 1 : 0;
+      stat.plan += allocated;
+      stat.actual += taskActual * allocated / totalAllocated;
+      memberStats.set(item.member_id, stat);
+    });
+  });
+  const memberRows = [...memberStats.entries()].sort((a,b) => (names.get(a[0]) || '').localeCompare(names.get(b[0]) || '', 'zh-CN')).map(([id,stat]) => `<div class="quality-member-row"><strong>${escapeDashboardHtml(names.get(id) || '未命名成员')}</strong><span>${stat.tasks} 项</span><span>${stat.done} 完成</span><span>${stat.plan.toFixed(1)} 计划</span><span>${stat.actual.toFixed(1)} 实际</span></div>`).join('');
+  document.getElementById('qualityMemberStats').innerHTML = memberRows || '<div class="dashboard-empty">当前筛选条件下暂无成员数据</div>';
+
+  const taskRows = tasks.map(task => {
+    const assignments = qualityReportRaw.assigneeMap.get(task.id) || [];
+    const snapshot = qualityReportRaw.snapshotMap.get(task.id);
+    const taskActual = taskActualProgressPoints(task, qualityReportRaw.progressMap.get(task.id) || [], snapshot).totalActual;
+    return `<tr><td><strong>${escapeDashboardHtml(task.title)}</strong><br><span class="release-meta">${escapeDashboardHtml(qualityReportRaw.releaseMap.get(task.release_id)?.name || qualityReportRaw.releaseMap.get(task.release_id)?.version || '未关联版本')}</span></td><td>${assignments.map(item => escapeDashboardHtml(names.get(item.member_id) || '未命名成员')).join('、')}</td><td>${escapeDashboardHtml(taskStatusText(task.status))}</td><td>${Number(task.effort_person_days || 0).toFixed(1)} / ${taskActual.toFixed(1)}</td><td>${snapshot ? `${snapshot.executed_cases || 0}/${snapshot.total_cases || 0}` : '-'}</td><td>${task.allocation_end_date || task.due_date?.slice(0,10) || '-'}</td></tr>`;
+  }).join('');
+  document.getElementById('qualityTaskDetails').innerHTML = taskRows || '<tr><td colspan="6" class="dashboard-empty">当前筛选条件下暂无工作事项</td></tr>';
+  const defectRows = defects.map(defect => `<tr><td><strong>${escapeDashboardHtml(defect.title)}</strong></td><td><span class="defect-stage ${defect.exposed_stage}">${defect.exposed_stage === 'production' ? '已上线' : '集成阶段'}</span></td><td>${escapeDashboardHtml(names.get(defect.executor_id) || '未命名成员')}</td><td>${defect.severity}</td><td>${escapeDashboardHtml(defectRootCauseText(defect.root_cause_category))}</td><td>${escapeDashboardHtml(defectReviewStatusText(defect.review_status))}</td><td><button class="risk-action" onclick="navTo('bugs')">查看复盘</button></td></tr>`).join('');
+  document.getElementById('qualityDefectDetails').innerHTML = defectRows || '<tr><td colspan="7" class="dashboard-empty">当前筛选条件下暂无暴露 BUG</td></tr>';
+  renderRetrospectiveReport(defects);
+  document.getElementById('qualityResultCount').textContent = `${tasks.length} 项`;
+}
+
+function clearQualityReportFilters() {
+  ['qualityReleaseFilter','qualityPlatformFilter','qualityMemberFilter'].forEach(id => { const element = document.getElementById(id); if (element) element.value = 'all'; });
+  ['qualityFromFilter','qualityToFilter'].forEach(id => { const element = document.getElementById(id); if (element) element.value = ''; });
+  renderQualityReportResults();
+}
+
+function qualityReportSummaryText() {
+  const tasks = qualityReportFilteredTasks;
+  const done = tasks.filter(task => task.status === 'done').length;
+  const blocked = tasks.filter(task => task.status === 'blocked').length;
+  const overdue = tasks.filter(task => ['todo','in_progress','blocked'].includes(task.status) && task.due_date && task.due_date.slice(0,10) < dashboardTodayInputValue()).length;
+  const snapshots = tasks.map(task => qualityReportRaw.snapshotMap.get(task.id)).filter(Boolean);
+  const total = snapshots.reduce((sum,item) => sum + Number(item.total_cases || 0), 0);
+  const executed = snapshots.reduce((sum,item) => sum + Number(item.executed_cases || 0), 0);
+  const defects = qualityReportRaw.defects.filter(qualityDefectMatches);
+  const production = defects.filter(item => item.exposed_stage === 'production').length;
+  const integration = defects.filter(item => item.exposed_stage === 'integration').length;
+  const reviewed = defects.filter(item => item.review_status === 'completed').length;
+  return [`Liene QA 质量摘要 · ${new Date().toLocaleDateString('zh-CN')}`, `工作事项：${done}/${tasks.length} 已完成（${qualityPercent(done,tasks.length)}%）`, `TestHub：${executed}/${total} 已执行（${qualityPercent(executed,total)}%）`, `延期：${overdue} 项`, `阻塞：${blocked} 项`, `集成暴露 BUG：${integration} 项`, `已上线暴露 BUG：${production} 项`, `BUG 复盘：${reviewed}/${defects.length} 已完成`].join('\n');
+}
+
+function renderRetrospectiveReport(defects) {
+  const rootWrap = document.getElementById('qualityRootCauseStats');
+  const ownerWrap = document.getElementById('qualityDefectOwnerStats');
+  const actionWrap = document.getElementById('qualityRetrospectiveActions');
+  if (!rootWrap || !ownerWrap || !actionWrap) return;
+  const rootCounts = new Map();
+  defects.forEach(defect => { const key=defect.root_cause_category || 'pending'; rootCounts.set(key,(rootCounts.get(key)||0)+1); });
+  const maxRoot = Math.max(1,...rootCounts.values());
+  rootWrap.innerHTML = [...rootCounts.entries()].sort((a,b)=>b[1]-a[1]).map(([key,count]) => `<div class="retro-bar-row"><span>${escapeDashboardHtml(key === 'pending' ? '待分析' : defectRootCauseText(key))}</span><div class="retro-bar"><i style="width:${count/maxRoot*100}%"></i></div><strong>${count}</strong></div>`).join('') || '<div class="dashboard-empty">暂无根因数据</div>';
+  const ownerCounts = new Map();
+  defects.forEach(defect => { const stat=ownerCounts.get(defect.executor_id)||{total:0,integration:0,production:0,reviewed:0};stat.total+=1;stat[defect.exposed_stage]+=1;stat.reviewed+=defect.review_status==='completed'?1:0;ownerCounts.set(defect.executor_id,stat); });
+  ownerWrap.innerHTML = [...ownerCounts.entries()].sort((a,b)=>b[1].total-a[1].total).map(([id,stat]) => `<div class="retro-action-item"><strong>${escapeDashboardHtml(qualityReportRaw.memberMap.get(id)||'未命名成员')} · ${stat.total} 项</strong><span>集成 ${stat.integration} · 上线 ${stat.production} · 已复盘 ${stat.reviewed}</span></div>`).join('') || '<div class="dashboard-empty">暂无负责人数据</div>';
+  const pending = defects.filter(defect => defect.review_status !== 'completed' || !defect.prevention_action);
+  actionWrap.innerHTML = pending.slice(0,20).map(defect => `<div class="retro-action-item"><strong>${escapeDashboardHtml(defect.title)}</strong><span>${escapeDashboardHtml(qualityReportRaw.memberMap.get(defect.executor_id)||'未命名成员')} · ${defect.review_status !== 'completed' ? defectReviewStatusText(defect.review_status) : '缺少预防措施'} · ${defect.found_at}</span></div>`).join('') || '<div class="dashboard-empty">当前筛选范围内复盘与预防措施均已闭环</div>';
+}
+
+function qualityRetrospectiveText() {
+  const defects = qualityReportRaw.defects.filter(qualityDefectMatches);
+  const releaseId = document.getElementById('qualityReleaseFilter')?.value || 'all';
+  const release = qualityReportRaw.releaseMap.get(releaseId);
+  const production = defects.filter(item => item.exposed_stage === 'production');
+  const integration = defects.filter(item => item.exposed_stage === 'integration');
+  const reviewed = defects.filter(item => item.review_status === 'completed');
+  const rootCounts = new Map();
+  defects.forEach(item => { const key=item.root_cause_category ? defectRootCauseText(item.root_cause_category) : '待分析';rootCounts.set(key,(rootCounts.get(key)||0)+1); });
+  const roots = [...rootCounts.entries()].sort((a,b)=>b[1]-a[1]).map(([name,count])=>`${name} ${count}`).join('、') || '暂无';
+  const pending = defects.filter(item => item.review_status !== 'completed' || !item.prevention_action);
+  return [`Liene QA BUG 复盘报告`, `范围：${release ? release.name || release.version : '当前筛选条件'} · ${new Date().toLocaleDateString('zh-CN')}`, `BUG 总数：${defects.length}`, `集成阶段暴露：${integration.length}`, `已上线暴露：${production.length}`, `复盘完成：${reviewed.length}/${defects.length}（${qualityPercent(reviewed.length,defects.length)}%）`, `根因分布：${roots}`, '', '已上线暴露 BUG：', ...(production.length ? production.map(item=>`- [${item.severity}] ${item.title} · ${qualityReportRaw.memberMap.get(item.executor_id)||'未命名成员'} · ${defectRootCauseText(item.root_cause_category)}`) : ['- 无']), '', '待闭环事项：', ...(pending.length ? pending.map(item=>`- ${item.title} · ${qualityReportRaw.memberMap.get(item.executor_id)||'未命名成员'} · ${item.review_status !== 'completed' ? defectReviewStatusText(item.review_status) : '缺少预防措施'}`) : ['- 无'])].join('\n');
+}
+
+async function copyRetrospectiveReport() {
+  try { await navigator.clipboard.writeText(qualityRetrospectiveText());showToast('BUG 复盘报告已复制'); }
+  catch(error){showToast('复制复盘报告失败：'+error.message,'error');}
+}
+
+async function copyQualityReportSummary() {
+  try {
+    await navigator.clipboard.writeText(qualityReportSummaryText());
+    showToast('质量摘要已复制');
+  } catch (error) { showToast('复制失败：' + error.message, 'error'); }
+}
+
+function downloadQualityReportCsv() {
+  const names = qualityReportRaw.memberMap;
+  const rows = [['事项','版本','负责人','状态','计划人天','实际点数','TestHub执行','截止日期']];
+  qualityReportFilteredTasks.forEach(task => {
+    const assignments = qualityReportRaw.assigneeMap.get(task.id) || [];
+    const snapshot = qualityReportRaw.snapshotMap.get(task.id);
+    const actual = taskActualProgressPoints(task, qualityReportRaw.progressMap.get(task.id) || [], snapshot).totalActual;
+    const release = qualityReportRaw.releaseMap.get(task.release_id);
+    rows.push([task.title,release?.name || release?.version || '',assignments.map(item => names.get(item.member_id) || '未命名成员').join('、'),taskStatusText(task.status),Number(task.effort_person_days || 0).toFixed(2),actual.toFixed(2),snapshot ? `${snapshot.executed_cases || 0}/${snapshot.total_cases || 0}` : '',task.allocation_end_date || task.due_date?.slice(0,10) || '']);
+  });
+  rows.push([], ['暴露 BUG','版本','执行负责人','暴露阶段','级别','状态','根因','复盘状态','发现日期','影响范围','漏出原因','纠正措施','预防措施']);
+  qualityReportRaw.defects.filter(qualityDefectMatches).forEach(defect => {
+    const release = qualityReportRaw.releaseMap.get(defect.release_id);
+    rows.push([defect.title,release?.name || release?.version || '',names.get(defect.executor_id) || '未命名成员',defect.exposed_stage === 'production' ? '已上线' : '集成阶段',defect.severity,defectStatusText(defect.status),defectRootCauseText(defect.root_cause_category),defectReviewStatusText(defect.review_status),defect.found_at,defect.impact,defect.escape_reason,defect.corrective_action,defect.prevention_action]);
+  });
+  const csv = '\ufeff' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], { type:'text/csv;charset=utf-8' }));
+  const link = document.createElement('a'); link.href = url; link.download = `Liene_QA_质量报表_${dashboardTodayInputValue()}.csv`; link.click(); URL.revokeObjectURL(url);
+}
+
+async function renderQualityReport() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在汇总质量数据…</div></div>';
+  try {
+    const [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult] = await Promise.all([
+      sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
+      sb.from('qa_tasks').select('id,title,status,release_id,due_date,created_at,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days'),
+      sb.from('profiles').select('id,name').order('name'),
+      sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
+      sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id'),
+      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),
+      sb.from('release_checks').select('release_id,status,severity'),
+      sb.from('quality_defects').select('id,title,release_id,exposed_stage,severity,status,executor_id,found_at,root_cause_category,review_status,impact,escape_reason,corrective_action,prevention_action')
+    ]);
+    for (const result of [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult]) if (result.error) throw result.error;
+    const releaseMap = new Map((releasesResult.data || []).map(item => [item.id,item]));
+    const memberMap = new Map((membersResult.data || []).map(item => [item.id,item.name || '未命名成员']));
+    const assigneeMap = new Map();
+    (assigneesResult.data || []).forEach(item => { const list=assigneeMap.get(item.task_id)||[]; list.push(item); assigneeMap.set(item.task_id,list); });
+    const progressMap = new Map();
+    (progressResult.data || []).forEach(item => { const list=progressMap.get(item.task_id)||[]; list.push(item); progressMap.set(item.task_id,list); });
+    const snapshotMap = new Map((snapshotsResult.data || []).map(item => [item.task_id,item]));
+    taskAssigneesByTask = assigneeMap;
+    taskProgressByTask = progressMap;
+    taskTestHubProgressByTask = snapshotMap;
+    qualityReportRaw = { releases:releasesResult.data || [], tasks:tasksResult.data || [], members:membersResult.data || [], checks:checksResult.data || [], defects:defectsResult.data || [], releaseMap, memberMap, assigneeMap, progressMap, snapshotMap };
+    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">📊 质量报表</span><div class="release-meta">汇总工作事项、团队投入、TestHub 执行进度、发布检查与暴露 BUG 复盘</div></div><div style="display:flex;gap:7px;"><button class="btn-secondary" onclick="copyQualityReportSummary()">复制摘要</button><button class="btn-secondary" onclick="downloadQualityReportCsv()">导出 CSV</button><span class="card-tag" id="qualityResultCount"></span></div></div><div class="team-task-filters"><select class="dashboard-filter" id="qualityReleaseFilter" onchange="renderQualityReportResults()"><option value="all">全部版本</option>${qualityReportRaw.releases.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}</select><select class="dashboard-filter" id="qualityPlatformFilter" onchange="renderQualityReportResults()"><option value="all">全部平台</option><option value="android">Android</option><option value="ios">iOS</option></select><select class="dashboard-filter" id="qualityMemberFilter" onchange="renderQualityReportResults()"><option value="all">全部成员</option>${qualityReportRaw.members.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || '未命名成员')}</option>`).join('')}</select><input class="dashboard-filter" id="qualityFromFilter" type="date" onchange="renderQualityReportResults()" title="统计开始日期"><input class="dashboard-filter" id="qualityToFilter" type="date" onchange="renderQualityReportResults()" title="统计结束日期"><button class="btn-secondary" onclick="clearQualityReportFilters()">清空筛选</button></div><div class="quality-metrics" id="qualityMetrics"></div><div class="quality-section-grid"><div class="history-card" style="margin:0;"><div class="card-title">工作事项明细</div><div style="overflow-x:auto;margin-top:10px;"><table class="history-table" style="min-width:780px;"><thead><tr><th>事项/版本</th><th>负责人</th><th>状态</th><th>计划/实际</th><th>TestHub</th><th>截止日期</th></tr></thead><tbody id="qualityTaskDetails"></tbody></table></div></div><div class="history-card" style="margin:0;"><div class="card-title">成员质量投入</div><div class="release-check-row" style="font-weight:600;"><span>成员</span><span>事项</span><span>完成</span><span>计划</span><span>实际</span></div><div id="qualityMemberStats"></div></div></div><div class="history-card" style="margin-top:14px;"><div class="card-hd"><span class="card-title">BUG 暴露与复盘</span><button class="btn-secondary" onclick="navTo('bugs')">进入 BUG 管理</button></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:850px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>级别</th><th>根因</th><th>复盘状态</th><th>操作</th></tr></thead><tbody id="qualityDefectDetails"></tbody></table></div></div></div>`;
+    content.insertAdjacentHTML('beforeend', `<div class="history-card" style="margin-top:14px;"><div class="card-hd"><div><span class="card-title">📝 BUG 复盘报告</span><div class="release-meta">跟随上方版本、平台、成员和日期筛选条件</div></div><button class="btn-secondary" onclick="copyRetrospectiveReport()">复制复盘报告</button></div><div class="retro-grid"><div class="retro-panel"><h4>根因分布</h4><div id="qualityRootCauseStats"></div></div><div class="retro-panel"><h4>执行负责人维度</h4><div id="qualityDefectOwnerStats"></div></div><div class="retro-panel"><h4>待复盘 / 待关闭措施</h4><div id="qualityRetrospectiveActions"></div></div></div></div>`);
+    renderQualityReportResults();
+  } catch (error) {
+    console.error('[quality] load failed:', error);
+    content.innerHTML = `<div class="history-card"><div class="dashboard-empty">质量报表加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
   }
 }
 
