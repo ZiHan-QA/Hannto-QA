@@ -556,6 +556,13 @@ const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const RESOURCE_HORIZON_WORKDAYS = 3;
 const DAILY_PROGRESS_CUTOFF_HOUR = 18;
+const TASK_TEMPLATES = {
+  prd_review: { type:'prd_review', effort:0.5, placeholder:'例如：评审 Perilla 首页 PRD', description:'确认需求范围、异常场景、兼容性与可验收标准。' },
+  case_design: { type:'case_design', effort:1, placeholder:'例如：设计证件照功能测试用例', description:'根据 PRD 设计主流程、异常、兼容性与回归测试用例。' },
+  test_execution: { type:'test_execution', effort:3, placeholder:'例如：执行 Android / iOS 版本测试', description:'执行关联 TestHub 计划，跟踪阻塞问题并完成回归。' },
+  bug_verify: { type:'bug_verify', effort:0.5, placeholder:'例如：验证本版本待回归 BUG', description:'验证修复结果、影响范围及关联回归场景。' },
+  copy_check: { type:'copy_check', effort:0.5, placeholder:'例如：检查本版本多语言文案', description:'检查页面文案、截断、占位符及多语言一致性。' }
+};
 
 let currentUser = null;
 let userRole = 'member';
@@ -762,6 +769,20 @@ function getTaskTestHubPlanIds(task) {
   ].map(value => String(value || '').trim()).filter(Boolean))];
 }
 
+function applyTaskTemplate(templateKey) {
+  const template = TASK_TEMPLATES[templateKey];
+  if (!template) return;
+  const title = document.getElementById('newTaskTitle');
+  const description = document.getElementById('newTaskDescription');
+  const type = document.getElementById('newTaskType');
+  const effort = document.getElementById('newTaskEffort');
+  if (title) title.placeholder = template.placeholder;
+  if (description && !description.value.trim()) description.value = template.description;
+  if (type) type.value = template.type;
+  if (effort) effort.value = String(template.effort);
+  distributeAssigneeEffortEvenly();
+}
+
 async function renderMemberMappings() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
@@ -772,12 +793,26 @@ async function renderMemberMappings() {
   content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载成员映射…</div></div>';
 
   try {
-    const [profilesResult, directoryResult] = await Promise.all([
-      sb.from('profiles').select('id,name,role,pingcode_user_id,pingcode_display_name').order('name'),
-      sb.from('pingcode_user_directory').select('pingcode_user_id,display_name,last_seen_at').order('display_name')
+    const [profilesResult, directoryResult, tasksResult, assigneesResult, calendarResult] = await Promise.all([
+      sb.from('profiles').select('id,name,role,daily_capacity,pingcode_user_id,pingcode_display_name').order('name'),
+      sb.from('pingcode_user_directory').select('pingcode_user_id,display_name,last_seen_at').order('display_name'),
+      sb.from('qa_tasks').select('id,title,status,effort_person_days,allocation_start_date,allocation_end_date').in('status',['todo','in_progress']),
+      sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
+      sb.from('work_calendar').select('work_date,is_workday,name')
     ]);
     if (profilesResult.error) throw profilesResult.error;
     if (directoryResult.error) throw directoryResult.error;
+    if (tasksResult.error) throw tasksResult.error;
+    if (assigneesResult.error) throw assigneesResult.error;
+    if (calendarResult.error) throw calendarResult.error;
+    taskAssigneesByTask = new Map();
+    (assigneesResult.data || []).forEach(item => {
+      const assignments = taskAssigneesByTask.get(item.task_id) || [];
+      assignments.push(item);
+      taskAssigneesByTask.set(item.task_id, assignments);
+    });
+    dashboardWorkCalendar = new Map((calendarResult.data || []).map(day => [day.work_date, day]));
+    const memberResource = buildResourceCapacity(profilesResult.data || [], tasksResult.data || [], dashboardWorkCalendar);
     pingCodeDirectoryCache = new Map((directoryResult.data || []).map(user => [user.pingcode_user_id, user]));
     const options = (directoryResult.data || []).map(user =>
       `<option value="${escapeDashboardHtml(user.pingcode_user_id)}">${escapeDashboardHtml(user.display_name || '未命名')} · ${escapeDashboardHtml(user.pingcode_user_id.slice(-6))}</option>`
@@ -801,6 +836,11 @@ async function renderMemberMappings() {
         <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">姓名只用于建议；保存时以 PingCode 用户 ID 为唯一依据。候选来自 TestHub 最近执行人。</div>
         <datalist id="pingcodeUserOptions">${options}</datalist>
         <div style="overflow-x:auto;"><table class="history-table"><thead><tr><th>平台成员</th><th>PingCode 用户 ID</th><th>当前显示名</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="4">暂无成员</td></tr>'}</tbody></table></div>
+      </div>
+      <div class="history-card" style="margin-top:14px;">
+        <div class="card-hd" style="margin-bottom:6px;"><span class="card-title">📊 成员工作负载</span><span class="card-tag" style="background:#CCF5EE;color:#0F6E56;">工作事项自动计算</span></div>
+        <div style="color:var(--sub);font-size:11px;margin-bottom:10px;">只读数据；根据工作事项的负责人、人天、资源开始日和截止日期自动汇总。鼠标停留在点数上可查看关联事项。</div>
+        <div class="resource-table-wrap">${resourceCapacityTableHtml(memberResource)}</div>
       </div>`;
   } catch (error) {
     console.error('[members] load failed:', error);
@@ -842,6 +882,10 @@ function taskEditorModalHtml() {
         <div class="dashboard-modal-hd">
           <div class="dashboard-modal-title" id="taskModalTitle">查看/编辑工作事项</div>
           <button class="dashboard-modal-close" onclick="closeNewTaskModal()"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" for="newTaskTemplate">常用任务模板（选填）</label>
+          <select class="form-select" id="newTaskTemplate" onchange="applyTaskTemplate(this.value)"><option value="">不使用模板</option><option value="prd_review">PRD 评审</option><option value="case_design">用例设计</option><option value="test_execution">测试执行</option><option value="bug_verify">BUG 回归</option><option value="copy_check">文案检查</option></select>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label" for="newTaskTitle">任务标题</label>
@@ -1470,6 +1514,10 @@ function renderDashboard() {
           <button class="dashboard-modal-close" onclick="closeNewTaskModal()"><i class="ti ti-x"></i></button>
         </div>
         <div class="form-group" style="margin-bottom:12px;">
+          <label class="form-label" for="newTaskTemplate">常用任务模板（选填）</label>
+          <select class="form-select" id="newTaskTemplate" onchange="applyTaskTemplate(this.value)"><option value="">不使用模板</option><option value="prd_review">PRD 评审</option><option value="case_design">用例设计</option><option value="test_execution">测试执行</option><option value="bug_verify">BUG 回归</option><option value="copy_check">文案检查</option></select>
+        </div>
+        <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label" for="newTaskTitle">任务标题</label>
           <input class="dashboard-input" id="newTaskTitle" maxlength="300" placeholder="例如：评审 Perilla 首页 PRD">
         </div>
@@ -1629,11 +1677,15 @@ function taskActualProgressPoints(task, progressLogs = [], testHubSnapshot = nul
 
 function resourcePointsOnDate(tasks, memberId, dateKey, calendar = dashboardWorkCalendar) {
   if (!isResourceWorkday(dateKey, calendar)) return 0;
-  return tasks
-    .filter(task => taskAssigneeList(task).some(item => item.member_id === memberId)
-      && task.allocation_start_date <= dateKey
-      && task.allocation_end_date >= dateKey)
+  return resourceTasksOnDate(tasks, memberId, dateKey, calendar)
     .reduce((total, task) => total + taskMemberDailyPlan(task, memberId, calendar), 0);
+}
+
+function resourceTasksOnDate(tasks, memberId, dateKey, calendar = dashboardWorkCalendar) {
+  if (!isResourceWorkday(dateKey, calendar)) return [];
+  return tasks.filter(task => taskAssigneeList(task).some(item => item.member_id === memberId)
+    && task.allocation_start_date <= dateKey
+    && task.allocation_end_date >= dateKey);
 }
 
 function buildResourceCapacity(members, tasks, calendar = dashboardWorkCalendar) {
@@ -1641,9 +1693,10 @@ function buildResourceCapacity(members, tasks, calendar = dashboardWorkCalendar)
   const rows = members.map(member => {
     const capacity = Number(member.daily_capacity) || 1;
     const cells = dates.map(date => {
-      const points = resourcePointsOnDate(tasks, member.id, date, calendar);
+      const linkedTasks = resourceTasksOnDate(tasks, member.id, date, calendar);
+      const points = linkedTasks.reduce((total, task) => total + taskMemberDailyPlan(task, member.id, calendar), 0);
       const level = points > capacity + 0.001 ? 'over' : points < capacity - 0.001 ? 'under' : 'normal';
-      return { date, points, capacity, level };
+      return { date, points, capacity, level, tasks:linkedTasks };
     });
     return { member, cells };
   });
@@ -1672,6 +1725,23 @@ function buildResourceCapacity(members, tasks, calendar = dashboardWorkCalendar)
     }
   });
   return { dates, rows, risks };
+}
+
+function resourceCapacityTableHtml(resource, rows = resource.rows) {
+  if (!rows.length) return '<div class="dashboard-empty">暂无成员资源数据</div>';
+  const header = resource.dates.map(date => {
+    const parsed = new Date(`${date}T00:00:00`);
+    return `<th>${date.slice(5).replace('-', '/')}<br>${parsed.toLocaleDateString('zh-CN', { weekday:'short' })}</th>`;
+  }).join('');
+  const body = rows.map(row => `
+    <tr>
+      <td class="resource-member">${escapeDashboardHtml(row.member.name || '未命名成员')}</td>
+      ${row.cells.map(cell => {
+        const taskNames = cell.tasks.map(task => task.title).join('、');
+        return `<td class="resource-cell resource-${cell.level}" title="${escapeDashboardHtml(taskNames || '当日无工作事项')}">${cell.points.toFixed(2)}<small style="display:block;font:9px 'Noto Sans SC';opacity:.72;">${cell.tasks.length} 项</small></td>`;
+      }).join('')}
+    </tr>`).join('');
+  return `<table class="resource-table"><thead><tr><th>成员</th>${header}</tr></thead><tbody>${body}</tbody></table>`;
 }
 
 function dashboardLocalDateKey(date) {
@@ -1774,16 +1844,7 @@ function renderResourceCapacity(resource, failed) {
     wrap.innerHTML = '<div class="dashboard-empty">当前筛选条件下没有成员资源记录</div>';
     return;
   }
-  const header = resource.dates.map(date => {
-    const parsed = new Date(`${date}T00:00:00`);
-    return `<th>${date.slice(5).replace('-', '/')}<br>${parsed.toLocaleDateString('zh-CN', { weekday:'short' })}</th>`;
-  }).join('');
-  const body = visibleRows.map(row => `
-    <tr>
-      <td class="resource-member">${escapeDashboardHtml(row.member.name || '未命名成员')}</td>
-      ${row.cells.map(cell => `<td class="resource-cell resource-${cell.level}" title="容量 ${cell.capacity.toFixed(2)} 点">${cell.points.toFixed(2)}</td>`).join('')}
-    </tr>`).join('');
-  wrap.innerHTML = `<table class="resource-table"><thead><tr><th>成员</th>${header}</tr></thead><tbody>${body}</tbody></table>`;
+  wrap.innerHTML = resourceCapacityTableHtml(resource, visibleRows);
 }
 
 function setResourceCapacityFilters() {
@@ -2237,6 +2298,8 @@ async function openNewTaskModal() {
   const buttonText = document.getElementById('saveTaskBtnText');
   if (title) title.textContent = '新建今日待办';
   if (buttonText) buttonText.textContent = '保存待办';
+  const templateSelect = document.getElementById('newTaskTemplate');
+  if (templateSelect) templateSelect.value = '';
   document.getElementById('newTaskTitle').value = '';
   document.getElementById('newTaskDescription').value = '';
   document.getElementById('newTaskType').value = 'other';
@@ -2273,6 +2336,8 @@ async function openEditQaTask(id, readOnly = false) {
   document.getElementById('saveTaskBtnText').textContent = '保存修改';
   document.getElementById('newTaskTitle').value = task.title || '';
   document.getElementById('newTaskDescription').value = task.description || '';
+  const templateSelect = document.getElementById('newTaskTemplate');
+  if (templateSelect) templateSelect.value = '';
   document.getElementById('newTaskType').value = task.task_type || 'other';
   document.getElementById('newTaskStatus').value = task.status || 'todo';
   document.getElementById('newTaskEffort').value = task.effort_person_days || '';
