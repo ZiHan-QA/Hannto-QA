@@ -33,6 +33,8 @@ def main() -> None:
         "function filterTeamTaskRows",
         "function setResourceCapacityFilters",
         "function refreshDashboardSyncStatus",
+        "function applyTaskTemplate",
+        "function resourceCapacityTableHtml",
     ], "main.html")
     require(migration, [
         "create table if not exists public.qa_task_allocation_history",
