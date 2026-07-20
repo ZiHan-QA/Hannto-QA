@@ -20,13 +20,14 @@ def require(text: str, values: list[str], label: str) -> None:
 def main() -> None:
     html = (ROOT / "main.html").read_text(encoding="utf-8")
     migration = (ROOT / "supabase/migrations/20260717_task_workflow_hardening.sql").read_text(encoding="utf-8")
+    closure_migration = (ROOT / "supabase/migrations/20260720_task_management_closure.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
 
     require(html, [
         "function taskUsesTestHubProgress",
         "function renderTaskMemberDailyDetail",
         "function taskMemberDailyPlanOnDate",
-        "save_qa_task_with_assignees",
+        "save_qa_task_workflow",
         "admin_risk_actions",
         "TestHub 自动",
         "手工填报",
@@ -35,6 +36,16 @@ def main() -> None:
         "function refreshDashboardSyncStatus",
         "function applyTaskTemplate",
         "function resourceCapacityTableHtml",
+        "function openResourceCellDetails",
+        "testHubSyncDiagnostics",
+        "function duplicateQaTask",
+        "function locateTaskFromResource",
+        "teamTaskProgressModeFilter",
+        "function renderTaskActivity",
+        "function batchUpdateTaskStatus",
+        "function batchUpdateTaskDeadline",
+        "blocked_reason",
+        "completion_note",
     ], "main.html")
     require(migration, [
         "create table if not exists public.qa_task_allocation_history",
@@ -42,6 +53,13 @@ def main() -> None:
         "create table if not exists public.admin_risk_actions",
         "Assignee effort total must equal task effort",
     ], "workflow migration")
+    require(closure_migration, [
+        "create table if not exists public.qa_task_activity",
+        "create or replace function public.save_qa_task_workflow",
+        "'blocked'",
+        "Blocked reason is required",
+        "Completion note is required",
+    ], "task management closure migration")
     require(sync_script, [
         "RUN_PAGE_SIZE = 5",
         "mapped_executor_count",
