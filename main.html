@@ -226,8 +226,13 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .sync-health-title { color: var(--text); font-size: 11px; font-weight: 600; }
 .sync-health-meta { color: var(--sub); font-size: 10px; margin-top: 2px; }
 .sync-health-state { border-radius: 999px; padding: 3px 8px; font-size: 10px; font-weight: 600; background: #f4f1ed; color: var(--sub); }
+.sync-health-refresh { flex-shrink: 0; border: 1px solid var(--line); border-radius: 8px; padding: 5px 9px; background: #fff; color: var(--purple); font-size: 10px; cursor: pointer; }
+.sync-health-refresh:disabled { cursor: wait; opacity: .6; }
 .resource-card { display: none; margin-bottom: 14px; overflow: hidden; }
 .resource-card.visible { display: block; }
+.resource-controls, .team-task-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 10px 0 4px; }
+.dashboard-filter { min-width: 130px; border: 1px solid var(--line); border-radius: 8px; padding: 7px 9px; background: #fff; color: var(--text); font: 11px 'Noto Sans SC', sans-serif; }
+.dashboard-filter[type="search"] { min-width: 190px; }
 .resource-table-wrap { overflow-x: auto; margin-top: 10px; }
 .resource-table { width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 5px; }
 .resource-table th { color: var(--sub); font-size: 10px; font-weight: 500; text-align: center; padding: 3px 5px; }
@@ -573,6 +578,8 @@ let editingQaTaskId = null;
 let progressQaTaskId = null;
 let taskEditorReadOnly = false;
 let dashboardRiskExpanded = false;
+let dashboardResourceMemberFilter = 'all';
+let dashboardResourceLoadFilter = 'all';
 
 const pageTitles = {
   dashboard: '工作台', tasks: '工作事项', report: '质量报表',
@@ -686,6 +693,9 @@ function watchDashboardData() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'task_testhub_daily_execution' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
       if (currentPage === 'tasks') renderTaskRecords();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'testhub_sync_status' }, () => {
+      if (currentPage === 'dashboard' && userRole === 'admin') loadDashboardData(++dashboardLoadToken);
     })
     .subscribe();
 }
@@ -973,6 +983,33 @@ function renderTaskAllocationHistory(task, names) {
   }).join('')}</details>`;
 }
 
+function filterTeamTaskRows() {
+  if (userRole !== 'admin') return;
+  const keyword = (document.getElementById('teamTaskKeywordFilter')?.value || '').trim().toLowerCase();
+  const member = document.getElementById('teamTaskMemberFilter')?.value || 'all';
+  const status = document.getElementById('teamTaskStatusFilter')?.value || 'all';
+  const date = document.getElementById('teamTaskDateFilter')?.value || '';
+  let visible = 0;
+  document.querySelectorAll('[data-team-task-row]').forEach(row => {
+    const members = (row.dataset.members || '').split(',');
+    const matchesDate = !date || ((!row.dataset.start || row.dataset.start <= date) && (!row.dataset.end || row.dataset.end >= date));
+    const matches = (!keyword || (row.dataset.title || '').includes(keyword))
+      && (member === 'all' || members.includes(member))
+      && (status === 'all' || row.dataset.status === status)
+      && matchesDate;
+    row.style.display = matches ? '' : 'none';
+    if (matches) visible += 1;
+  });
+  const count = document.getElementById('teamTaskVisibleCount');
+  if (count) count.textContent = `${visible} 项`;
+}
+
+function clearTeamTaskFilters() {
+  ['teamTaskKeywordFilter', 'teamTaskDateFilter'].forEach(id => { const element = document.getElementById(id); if (element) element.value = ''; });
+  ['teamTaskMemberFilter', 'teamTaskStatusFilter'].forEach(id => { const element = document.getElementById(id); if (element) element.value = 'all'; });
+  filterTeamTaskRows();
+}
+
 async function renderTaskRecords() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
@@ -1000,7 +1037,6 @@ async function renderTaskRecords() {
     if (dailyResult.error) throw dailyResult.error;
     if (historyResult.error) throw historyResult.error;
     dashboardMembers = profilesResult.data || [];
-    taskRecordCache = new Map((tasksResult.data || []).map(task => [task.id, task]));
     taskProgressByTask = new Map();
     (progressResult.data || []).forEach(log => {
       const logs = taskProgressByTask.get(log.task_id) || [];
@@ -1026,6 +1062,10 @@ async function renderTaskRecords() {
       list.push(item);
       taskAllocationHistoryByTask.set(item.task_id, list);
     });
+    const visibleTasks = userRole === 'admin'
+      ? (tasksResult.data || [])
+      : (tasksResult.data || []).filter(task => taskAssigneeList(task).some(item => item.member_id === currentUser.id));
+    taskRecordCache = new Map(visibleTasks.map(task => [task.id, task]));
 
     const names = new Map((profilesResult.data || []).map(profile => [profile.id, profile.name || '未命名成员']));
     const statuses = {
@@ -1034,7 +1074,7 @@ async function renderTaskRecords() {
       done: '<span class="status-badge status-done">已完成</span>',
       cancelled: '<span class="status-badge status-failed">已取消</span>'
     };
-    const rows = (tasksResult.data || []).map(task => {
+    const rows = visibleTasks.map(task => {
       const range = task.allocation_start_date
         ? `${task.allocation_start_date} → ${task.allocation_end_date}（含截止日）`
         : '-';
@@ -1049,7 +1089,8 @@ async function renderTaskRecords() {
         ? ` · TestHub ${testHubPlanCount} 个计划 ${snapshot?.executed_cases || 0}/${snapshot?.total_cases || 0}`
         : '';
       const canEdit = canCurrentUserEditTask(task);
-      return `<tr>
+      const memberIds = assignments.map(item => item.member_id).join(',');
+      return `<tr data-team-task-row data-title="${escapeDashboardHtml(task.title.toLowerCase())}" data-members="${escapeDashboardHtml(memberIds)}" data-status="${escapeDashboardHtml(task.status)}" data-start="${escapeDashboardHtml(task.allocation_start_date || '')}" data-end="${escapeDashboardHtml(task.allocation_end_date || task.due_date?.slice(0, 10) || '')}">
         <td><strong>${escapeDashboardHtml(task.title)}</strong></td>
         <td>${assignments.map(item => escapeDashboardHtml(names.get(item.member_id) || '未命名成员')).join('、')}</td>
         <td>${statuses[task.status] || escapeDashboardHtml(task.status)}</td>
@@ -1059,7 +1100,7 @@ async function renderTaskRecords() {
     }).join('');
 
     const todayKey = dashboardTodayInputValue();
-    const memberActiveTasks = (tasksResult.data || []).filter(task =>
+    const memberActiveTasks = visibleTasks.filter(task =>
       task.status !== 'done' && task.status !== 'cancelled'
       && taskAssigneeList(task).some(item => item.member_id === currentUser.id)
       && task.allocation_start_date <= todayKey && task.allocation_end_date >= todayKey
@@ -1074,14 +1115,22 @@ async function renderTaskRecords() {
     }, 0);
     const memberGapToday = Math.max(memberPlannedToday - memberActualToday, 0);
     const memberSummary = userRole === 'admin' ? '' : `<div class="member-work-summary"><div><span>今日计划</span><strong>${memberPlannedToday.toFixed(2)}</strong><small>点</small></div><div><span>今日实际</span><strong>${memberActualToday.toFixed(2)}</strong><small>点</small></div><div class="${memberGapToday > 0.01 ? 'has-gap' : ''}"><span>今日差额</span><strong>${memberGapToday.toFixed(2)}</strong><small>点</small></div><div><span>负责事项</span><strong>${memberActiveTasks.length}</strong><small>项</small></div></div>`;
+    const adminFilters = userRole === 'admin' ? `<div class="team-task-filters">
+      <input class="dashboard-filter" id="teamTaskKeywordFilter" type="search" placeholder="搜索任务" oninput="filterTeamTaskRows()">
+      <select class="dashboard-filter" id="teamTaskMemberFilter" onchange="filterTeamTaskRows()"><option value="all">全部成员</option>${(profilesResult.data || []).map(profile => `<option value="${profile.id}">${escapeDashboardHtml(profile.name || '未命名成员')}</option>`).join('')}</select>
+      <select class="dashboard-filter" id="teamTaskStatusFilter" onchange="filterTeamTaskRows()"><option value="all">全部状态</option><option value="todo">待处理</option><option value="in_progress">进行中</option><option value="done">已完成</option><option value="cancelled">已取消</option></select>
+      <input class="dashboard-filter" id="teamTaskDateFilter" type="date" onchange="filterTeamTaskRows()" title="筛选该日期正在执行的任务">
+      <button class="btn-secondary" type="button" onclick="clearTeamTaskFilters()">清空筛选</button>
+    </div>` : '';
 
     content.innerHTML = `
       ${memberSummary}
       <div class="history-card">
         <div class="card-hd" style="margin-bottom:12px;">
           <span class="card-title">📋 ${userRole === 'admin' ? '团队工作事项' : '我的工作事项'}</span>
-          <div style="display:flex;align-items:center;gap:8px;">${userRole === 'admin' ? '<button class="btn-secondary" onclick="copyLocalSyncAuthorization(this)">复制本地同步授权</button><button class="btn-secondary" onclick="syncTestHubProgress(null, this)">刷新全部进度</button>' : ''}<span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${(tasksResult.data || []).length} 项</span></div>
+          <div style="display:flex;align-items:center;gap:8px;">${userRole === 'admin' ? '<button class="btn-secondary" onclick="copyLocalSyncAuthorization(this)">复制本地同步授权</button><button class="btn-secondary" onclick="syncTestHubProgress(null, this)">刷新全部进度</button>' : ''}<span class="card-tag" id="teamTaskVisibleCount" style="background:#EDE8FF;color:var(--purple);">${visibleTasks.length} 项</span></div>
         </div>
+        ${adminFilters}
         <div style="overflow-x:auto;">
           <table class="history-table" style="min-width:760px;">
             <thead><tr><th>事项</th><th>负责人</th><th>状态</th><th>资源与截止日期</th><th>操作</th></tr></thead>
@@ -1320,10 +1369,11 @@ function renderDashboard() {
         <div class="sync-health-meta" id="testHubSyncHealthMeta">每 30 分钟同步一次</div>
       </div>
       <span class="sync-health-state" id="testHubSyncHealthState">加载中</span>
+      <button class="sync-health-refresh" type="button" onclick="refreshDashboardSyncStatus(this)">刷新状态</button>
     </div>
 
     <div class="stat-grid">
-      <div class="stat-card p dashboard-link" role="button" tabindex="0" onclick="navTo('tasks')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navTo('tasks');}">
+      ${userRole === 'admin' ? `<div class="stat-card p dashboard-link" role="button" tabindex="0" onclick="navTo('tasks')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();navTo('tasks');}">
         <div class="sc-icon p"><i class="ti ti-checkbox"></i></div>
         <div class="sc-val" id="sc-tasks">…</div>
         <div class="sc-label">今日待办</div>
@@ -1342,7 +1392,26 @@ function renderDashboard() {
         <div class="sc-icon pu"><i class="ti ti-package-off"></i></div>
         <div class="sc-val" id="sc-low-stock">…</div>
         <div class="sc-label">低库存耗材</div>
+      </div>` : `<div class="stat-card p dashboard-link" role="button" tabindex="0" onclick="navTo('tasks')">
+        <div class="sc-icon p"><i class="ti ti-calendar-stats"></i></div>
+        <div class="sc-val" id="sc-plan">…</div>
+        <div class="sc-label">今日应完成点数</div>
       </div>
+      <div class="stat-card t dashboard-link" role="button" tabindex="0" onclick="navTo('tasks')">
+        <div class="sc-icon t"><i class="ti ti-progress-check"></i></div>
+        <div class="sc-val" id="sc-actual">…</div>
+        <div class="sc-label">今日实际点数</div>
+      </div>
+      <div class="stat-card y dashboard-link" role="button" tabindex="0" onclick="navTo('tasks')">
+        <div class="sc-icon y"><i class="ti ti-arrows-diff"></i></div>
+        <div class="sc-val" id="sc-gap">…</div>
+        <div class="sc-label">今日进度差额</div>
+      </div>
+      <div class="stat-card pu dashboard-link" role="button" tabindex="0" onclick="scrollToDashboardRisks()">
+        <div class="sc-icon pu"><i class="ti ti-alert-triangle"></i></div>
+        <div class="sc-val" id="sc-my-risks">…</div>
+        <div class="sc-label">我的待处理风险</div>
+      </div>`}
     </div>
 
     <div class="dashboard-grid">
@@ -1371,6 +1440,12 @@ function renderDashboard() {
       <div class="card-hd">
         <span class="card-title">👥 未来 ${RESOURCE_HORIZON_WORKDAYS} 个工作日团队资源</span>
         <span class="resource-legend">橙色不足 · 绿色正常 · 红色超负荷</span>
+      </div>
+      <div class="resource-controls">
+        <select class="dashboard-filter" id="resourceMemberFilter" onchange="setResourceCapacityFilters()"><option value="all">全部成员</option></select>
+        <select class="dashboard-filter" id="resourceLoadFilter" onchange="setResourceCapacityFilters()">
+          <option value="all">全部负载</option><option value="over">仅超负荷</option><option value="under">仅资源不足</option><option value="normal">仅负载正常</option>
+        </select>
       </div>
       <div class="resource-table-wrap" id="resourceCapacityGrid">
         <div class="dashboard-loading">正在计算成员资源点数…</div>
@@ -1684,16 +1759,47 @@ function renderResourceCapacity(resource, failed) {
     wrap.innerHTML = '<div class="dashboard-empty">暂无成员，请先添加团队账号</div>';
     return;
   }
+  const memberFilter = document.getElementById('resourceMemberFilter');
+  const loadFilter = document.getElementById('resourceLoadFilter');
+  if (memberFilter) {
+    memberFilter.innerHTML = `<option value="all">全部成员</option>${resource.rows.map(row => `<option value="${row.member.id}">${escapeDashboardHtml(row.member.name || '未命名成员')}</option>`).join('')}`;
+    memberFilter.value = resource.rows.some(row => row.member.id === dashboardResourceMemberFilter) ? dashboardResourceMemberFilter : 'all';
+  }
+  if (loadFilter) loadFilter.value = dashboardResourceLoadFilter;
+  const visibleRows = resource.rows.filter(row =>
+    (dashboardResourceMemberFilter === 'all' || row.member.id === dashboardResourceMemberFilter)
+    && (dashboardResourceLoadFilter === 'all' || row.cells.some(cell => cell.level === dashboardResourceLoadFilter))
+  );
+  if (!visibleRows.length) {
+    wrap.innerHTML = '<div class="dashboard-empty">当前筛选条件下没有成员资源记录</div>';
+    return;
+  }
   const header = resource.dates.map(date => {
     const parsed = new Date(`${date}T00:00:00`);
     return `<th>${date.slice(5).replace('-', '/')}<br>${parsed.toLocaleDateString('zh-CN', { weekday:'short' })}</th>`;
   }).join('');
-  const body = resource.rows.map(row => `
+  const body = visibleRows.map(row => `
     <tr>
       <td class="resource-member">${escapeDashboardHtml(row.member.name || '未命名成员')}</td>
       ${row.cells.map(cell => `<td class="resource-cell resource-${cell.level}" title="容量 ${cell.capacity.toFixed(2)} 点">${cell.points.toFixed(2)}</td>`).join('')}
     </tr>`).join('');
   wrap.innerHTML = `<table class="resource-table"><thead><tr><th>成员</th>${header}</tr></thead><tbody>${body}</tbody></table>`;
+}
+
+function setResourceCapacityFilters() {
+  dashboardResourceMemberFilter = document.getElementById('resourceMemberFilter')?.value || 'all';
+  dashboardResourceLoadFilter = document.getElementById('resourceLoadFilter')?.value || 'all';
+  if (dashboardSnapshot?.resource) renderResourceCapacity(dashboardSnapshot.resource, false);
+}
+
+async function refreshDashboardSyncStatus(button) {
+  if (userRole !== 'admin' || currentPage !== 'dashboard') return;
+  if (button) { button.disabled = true; button.textContent = '刷新中…'; }
+  try {
+    await loadDashboardData(++dashboardLoadToken);
+  } finally {
+    if (button?.isConnected) { button.disabled = false; button.textContent = '刷新状态'; }
+  }
 }
 
 function dashboardQueryResult(result, fallback) {
@@ -1973,9 +2079,14 @@ async function loadDashboardData(token) {
   const myAssignedTasks = tasksResult.data.filter(task =>
     taskAssigneeList(task).some(assignment => assignment.member_id === currentUser.id)
   );
+  const todayKey = dashboardTodayInputValue();
+  const todayIsWorkday = isResourceWorkday(todayKey, dashboardWorkCalendar);
 
   const todayTasks = myAssignedTasks
-    .filter(task => !dashboardCompletingTaskIds.has(task.id) && task.due_date && new Date(task.due_date) <= todayEnd)
+    .filter(task => !dashboardCompletingTaskIds.has(task.id) && (
+      (task.due_date && new Date(task.due_date) <= todayEnd)
+      || (todayIsWorkday && task.allocation_start_date <= todayKey && task.allocation_end_date >= todayKey)
+    ))
     .sort((a, b) => {
       const aOverdue = new Date(a.due_date) < todayStart ? 0 : 1;
       const bOverdue = new Date(b.due_date) < todayStart ? 0 : 1;
@@ -1989,10 +2100,10 @@ async function loadDashboardData(token) {
   upcomingEnd.setDate(upcomingEnd.getDate() + 3);
   const upcomingTasks = myAssignedTasks
     .filter(task => !dashboardCompletingTaskIds.has(task.id)
-      && task.due_date
-      && new Date(task.due_date) > todayEnd
-      && new Date(task.due_date) <= upcomingEnd)
-    .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+      && !todayTasks.some(todayTask => todayTask.id === task.id)
+      && ((task.allocation_start_date && new Date(`${task.allocation_start_date}T23:59:59`) <= upcomingEnd)
+        || (task.due_date && new Date(task.due_date) <= upcomingEnd)))
+    .sort((a, b) => new Date(a.allocation_start_date || a.due_date) - new Date(b.allocation_start_date || b.due_date));
 
   const automationFailures = runsResult.data.filter(run => run.status === 'failed');
   const staleBefore = now.getTime() - 2 * 60 * 60 * 1000;
@@ -2007,20 +2118,31 @@ async function loadDashboardData(token) {
     : { dates: [], rows: [], risks: [] };
   const scheduleTasks = userRole === 'admin' ? resourceTasksResult.data : myAssignedTasks;
   const taskScheduleRisks = buildTaskScheduleRisks(scheduleTasks, resourceMembersResult.data, progressResult.data, testHubProgressResult.data, now, dashboardWorkCalendar);
+  const testHubSnapshotMap = new Map(testHubProgressResult.data.map(snapshot => [snapshot.task_id, snapshot]));
+  const memberPlannedToday = myAssignedTasks
+    .filter(task => todayIsWorkday && task.allocation_start_date <= todayKey && task.allocation_end_date >= todayKey)
+    .reduce((sum, task) => sum + taskMemberDailyPlanOnDate(task, currentUser.id, todayKey), 0);
+  const memberActualToday = myAssignedTasks.reduce((sum, task) => {
+    if (taskUsesTestHubProgress(task)) return sum + taskMemberTestHubPoints(task, currentUser.id, todayKey, testHubSnapshotMap.get(task.id));
+    return sum + progressResult.data
+      .filter(log => log.task_id === task.id && log.executor_id === currentUser.id && log.work_date === todayKey && log.source === 'manual')
+      .reduce((subtotal, log) => subtotal + Number(log.progress_points || 0), 0);
+  }, 0);
+  const memberGapToday = Math.max(memberPlannedToday - memberActualToday, 0);
 
   const risks = [];
-  if (automationFailures.length) risks.push({ level:'high', title:`最近24小时有 ${automationFailures.length} 次自动化失败`, meta:'检查执行历史与失败原因', action:'automation', actionLabel:'查看结果' });
-  if (staleRuns.length) risks.push({ level:'high', title:`${staleRuns.length} 个自动化任务运行超过2小时`, meta:'检查 Runner 和设备状态', action:'automation', actionLabel:'查看任务' });
-  if (offlineDevices.length) risks.push({ level:'high', title:`${offlineDevices.length} 台自动化设备离线`, meta:offlineDevices.map(d => d.model_name || d.platform).slice(0,3).join('、'), action:'automation', actionLabel:'检查设备' });
+  if (userRole === 'admin' && automationFailures.length) risks.push({ level:'high', title:`最近24小时有 ${automationFailures.length} 次自动化失败`, meta:'检查执行历史与失败原因', action:'automation', actionLabel:'查看结果' });
+  if (userRole === 'admin' && staleRuns.length) risks.push({ level:'high', title:`${staleRuns.length} 个自动化任务运行超过2小时`, meta:'检查 Runner 和设备状态', action:'automation', actionLabel:'查看任务' });
+  if (userRole === 'admin' && offlineDevices.length) risks.push({ level:'high', title:`${offlineDevices.length} 台自动化设备离线`, meta:offlineDevices.map(d => d.model_name || d.platform).slice(0,3).join('、'), action:'automation', actionLabel:'检查设备' });
   risks.push(...taskScheduleRisks);
-  if (lowStock.length) risks.push({ level:'medium', title:`${lowStock.length} 项耗材库存不足`, meta:lowStock.map(item => item.name).slice(0,3).join('、'), action:'assets', actionLabel:'查看库存' });
-  releaseChecks.forEach(check => risks.push({
+  if (userRole === 'admin' && lowStock.length) risks.push({ level:'medium', title:`${lowStock.length} 项耗材库存不足`, meta:lowStock.map(item => item.name).slice(0,3).join('、'), action:'assets', actionLabel:'查看库存' });
+  if (userRole === 'admin') releaseChecks.forEach(check => risks.push({
     level: check.severity === 'high' ? 'high' : check.severity === 'low' ? 'low' : 'medium',
     title: check.check_name,
     meta: check.status === 'failed' ? '版本检查未通过' : '版本检查数据暂不可用',
     action: 'prd', actionLabel: '查看版本'
   }));
-  if (!activeRelease && !releaseResult.failed) risks.push({ level:'low', title:'当前活动版本未设置', meta:'由管理员创建并激活测试版本', action:'prd', actionLabel:'去设置' });
+  if (userRole === 'admin' && !activeRelease && !releaseResult.failed) risks.push({ level:'low', title:'当前活动版本未设置', meta:'由管理员创建并激活测试版本', action:'prd', actionLabel:'去设置' });
   if (userRole === 'admin' && !syncHealthResult.failed) {
     const syncHealth = getTestHubSyncHealth(syncHealthResult.data, false, now);
     if (syncHealthResult.data?.status === 'failed') {
@@ -2066,11 +2188,19 @@ async function loadDashboardData(token) {
   risks.sort((a, b) => riskOrder[a.level] - riskOrder[b.level]);
 
   const resourceDataFailed = userRole === 'admin' && (resourceMembersResult.failed || resourceTasksResult.failed || workCalendarResult.failed);
-  const riskDataFailed = tasksResult.failed || progressResult.failed || testHubProgressResult.failed || allocationHistoryResult.failed || riskActionsResult.failed || runsResult.failed || devicesResult.failed || consumablesResult.failed || checksResult.failed || releaseResult.failed || resourceDataFailed;
-  setDashboardMetric('sc-tasks', todayTasks.length, tasksResult.failed);
-  setDashboardMetric('sc-auto-failed', automationFailures.length, runsResult.failed);
-  setDashboardMetric('sc-offline', offlineDevices.length, devicesResult.failed);
-  setDashboardMetric('sc-low-stock', lowStock.length, consumablesResult.failed);
+  const systemRiskDataFailed = userRole === 'admin' && (riskActionsResult.failed || runsResult.failed || devicesResult.failed || consumablesResult.failed || checksResult.failed || releaseResult.failed || resourceDataFailed || syncHealthResult.failed);
+  const riskDataFailed = tasksResult.failed || progressResult.failed || testHubProgressResult.failed || allocationHistoryResult.failed || systemRiskDataFailed;
+  if (userRole === 'admin') {
+    setDashboardMetric('sc-tasks', todayTasks.length, tasksResult.failed);
+    setDashboardMetric('sc-auto-failed', automationFailures.length, runsResult.failed);
+    setDashboardMetric('sc-offline', offlineDevices.length, devicesResult.failed);
+    setDashboardMetric('sc-low-stock', lowStock.length, consumablesResult.failed);
+  } else {
+    setDashboardMetric('sc-plan', memberPlannedToday.toFixed(2), tasksResult.failed || progressResult.failed);
+    setDashboardMetric('sc-actual', memberActualToday.toFixed(2), tasksResult.failed || progressResult.failed || testHubProgressResult.failed);
+    setDashboardMetric('sc-gap', memberGapToday.toFixed(2), tasksResult.failed || progressResult.failed || testHubProgressResult.failed);
+    setDashboardMetric('sc-my-risks', risks.filter(risk => risk.level !== 'low').length, riskDataFailed);
+  }
   renderDashboardTasks(todayTasks, upcomingTasks, tasksResult.failed, todayStart, todayEnd);
   renderResourceCapacity(resource, resourceDataFailed);
   renderTestHubSyncHealth(syncHealthResult.data, syncHealthResult.failed);

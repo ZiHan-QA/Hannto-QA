@@ -30,6 +30,9 @@ def main() -> None:
         "admin_risk_actions",
         "TestHub 自动",
         "手工填报",
+        "function filterTeamTaskRows",
+        "function setResourceCapacityFilters",
+        "function refreshDashboardSyncStatus",
     ], "main.html")
     require(migration, [
         "create table if not exists public.qa_task_allocation_history",
@@ -42,6 +45,7 @@ def main() -> None:
         "mapped_executor_count",
         "unmapped_executor_count",
         "task_testhub_daily_execution",
+        "def acquire_sync_lock",
     ], "TestHub sync")
 
     javascript = html[html.index("<script>", html.index("<body>")) + 8 : html.rindex("</script>")]
