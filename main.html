@@ -2347,7 +2347,7 @@ async function renderTaskRecords() {
       .select('id,title,description,priority,task_type,status,test_round,assignee_id,due_date,release_id,prd_id,requirement_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,related_id,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids')
       .order('created_at', { ascending:false })
       .limit(200);
-    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, activityResult, requirementsResult, prdsResult] = await Promise.all([
+    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, activityResult, requirementsResult, prdsResult, testHubSuitesResult] = await Promise.all([
       query,
       sb.from('profiles').select('id,name'),
       sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at').order('work_date', { ascending:false }),
@@ -2358,7 +2358,8 @@ async function renderTaskRecords() {
       sb.from('releases').select('id,version,name,platform,status'),
       sb.from('qa_task_activity').select('task_id,action,changed_fields,changed_by,created_at').order('created_at', { ascending:false }).limit(1000),
       sb.from('requirements').select('id,title'),
-      sb.from('prds').select('id,title')
+      sb.from('prds').select('id,title'),
+      sb.from('testhub_plan_suite_cache').select('library_id,plan_id,suite_id,suite_name,case_count,synced_at')
     ]);
     if (tasksResult.error) throw tasksResult.error;
     if (profilesResult.error) throw profilesResult.error;
@@ -2371,6 +2372,7 @@ async function renderTaskRecords() {
     if (activityResult.error) throw activityResult.error;
     if (requirementsResult.error) throw requirementsResult.error;
     if (prdsResult.error) throw prdsResult.error;
+    if (testHubSuitesResult.error) throw testHubSuitesResult.error;
     dashboardMembers = profilesResult.data || [];
     taskProgressByTask = new Map();
     (progressResult.data || []).forEach(log => {
@@ -2412,6 +2414,7 @@ async function renderTaskRecords() {
     const releaseNames = new Map((releasesResult.data || []).map(release => [release.id, `${release.name || release.version}${release.platform ? ` · ${release.platform}` : ''}`]));
     const requirementNames = new Map((requirementsResult.data || []).map(requirement => [requirement.id, requirement.title]));
     const prdNames = new Map((prdsResult.data || []).map(prd => [prd.id, prd.title]));
+    const testHubSuites = testHubSuitesResult.data || [];
     const statuses = {
       todo: '<span class="status-badge status-queued">待处理</span>',
       in_progress: '<span class="status-badge status-running">进行中</span>',
@@ -2436,13 +2439,27 @@ async function renderTaskRecords() {
         : '-';
       const snapshot = taskTestHubProgressByTask.get(task.id);
       const actual = taskActualProgressPoints(task, taskProgressByTask.get(task.id) || [], snapshot);
-      const testHubPlanCount = getTaskTestHubPlanIds(task).length;
-      const scopedSuiteNames = snapshot?.scope_suite_names || [];
+      const taskPlanIds = getTaskTestHubPlanIds(task);
+      const testHubPlanCount = taskPlanIds.length;
+      const selectedSuiteIds = new Set((task.testhub_scope_suite_ids || []).map(String));
+      const cachedScopedSuites = task.testhub_scope_mode === 'suite'
+        ? testHubSuites.filter(item => item.library_id === task.testhub_library_id
+          && taskPlanIds.includes(String(item.plan_id))
+          && selectedSuiteIds.has(String(item.suite_id)))
+        : [];
+      const cachedScopedTotal = cachedScopedSuites.reduce((sum, item) => sum + Number(item.case_count || 0), 0);
+      const snapshotTotalCases = Number(snapshot?.total_cases || 0);
+      const displayedTotalCases = snapshotTotalCases || cachedScopedTotal;
+      const executedCases = Number(snapshot?.executed_cases || 0);
+      const scopeAwaitingSync = task.testhub_scope_mode === 'suite' && !snapshotTotalCases && cachedScopedTotal > 0;
+      const scopedSuiteNames = (snapshot?.scope_suite_names?.length
+        ? snapshot.scope_suite_names
+        : [...new Set(cachedScopedSuites.map(item => item.suite_name).filter(Boolean))]);
       const testHubScopeText = task.testhub_scope_mode === 'suite'
         ? ` · 模块：${escapeDashboardHtml(scopedSuiteNames.length ? scopedSuiteNames.join('、') : `${Number(task.testhub_scope_suite_ids?.length || 0)} 个已选模块`)}`
         : '';
       const testHubText = testHubPlanCount
-        ? ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} ${snapshot?.executed_cases || 0}/${snapshot?.total_cases || 0}`
+        ? ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} · 已执行 ${executedCases} / 总 Case ${displayedTotalCases}${scopeAwaitingSync ? '（范围待同步）' : ''}`
         : '';
       const canEdit = canCurrentUserEditTask(task);
       const memberIds = assignments.map(item => item.member_id).join(',');
