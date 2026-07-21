@@ -901,6 +901,11 @@ function testHubSnapshotMatchesTask(task, snapshot) {
   return taskIds.length === snapshotIds.length && taskIds.every((id, index) => id === snapshotIds[index]);
 }
 
+function testHubPlanProgressItems(snapshot) {
+  const items = snapshot?.status_counts?.plans;
+  return Array.isArray(items) ? items.filter(item => item?.plan_id) : [];
+}
+
 function applyTaskTemplate(templateKey) {
   const template = TASK_TEMPLATES[templateKey];
   if (!template) return;
@@ -1244,27 +1249,35 @@ function rebuildTaskSchedule(members, tasks, calendar = dashboardWorkCalendar) {
   const occupied = new Map();
   const orderedTasks = [...(tasks || [])]
     .filter(task => task.status !== 'cancelled')
-    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0) || String(a.id).localeCompare(String(b.id)));
+    .sort((a, b) => {
+      const endCompare = String(a.allocation_end_date || '').localeCompare(String(b.allocation_end_date || ''));
+      if (endCompare) return endCompare;
+      const endPeriodCompare = (a.allocation_end_period === 'pm' ? 1 : 0) - (b.allocation_end_period === 'pm' ? 1 : 0);
+      if (endPeriodCompare) return endPeriodCompare;
+      const completedCompare = (a.status === 'done' ? 0 : 1) - (b.status === 'done' ? 0 : 1);
+      if (completedCompare) return completedCompare;
+      const startCompare = String(a.allocation_start_date || '').localeCompare(String(b.allocation_start_date || ''));
+      if (startCompare) return startCompare;
+      const startPeriodCompare = (a.allocation_start_period === 'pm' ? 1 : 0) - (b.allocation_start_period === 'pm' ? 1 : 0);
+      if (startPeriodCompare) return startPeriodCompare;
+      return String(a.id).localeCompare(String(b.id));
+    });
 
   for (const task of orderedTasks) {
-    const slots = resourceTaskWorkSlots(task, calendar);
+    const allSlots = resourceTaskWorkSlots(task, calendar);
+    const completedDate = task.status === 'done' && task.completed_at
+      ? dashboardLocalDateKey(new Date(task.completed_at))
+      : '';
+    const slots = completedDate ? allSlots.filter(slot => slot.date <= completedDate) : allSlots;
     if (!slots.length) continue;
     for (const assignment of taskAssigneeList(task)) {
       let remaining = Math.max(0, Number(assignment.allocated_effort) || 0);
       const slotCapacity = (memberCapacity.get(assignment.member_id) || 1) / 2;
-      if (task.status === 'done') {
-        const completedDate = task.completed_at ? dashboardLocalDateKey(new Date(task.completed_at)) : '';
-        const completedSlots = slots.filter(slot => slot.date === completedDate);
-        const plannedPerSlot = slots.length ? remaining / slots.length : 0;
-        for (const slot of completedSlots) {
-          const occupiedKey = `${assignment.member_id}|${slot.date}|${slot.period}`;
-          const dayKey = `${task.id}|${assignment.member_id}|${slot.date}`;
-          const periodKey = `${dayKey}|${slot.period}`;
-          occupied.set(occupiedKey, (occupied.get(occupiedKey) || 0) + plannedPerSlot);
-          taskScheduledPoints.set(dayKey, (taskScheduledPoints.get(dayKey) || 0) + plannedPerSlot);
-          taskScheduledPeriodPoints.set(periodKey, (taskScheduledPeriodPoints.get(periodKey) || 0) + plannedPerSlot);
-        }
-        continue;
+      for (const slot of allSlots) {
+        const dayKey = `${task.id}|${assignment.member_id}|${slot.date}`;
+        const periodKey = `${dayKey}|${slot.period}`;
+        if (!taskScheduledPoints.has(dayKey)) taskScheduledPoints.set(dayKey, 0);
+        if (!taskScheduledPeriodPoints.has(periodKey)) taskScheduledPeriodPoints.set(periodKey, 0);
       }
       for (const slot of slots) {
         if (remaining <= 0.0001) break;
@@ -2068,7 +2081,7 @@ async function renderQualityReport() {
       sb.from('profiles').select('id,name').order('name'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id'),
-      sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
+      sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('release_checks').select('release_id,status,severity'),
       sb.from('quality_defects').select('id,title,qa_task_id,prd_id,requirement_id,release_id,exposed_stage,severity,status,executor_id,found_at,root_cause_category,review_status,reopen_count,is_change_induced,is_missed_test,impact,escape_reason,corrective_action,prevention_action'),
       sb.from('prds').select('id,title')
@@ -2261,7 +2274,7 @@ async function renderVersionTestMap() {
       sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
       sb.from('prds').select('id,title,release_id,version,product,author,status').order('created_at',{ascending:false}),
       sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status,testhub_plan_id,testhub_plan_ids').neq('status','cancelled'),
-      sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
+      sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('quality_defects').select('id,prd_id,qa_task_id,status,severity'),
       sb.from('version_test_assets').select('*').order('updated_at',{ascending:false})
     ]);
@@ -2512,7 +2525,7 @@ async function renderTaskRecords() {
       query,
       sb.from('profiles').select('id,name'),
       sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at').order('work_date', { ascending:false }),
-      sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,sync_status,sync_error,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
+      sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,sync_error,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_testhub_daily_execution').select('task_id,work_date,executor_key,member_id,executor_name,executed_cases,synced_at'),
       sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false }),
@@ -2615,6 +2628,10 @@ async function renderTaskRecords() {
       const snapshotTotalCases = Number(effectiveSnapshot?.total_cases || 0);
       const displayedTotalCases = snapshotTotalCases || cachedScopedTotal;
       const executedCases = Number(effectiveSnapshot?.executed_cases || 0);
+      const perPlanProgress = testHubPlanProgressItems(effectiveSnapshot);
+      const perPlanProgressText = perPlanProgress.length > 1
+        ? ` · 分计划 ${perPlanProgress.map((item, index) => `${index + 1}: ${Number(item.executed || 0)}/${Number(item.total || 0)}`).join(' + ')}`
+        : '';
       const scopeAwaitingSync = task.testhub_scope_mode === 'suite' && !snapshotTotalCases && cachedScopedTotal > 0;
       const scopedSuiteNames = (effectiveSnapshot?.scope_suite_names?.length
         ? effectiveSnapshot.scope_suite_names
@@ -2625,7 +2642,7 @@ async function renderTaskRecords() {
       const testHubText = testHubPlanCount
         ? !snapshotMatches
           ? ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} · 计划已变更，待同步 Case 数`
-          : ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} · 已执行 ${executedCases} / 总 Case ${displayedTotalCases}${scopeAwaitingSync ? '（范围待同步）' : ''}`
+          : ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} · 已执行 ${executedCases} / 总 Case ${displayedTotalCases}${perPlanProgressText}${scopeAwaitingSync ? '（范围待同步）' : ''}`
         : '';
       const canEdit = canCurrentUserEditTask(task);
       const canUpdateStatus = canCurrentUserUpdateTaskStatus(task);
@@ -3635,7 +3652,7 @@ async function loadDashboardData(token) {
     sb.from('qa_tasks').select('id,title,priority,assignee_id,status,created_at,completed_at,due_date,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until').in('status',['todo','in_progress','blocked','done']),
     sb.from('work_calendar').select('work_date,is_workday,name'),
     sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id').lte('work_date', dashboardTodayInputValue()).limit(2000),
-    sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
+    sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
     userRole === 'admin'
       ? sb.from('testhub_sync_status').select('sync_name,status,last_started_at,last_success_at,last_failure_at,next_expected_at,error_message,cached_plan_count,progress_success,progress_failed,execution_record_count,mapped_executor_count,unmapped_executor_count,updated_at').eq('sync_name','testhub_local').maybeSingle()
       : Promise.resolve({ data:null, error:null }),

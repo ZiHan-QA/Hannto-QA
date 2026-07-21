@@ -363,10 +363,10 @@ def fetch_open_tasks(access_token: str) -> list[dict[str, Any]]:
 
 
 def sync_task_status_from_testhub(
-    task: dict[str, Any], total: int, executed: int, access_token: str
+    task: dict[str, Any], total: int, executed: int, all_plans_complete: bool, access_token: str
 ) -> str:
     """Keep a linked task state aligned with its scoped TestHub execution."""
-    target_status = "todo" if total <= 0 or executed <= 0 else "done" if executed >= total else "in_progress"
+    target_status = "done" if all_plans_complete else "in_progress" if executed > 0 else "todo"
     if str(task.get("status") or "todo") == target_status:
         return target_status
     query = urllib.parse.urlencode({"id": f"eq.{task['id']}"})
@@ -486,6 +486,34 @@ def filter_runs_for_task_scope(task: dict[str, Any], runs: list[dict[str, Any]])
         return runs
     selected = {str(value) for value in (task.get("testhub_scope_suite_ids") or []) if value}
     return [run for run in runs if run_suite(run)[0] in selected]
+
+
+def normalize_suite_name(value: Any) -> str:
+    return "".join(str(value or "").split()).casefold()
+
+
+def filter_plan_runs_for_shared_scope(
+    task: dict[str, Any], plan_runs: dict[str, list[dict[str, Any]]]
+) -> dict[str, list[dict[str, Any]]]:
+    """Apply one module selection across plans whose equivalent suites have different IDs."""
+    if str(task.get("testhub_scope_mode") or "all") != "suite":
+        return plan_runs
+    selected_ids = {str(value) for value in (task.get("testhub_scope_suite_ids") or []) if value}
+    selected_names = {
+        normalize_suite_name(suite_name)
+        for runs in plan_runs.values()
+        for run in runs
+        for suite_id, suite_name in [run_suite(run)]
+        if suite_id in selected_ids and suite_name
+    }
+    return {
+        plan_id: [
+            run for run in runs
+            if run_suite(run)[0] in selected_ids
+            or normalize_suite_name(run_suite(run)[1]) in selected_names
+        ]
+        for plan_id, runs in plan_runs.items()
+    }
 
 
 def parse_run_datetime(value: Any) -> datetime | None:
@@ -665,15 +693,21 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
         if not library_id or not plan_ids:
             continue
         try:
+            plan_runs_by_id: dict[str, list[dict[str, Any]]] = {}
+            for plan_id in plan_ids:
+                plan_runs = fetch_plan_runs(library_id, plan_id, pingcode_token)
+                plan_runs_by_id[plan_id] = plan_runs
+                cache_plan_suites(library_id, plan_id, plan_runs, access_token)
+            scoped_runs_by_id = filter_plan_runs_for_shared_scope(task, plan_runs_by_id)
             summaries: list[dict[str, Any]] = []
             all_runs: list[dict[str, Any]] = []
             scope_suite_names: set[str] = set()
             for plan_id in plan_ids:
-                plan_runs = fetch_plan_runs(library_id, plan_id, pingcode_token)
-                cache_plan_suites(library_id, plan_id, plan_runs, access_token)
-                scoped_runs = filter_runs_for_task_scope(task, plan_runs)
+                scoped_runs = scoped_runs_by_id.get(plan_id, [])
                 scope_suite_names.update(name for _, name in map(run_suite, scoped_runs) if name)
-                summaries.append(summarize_runs(scoped_runs))
+                summary = summarize_runs(scoped_runs)
+                summary["plan_id"] = plan_id
+                summaries.append(summary)
                 all_runs.extend(scoped_runs)
             upsert_pingcode_user_directory(all_runs, access_token)
             newly_mapped = auto_map_pingcode_profiles(access_token)
@@ -682,10 +716,25 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 profile_directory = fetch_profile_directory(access_token)
             total = sum(item["total"] for item in summaries)
             executed = sum(item["executed"] for item in summaries)
+            all_plans_complete = len(summaries) == len(plan_ids) and all(
+                item["total"] > 0 and item["executed"] >= item["total"] for item in summaries
+            )
             counts: dict[str, int] = {}
             for item in summaries:
                 for status, count in item["counts"].items():
                     counts[status] = counts.get(status, 0) + count
+            status_details: dict[str, Any] = {
+                "aggregate": counts,
+                "plans": [
+                    {
+                        "plan_id": item["plan_id"],
+                        "total": item["total"],
+                        "executed": item["executed"],
+                        "complete": item["total"] > 0 and item["executed"] >= item["total"],
+                    }
+                    for item in summaries
+                ],
+            }
             row = {
                 "task_id": task["id"],
                 "library_id": library_id,
@@ -694,7 +743,7 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 "total_cases": total,
                 "executed_cases": executed,
                 "progress_ratio": executed / total if total else 0,
-                "status_counts": counts,
+                "status_counts": status_details,
                 "scope_mode": str(task.get("testhub_scope_mode") or "all"),
                 "scope_suite_ids": [str(value) for value in (task.get("testhub_scope_suite_ids") or []) if value],
                 "scope_suite_names": sorted(scope_suite_names) if task.get("testhub_scope_mode") == "suite" else [],
@@ -703,7 +752,9 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 "synced_at": datetime.now(timezone.utc).isoformat(),
             }
             request_json(upsert_url, method="POST", headers=upsert_headers, body=row, retries=2)
-            synced_task_status = sync_task_status_from_testhub(task, total, executed, access_token)
+            synced_task_status = sync_task_status_from_testhub(
+                task, total, executed, all_plans_complete, access_token
+            )
             task_records, task_mapped, task_unmapped = replace_daily_execution(
                 str(task["id"]), all_runs, profile_directory, access_token
             )
@@ -711,6 +762,8 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
             mapped_executors.update(task_mapped)
             unmapped_executors.update(task_unmapped)
             success += 1
+            for item in summaries:
+                print(f"    plan {item['plan_id']}: {item['executed']}/{item['total']}")
             scope_text = "指定模块" if task.get("testhub_scope_mode") == "suite" else "整个计划"
             print(f"  ✓ {task.get('title') or task['id']}：{executed}/{total}（{scope_text}）")
         except Exception as error:
@@ -733,6 +786,7 @@ def main() -> None:
     mode_group.add_argument("--skip-progress", action="store_true", help="只同步计划目录，不同步已关联任务进度")
     mode_group.add_argument("--progress-only", action="store_true", help="只同步已关联任务进度，不重复拉取计划目录")
     parser.add_argument("--stored-credentials", action="store_true", help="从当前 Windows 用户的凭据管理器读取授权")
+    parser.add_argument("--task-keyword", help="Only sync linked tasks whose title contains this keyword")
     args = parser.parse_args()
     acquire_sync_lock()
 
@@ -802,6 +856,10 @@ def main() -> None:
         if not args.skip_progress:
             print("正在同步已关联工作事项的 TestHub 执行进度…")
             tasks = fetch_open_tasks(access_token)
+            if args.task_keyword:
+                keyword = args.task_keyword.casefold()
+                tasks = [task for task in tasks if keyword in str(task.get("title") or "").casefold()]
+                print(f"  task filter: {args.task_keyword} ({len(tasks)} matched)")
             progress_metrics = sync_task_progress(tasks, pingcode_token, access_token)
             progress_success = progress_metrics["success"]
             progress_failed = progress_metrics["failed"]
