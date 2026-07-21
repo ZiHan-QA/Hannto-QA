@@ -644,6 +644,8 @@ let taskAssigneesByTask = new Map();
 let taskTestHubDailyByTask = new Map();
 let taskAllocationHistoryByTask = new Map();
 let taskActivityByTask = new Map();
+let taskScheduledPoints = new Map();
+let taskScheduledPeriodPoints = new Map();
 let pingCodeDirectoryCache = new Map();
 let testHubPlanChoiceCache = new Map();
 let testHubSuiteChoiceCache = new Map();
@@ -983,7 +985,7 @@ async function renderMemberMappings() {
       sb.from('profiles').select('id,name,role,daily_capacity,pingcode_user_id,pingcode_display_name').order('name'),
       sb.from('pingcode_user_directory').select('pingcode_user_id,display_name,last_seen_at').order('display_name'),
       sb.from('task_testhub_daily_execution').select('executor_key,executor_name,synced_at').order('synced_at',{ascending:false}).limit(5000),
-      sb.from('qa_tasks').select('id,title,status,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').in('status',['todo','in_progress','blocked']),
+      sb.from('qa_tasks').select('id,title,status,created_at,completed_at,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').in('status',['todo','in_progress','blocked','done']),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('work_calendar').select('work_date,is_workday,name')
     ]);
@@ -1027,6 +1029,7 @@ async function renderMemberMappings() {
       taskAssigneesByTask.set(item.task_id, assignments);
     });
     dashboardWorkCalendar = new Map((calendarResult.data || []).map(day => [day.work_date, day]));
+    rebuildTaskSchedule(profiles, tasksResult.data || [], dashboardWorkCalendar);
     const memberResource = buildResourceCapacity(profiles, tasksResult.data || [], dashboardWorkCalendar);
     pingCodeDirectoryCache = new Map(directory.map(user => [user.pingcode_user_id, user]));
     const options = directory.map(user =>
@@ -1212,6 +1215,8 @@ function taskAllocationSnapshotForDate(task, dateKey) {
 }
 
 function taskMemberDailyPlanOnDate(task, memberId, dateKey, calendar = dashboardWorkCalendar) {
+  const scheduledKey = `${task.id}|${memberId}|${dateKey}`;
+  if (taskScheduledPoints.has(scheduledKey)) return taskScheduledPoints.get(scheduledKey);
   const snapshot = taskAllocationSnapshotForDate(task, dateKey);
   const source = snapshot || task;
   const assignment = snapshot
@@ -1226,6 +1231,65 @@ function taskMemberDailyPlanOnDate(task, memberId, dateKey, calendar = dashboard
   );
   const dateSlots = slots.filter(slot => slot.date === dateKey).length;
   return assignment && slots.length ? Number(assignment.allocated_effort) * dateSlots / slots.length : 0;
+}
+
+function taskMemberPeriodPlanOnDate(task, memberId, dateKey, period) {
+  return taskScheduledPeriodPoints.get(`${task.id}|${memberId}|${dateKey}|${period}`) || 0;
+}
+
+function rebuildTaskSchedule(members, tasks, calendar = dashboardWorkCalendar) {
+  taskScheduledPoints = new Map();
+  taskScheduledPeriodPoints = new Map();
+  const memberCapacity = new Map((members || []).map(member => [member.id, Number(member.daily_capacity) || 1]));
+  const occupied = new Map();
+  const orderedTasks = [...(tasks || [])]
+    .filter(task => task.status !== 'cancelled')
+    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0) || String(a.id).localeCompare(String(b.id)));
+
+  for (const task of orderedTasks) {
+    const slots = resourceTaskWorkSlots(task, calendar);
+    if (!slots.length) continue;
+    for (const assignment of taskAssigneeList(task)) {
+      let remaining = Math.max(0, Number(assignment.allocated_effort) || 0);
+      const slotCapacity = (memberCapacity.get(assignment.member_id) || 1) / 2;
+      if (task.status === 'done') {
+        const completedDate = task.completed_at ? dashboardLocalDateKey(new Date(task.completed_at)) : '';
+        const completedSlots = slots.filter(slot => slot.date === completedDate);
+        const plannedPerSlot = slots.length ? remaining / slots.length : 0;
+        for (const slot of completedSlots) {
+          const occupiedKey = `${assignment.member_id}|${slot.date}|${slot.period}`;
+          const dayKey = `${task.id}|${assignment.member_id}|${slot.date}`;
+          const periodKey = `${dayKey}|${slot.period}`;
+          occupied.set(occupiedKey, (occupied.get(occupiedKey) || 0) + plannedPerSlot);
+          taskScheduledPoints.set(dayKey, (taskScheduledPoints.get(dayKey) || 0) + plannedPerSlot);
+          taskScheduledPeriodPoints.set(periodKey, (taskScheduledPeriodPoints.get(periodKey) || 0) + plannedPerSlot);
+        }
+        continue;
+      }
+      for (const slot of slots) {
+        if (remaining <= 0.0001) break;
+        const occupiedKey = `${assignment.member_id}|${slot.date}|${slot.period}`;
+        const available = Math.max(0, slotCapacity - (occupied.get(occupiedKey) || 0));
+        const planned = Math.min(remaining, available);
+        if (planned <= 0) continue;
+        occupied.set(occupiedKey, (occupied.get(occupiedKey) || 0) + planned);
+        const dayKey = `${task.id}|${assignment.member_id}|${slot.date}`;
+        const periodKey = `${dayKey}|${slot.period}`;
+        taskScheduledPoints.set(dayKey, (taskScheduledPoints.get(dayKey) || 0) + planned);
+        taskScheduledPeriodPoints.set(periodKey, (taskScheduledPeriodPoints.get(periodKey) || 0) + planned);
+        remaining -= planned;
+      }
+      if (remaining > 0.0001) {
+        const lastSlot = slots.at(-1);
+        const occupiedKey = `${assignment.member_id}|${lastSlot.date}|${lastSlot.period}`;
+        const dayKey = `${task.id}|${assignment.member_id}|${lastSlot.date}`;
+        const periodKey = `${dayKey}|${lastSlot.period}`;
+        occupied.set(occupiedKey, (occupied.get(occupiedKey) || 0) + remaining);
+        taskScheduledPoints.set(dayKey, (taskScheduledPoints.get(dayKey) || 0) + remaining);
+        taskScheduledPeriodPoints.set(periodKey, (taskScheduledPeriodPoints.get(periodKey) || 0) + remaining);
+      }
+    }
+  }
 }
 
 function taskMemberTestHubPoints(task, memberId, dateKey, snapshot) {
@@ -2506,6 +2570,7 @@ async function renderTaskRecords() {
       ? (tasksResult.data || [])
       : (tasksResult.data || []).filter(task => taskAssigneeList(task).some(item => item.member_id === currentUser.id));
     taskRecordCache = new Map(visibleTasks.map(task => [task.id, task]));
+    rebuildTaskSchedule(profilesResult.data || [], tasksResult.data || [], dashboardWorkCalendar);
 
     const names = new Map((profilesResult.data || []).map(profile => [profile.id, profile.name || '未命名成员']));
     const releaseNames = new Map((releasesResult.data || []).map(release => [release.id, `${release.name || release.version}${release.platform ? ` · ${release.platform}` : ''}`]));
@@ -3096,6 +3161,7 @@ function resourcePointsOnDate(tasks, memberId, dateKey, calendar = dashboardWork
 function resourceTasksOnDate(tasks, memberId, dateKey, calendar = dashboardWorkCalendar) {
   if (!isResourceWorkday(dateKey, calendar)) return [];
   return tasks.filter(task => taskAssigneeList(task).some(item => item.member_id === memberId)
+    && (task.status !== 'done' || (task.completed_at && dashboardLocalDateKey(new Date(task.completed_at)) === dateKey))
     && task.allocation_start_date <= dateKey
     && task.allocation_end_date >= dateKey);
 }
@@ -3108,10 +3174,7 @@ function buildResourceCapacity(members, tasks, calendar = dashboardWorkCalendar)
       const linkedTasks = resourceTasksOnDate(tasks, member.id, date, calendar);
        const points = linkedTasks.reduce((total, task) => total + taskMemberDailyPlanOnDate(task, member.id, date, calendar), 0);
        const periodPoints = Object.fromEntries(['am', 'pm'].map(period => [period, linkedTasks.reduce((total, task) => {
-         const slots = resourceTaskWorkSlots(task, calendar);
-         const slotCount = slots.filter(slot => slot.date === date && slot.period === period).length;
-         const allocation = taskAssigneeList(task).find(item => item.member_id === member.id);
-         return total + (allocation && slots.length ? Number(allocation.allocated_effort) * slotCount / slots.length : 0);
+         return total + taskMemberPeriodPlanOnDate(task, member.id, date, period);
        }, 0)]));
        // Capacity color is based on the whole workday. Half-day values explain
        // the distribution but must not turn a 1.00 / 1.00 day into overload.
@@ -3561,7 +3624,7 @@ async function loadDashboardData(token) {
 
   const results = await Promise.allSettled([
     sb.from('releases').select('id,version,name,platform,planned_release_date,status').eq('status','active').order('platform'),
-    sb.from('qa_tasks').select('id,title,task_type,priority,status,due_date,release_id,source,external_id,external_url,assignee_id,created_by,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until,completion_note').in('status',['todo','in_progress','blocked']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
+    sb.from('qa_tasks').select('id,title,task_type,priority,status,created_at,due_date,release_id,source,external_id,external_url,assignee_id,created_by,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until,completion_note').in('status',['todo','in_progress','blocked']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
     sb.from('run_tasks').select('id,status,task_type,platform,created_at,started_at').gte('created_at', since24Hours),
     sb.from('device_configs').select('id,model_name,platform,is_online'),
     sb.from('consumables').select('id,name,brand,quantity,threshold,unit'),
@@ -3569,9 +3632,7 @@ async function loadDashboardData(token) {
     userRole === 'admin'
       ? sb.from('profiles').select('id,name,daily_capacity').order('name')
       : sb.from('profiles').select('id,name,daily_capacity').eq('id', currentUser.id),
-    userRole === 'admin'
-      ? sb.from('qa_tasks').select('id,title,priority,assignee_id,status,due_date,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until').in('status',['todo','in_progress','blocked'])
-      : Promise.resolve({ data: [], error: null }),
+    sb.from('qa_tasks').select('id,title,priority,assignee_id,status,created_at,completed_at,due_date,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until').in('status',['todo','in_progress','blocked','done']),
     sb.from('work_calendar').select('work_date,is_workday,name'),
     sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id').lte('work_date', dashboardTodayInputValue()).limit(2000),
     sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
@@ -3631,6 +3692,7 @@ async function loadDashboardData(token) {
   if (!workCalendarResult.failed) {
     dashboardWorkCalendar = new Map(workCalendarResult.data.map(day => [day.work_date, day]));
   }
+  rebuildTaskSchedule(resourceMembersResult.data, resourceTasksResult.data, dashboardWorkCalendar);
 
   const myAssignedTasks = tasksResult.data.filter(task =>
     taskAssigneeList(task).some(assignment => assignment.member_id === currentUser.id)
