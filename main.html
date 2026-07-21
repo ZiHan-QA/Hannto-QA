@@ -659,6 +659,8 @@ let dashboardRiskExpanded = false;
 let dashboardResourceMemberFilter = 'all';
 let dashboardResourceLoadFilter = 'all';
 let resourceCellDetailCache = new Map();
+let memberPasswordProfileCache = new Map();
+let memberPasswordTarget = null;
 
 const pageTitles = {
   dashboard: '工作台', tasks: '工作事项', releases: '版本发布', report: '质量报表',
@@ -1001,6 +1003,7 @@ async function renderMemberMappings() {
     if (assigneesResult.error) throw assigneesResult.error;
     if (calendarResult.error) throw calendarResult.error;
     const profiles = profilesResult.data || [];
+    memberPasswordProfileCache = new Map(profiles.map(profile => [profile.id, profile]));
     const directoryMap = new Map((directoryResult.data || []).map(user => [String(user.pingcode_user_id || ''), user]));
     for (const record of executionUsersResult.data || []) {
       const userId = String(record.executor_key || '');
@@ -1053,14 +1056,14 @@ async function renderMemberMappings() {
           <td><strong>${escapeDashboardHtml(profile.name || '未命名成员')}</strong><br><span style="color:var(--sub);font-size:10px;">${profile.role === 'admin' ? '管理员' : '成员'}</span></td>
           <td><code>${escapeDashboardHtml(profile.pingcode_user_id)}</code><br><span style="color:#0F6E56;font-size:10px;">已绑定，不再需要手工输入</span></td>
           <td><strong>${escapeDashboardHtml(boundDisplayName)}</strong></td>
-          <td><button class="btn-secondary" onclick="clearPingCodeMapping('${profile.id}')">解除绑定</button></td>
+          <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="clearPingCodeMapping('${profile.id}')">解除绑定</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
         </tr>`;
       }
       return `<tr>
         <td><input class="dashboard-input" id="profileName-${profile.id}" value="${escapeDashboardHtml(profile.name || '')}" maxlength="50" placeholder="成员名称"><br><span style="color:var(--sub);font-size:10px;">${profile.role === 'admin' ? '管理员' : '成员'}</span></td>
         <td><input class="dashboard-input" id="pingcodeMap-${profile.id}" list="pingcodeUserOptions" value="${escapeDashboardHtml(profile.pingcode_user_id || '')}" placeholder="选择候选或粘贴 PingCode 用户 ID"><br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(suggestion)}</span></td>
         <td>${escapeDashboardHtml(boundDisplayName)}</td>
-        <td><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button></td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
       </tr>`;
     }).join('');
     content.innerHTML = `
@@ -1074,11 +1077,100 @@ async function renderMemberMappings() {
         <div class="card-hd" style="margin-bottom:6px;"><span class="card-title">📊 成员工作负载</span><span class="card-tag" style="background:#CCF5EE;color:#0F6E56;">工作事项自动计算</span></div>
         <div style="color:var(--sub);font-size:11px;margin-bottom:10px;">只读数据；根据工作事项的负责人、人天、资源开始日和截止日期自动汇总。鼠标停留在点数上可查看关联事项。</div>
         <div class="resource-table-wrap">${resourceCapacityTableHtml(memberResource)}</div>
-      </div>${resourceDetailModalHtml()}`;
+      </div>${resourceDetailModalHtml()}${memberPasswordResetModalHtml()}`;
     if (autoBoundCount) showToast(`已自动绑定 ${autoBoundCount} 位同名成员`);
   } catch (error) {
     console.error('[members] load failed:', error);
     content.innerHTML = `<div class="history-card"><div class="dashboard-empty">成员映射加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
+  }
+}
+
+function memberPasswordResetModalHtml() {
+  return `<div class="dashboard-modal" id="memberPasswordResetModal">
+    <div class="dashboard-modal-panel" style="width:min(520px,100%);" onclick="event.stopPropagation()">
+      <div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="memberPasswordResetTitle">重置成员密码</div><button class="dashboard-modal-close" onclick="closeMemberPasswordReset()"><i class="ti ti-x"></i></button></div>
+      <div style="color:var(--sub);font-size:11px;margin-bottom:14px;">系统无法查看旧密码。提交后旧密码会立即失效，请通过安全渠道把临时密码发给成员。</div>
+      <div class="form-group"><label class="form-label" for="memberNewPassword">新密码</label><input class="dashboard-input" id="memberNewPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="至少 8 位，建议包含大小写字母、数字和符号"></div>
+      <div class="form-group" style="margin-top:12px;"><label class="form-label" for="memberConfirmPassword">确认新密码</label><input class="dashboard-input" id="memberConfirmPassword" type="password" minlength="8" maxlength="128" autocomplete="new-password" placeholder="再次输入新密码"></div>
+      <label style="display:flex;align-items:center;gap:7px;margin-top:10px;color:var(--sub);font-size:11px;"><input type="checkbox" onchange="toggleMemberPasswordVisibility(this.checked)">显示密码</label>
+      <div class="dashboard-form-actions"><button class="btn-secondary" type="button" onclick="generateMemberTemporaryPassword()">生成临时密码</button><button class="btn-secondary" type="button" onclick="closeMemberPasswordReset()">取消</button><button class="btn-primary" id="memberPasswordResetBtn" type="button" onclick="resetMemberPassword()">确认重置</button></div>
+    </div>
+  </div>`;
+}
+
+function openMemberPasswordReset(profileId) {
+  if (userRole !== 'admin') return;
+  const profile = memberPasswordProfileCache.get(profileId);
+  const modal = document.getElementById('memberPasswordResetModal');
+  if (!profile || !modal) return;
+  memberPasswordTarget = profile;
+  document.getElementById('memberPasswordResetTitle').textContent = `重置密码 · ${profile.name || '未命名成员'}`;
+  document.getElementById('memberNewPassword').value = '';
+  document.getElementById('memberConfirmPassword').value = '';
+  toggleMemberPasswordVisibility(false);
+  const visibility = modal.querySelector('input[type="checkbox"]');
+  if (visibility) visibility.checked = false;
+  modal.classList.add('open');
+  setTimeout(() => document.getElementById('memberNewPassword')?.focus(), 50);
+}
+
+function closeMemberPasswordReset() {
+  document.getElementById('memberPasswordResetModal')?.classList.remove('open');
+  memberPasswordTarget = null;
+}
+
+function toggleMemberPasswordVisibility(visible) {
+  ['memberNewPassword','memberConfirmPassword'].forEach(id => {
+    const input = document.getElementById(id);
+    if (input) input.type = visible ? 'text' : 'password';
+  });
+}
+
+function generateMemberTemporaryPassword() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789!@#$%';
+  const required = ['ABCDEFGHJKLMNPQRSTUVWXYZ', 'abcdefghijkmnopqrstuvwxyz', '23456789', '!@#$%'];
+  const bytes = crypto.getRandomValues(new Uint32Array(16));
+  const chars = required.map((group, index) => group[bytes[index] % group.length]);
+  for (let index = chars.length; index < 14; index += 1) chars.push(alphabet[bytes[index] % alphabet.length]);
+  for (let index = chars.length - 1; index > 0; index -= 1) {
+    const swapIndex = bytes[(index + 1) % bytes.length] % (index + 1);
+    [chars[index], chars[swapIndex]] = [chars[swapIndex], chars[index]];
+  }
+  const password = chars.join('');
+  document.getElementById('memberNewPassword').value = password;
+  document.getElementById('memberConfirmPassword').value = password;
+  toggleMemberPasswordVisibility(true);
+  const visibility = document.querySelector('#memberPasswordResetModal input[type="checkbox"]');
+  if (visibility) visibility.checked = true;
+}
+
+async function resetMemberPassword() {
+  if (userRole !== 'admin' || !memberPasswordTarget) return;
+  const password = document.getElementById('memberNewPassword')?.value || '';
+  const confirmation = document.getElementById('memberConfirmPassword')?.value || '';
+  if (password.length < 8) { showToast('新密码至少需要 8 位', 'error'); return; }
+  if (password !== confirmation) { showToast('两次输入的密码不一致', 'error'); return; }
+  const button = document.getElementById('memberPasswordResetBtn');
+  if (button) { button.disabled = true; button.textContent = '正在重置…'; }
+  try {
+    const { data, error } = await sb.functions.invoke('admin-reset-password', {
+      body: { user_id: memberPasswordTarget.id, password }
+    });
+    if (error) throw error;
+    if (!data?.success) throw new Error(data?.error || '重置失败');
+    const memberName = memberPasswordTarget.name || '该成员';
+    closeMemberPasswordReset();
+    showToast(`${memberName} 的密码已重置`);
+  } catch (error) {
+    console.error('[members] password reset failed:', error);
+    let message = error.message || '请检查 Edge Function 是否已部署';
+    if (error?.context instanceof Response) {
+      const payload = await error.context.clone().json().catch(() => null);
+      if (payload?.error) message = payload.error;
+    }
+    showToast('密码重置失败：' + message, 'error');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = '确认重置'; }
   }
 }
 
@@ -3306,6 +3398,9 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
   const risks = [];
 
   tasks.forEach(task => {
+    // Completed/cancelled work remains in historical capacity statistics, but it
+    // must never create overdue, not-started, blocked or delay risks.
+    if (['done', 'cancelled'].includes(task.status)) return;
     taskAssigneeList(task).forEach(assignment => {
     const member = memberMap.get(assignment.member_id);
     const memberName = member?.name || (assignment.member_id === currentUser.id ? '我' : '未命名成员');
@@ -3750,7 +3845,8 @@ async function loadDashboardData(token) {
   const resource = userRole === 'admin'
     ? buildResourceCapacity(resourceMembersResult.data, resourceTasksResult.data, dashboardWorkCalendar)
     : { dates: [], rows: [], risks: [] };
-  const scheduleTasks = userRole === 'admin' ? resourceTasksResult.data : myAssignedTasks;
+  const scheduleTasks = (userRole === 'admin' ? resourceTasksResult.data : myAssignedTasks)
+    .filter(task => ['todo', 'in_progress', 'blocked'].includes(task.status));
   const taskScheduleRisks = buildTaskScheduleRisks(scheduleTasks, resourceMembersResult.data, progressResult.data, testHubProgressResult.data, now, dashboardWorkCalendar);
   const testHubSnapshotMap = new Map(testHubProgressResult.data.map(snapshot => [snapshot.task_id, snapshot]));
   const memberPlannedToday = myAssignedTasks
