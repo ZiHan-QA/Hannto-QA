@@ -5,6 +5,21 @@ alter table public.releases
   add constraint releases_platform_check
   check (platform in ('android', 'ios', 'pad', 'pc', 'both', 'mobile_all', 'app', 'app_pad'));
 
+-- Replace the original global "only one active release" index with one slot
+-- per product end. Combined APP + Pad releases occupy both slots.
+drop index if exists public.releases_one_active_idx;
+create unique index if not exists releases_one_active_app_idx
+  on public.releases ((status))
+  where status = 'active'
+    and platform in ('android', 'ios', 'both', 'app', 'mobile_all', 'app_pad');
+create unique index if not exists releases_one_active_pad_idx
+  on public.releases ((status))
+  where status = 'active'
+    and platform in ('pad', 'mobile_all', 'app_pad');
+create unique index if not exists releases_one_active_pc_idx
+  on public.releases ((status))
+  where status = 'active' and platform = 'pc';
+
 create or replace function public.transition_release_status(
   target_release_id uuid,
   target_status text

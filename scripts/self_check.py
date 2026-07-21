@@ -33,6 +33,7 @@ def main() -> None:
     prd_triage_migration = (ROOT / "supabase/migrations/20260721_prd_feature_triage.sql").read_text(encoding="utf-8")
     task_scope_migration = (ROOT / "supabase/migrations/20260721_task_scope_and_half_day.sql").read_text(encoding="utf-8")
     release_currents_migration = (ROOT / "supabase/migrations/20260721_release_platform_currents.sql").read_text(encoding="utf-8")
+    release_indexes_fix_migration = (ROOT / "supabase/migrations/20260721_release_active_indexes_fix.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
 
     require(html, [
@@ -213,7 +214,16 @@ def main() -> None:
         "platform in ('pad','mobile_all','app_pad')",
         "platform = 'pc'",
         "independent current releases for APP, Pad and PC",
+        "releases_one_active_app_idx",
+        "releases_one_active_pad_idx",
+        "releases_one_active_pc_idx",
     ], "release platform currents migration")
+    require(release_indexes_fix_migration, [
+        "drop index if exists public.releases_one_active_idx",
+        "releases_one_active_app_idx",
+        "releases_one_active_pad_idx",
+        "releases_one_active_pc_idx",
+    ], "release active indexes fix migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
