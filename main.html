@@ -497,6 +497,8 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .member-work-summary .has-gap { background: #fff5e6; }
 .member-work-summary .has-gap strong { color: #b45309; }
 @media (max-width: 720px) { .testhub-plan-grid { grid-template-columns: 1fr; } .member-work-summary { grid-template-columns: repeat(2, 1fr); } }
+.feature-map-board{display:flex;flex-direction:column;gap:16px;margin-top:14px}.feature-map-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#fff3cc,#ffe8f2);border:1px solid #ffd6a3}.feature-module-section{border:1px solid #f0ded8;border-radius:16px;background:#fff;padding:14px}.feature-module-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.feature-module-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700}.feature-module-summary{font-size:11px;color:var(--sub)}.feature-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:11px}.feature-visual-card{position:relative;border:1px solid #eee3df;border-left:5px solid #23b89a;border-radius:14px;padding:13px;background:#fffdfb;box-shadow:0 5px 15px rgba(76,38,24,.04)}.feature-visual-card.pending{border-left-color:#ef4444;background:#fffafa}.feature-visual-card.missing{border-left-color:#f59e0b;background:#fffdf6}.feature-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:9px}.feature-card-name{font-weight:700;font-size:14px;line-height:1.35}.feature-card-meta{font-size:10px;color:var(--sub);margin-top:4px}.feature-state-chip{flex:none;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:700;background:#ddf7ee;color:#0f6e56}.feature-state-chip.pending{background:#fee2e2;color:#b91c1c}.feature-state-chip.missing{background:#fff3cc;color:#8a5a00}.feature-change-alert{margin-top:10px;padding:9px 10px;border-radius:10px;background:#feecec;color:#8f1d1d;font-size:11px}.feature-asset-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.feature-asset-pill{display:inline-flex;align-items:center;gap:4px;border:0;border-radius:999px;padding:5px 8px;background:#eee8ff;color:#5b21b6;font-size:10px;cursor:pointer}.feature-progress-wrap{margin-top:11px}.feature-progress-head{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:5px}.feature-progress-track{height:7px;border-radius:999px;background:#eee9e5;overflow:hidden}.feature-progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#20c5b5,#6c36e8)}.feature-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:11px}.feature-mini-stat{border-radius:9px;background:#faf6f2;padding:7px;text-align:center}.feature-mini-stat strong{display:block;font-size:13px}.feature-mini-stat span{font-size:9px;color:var(--sub)}.feature-card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.feature-card-actions button{padding:5px 8px;font-size:10px}@media(max-width:760px){.feature-card-grid{grid-template-columns:1fr}.feature-map-alert{align-items:flex-start;flex-direction:column}}
+.feature-visual-card.selected{outline:3px solid rgba(108,54,232,.22);border-color:#8b5cf6}.feature-select-toggle{position:absolute;right:10px;top:44px;width:25px;height:25px;border-radius:8px;border:1px solid #d9cdc7;background:#fff;color:#6c36e8;display:grid;place-items:center;cursor:pointer}.feature-batch-toolbar{position:sticky;top:8px;z-index:4;padding:12px;border:1px solid #d8c9ff;border-radius:14px;background:rgba(250,248,255,.96);box-shadow:0 8px 24px rgba(82,45,145,.1)}.feature-batch-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.feature-batch-row .dashboard-filter{min-width:150px;flex:1}
 </style>
 </head>
 <body>
@@ -529,6 +531,9 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   <div class="sb-section">测试资产</div>
   <a class="sb-item" onclick="nav(this,'prd')">
     <i class="ti ti-file-description"></i>PRD 管理
+  </a>
+  <a class="sb-item" onclick="nav(this,'testmap')">
+    <i class="ti ti-map-2"></i>全功能测试地图
   </a>
   <a class="sb-item" onclick="nav(this,'assets')">
     <i class="ti ti-device-mobile"></i>资产管理
@@ -642,6 +647,8 @@ let taskActivityByTask = new Map();
 let pingCodeDirectoryCache = new Map();
 let testHubPlanChoiceCache = new Map();
 let editingQaTaskId = null;
+let editingQaTaskPrdId = null;
+let editingQaTaskRequirementId = null;
 let progressQaTaskId = null;
 let taskEditorReadOnly = false;
 let dashboardRiskExpanded = false;
@@ -651,7 +658,7 @@ let resourceCellDetailCache = new Map();
 
 const pageTitles = {
   dashboard: '工作台', tasks: '工作事项', releases: '版本发布', report: '质量报表',
-  prd: 'PRD 管理', assets: '资产管理', ai: 'AI 写用例',
+  prd: 'PRD 管理', testmap: '全功能测试地图', assets: '资产管理', ai: 'AI 写用例',
   automation: '自动化测试',
   copy: '文案管理',
   onboarding: '团队知识库',
@@ -713,7 +720,9 @@ async function updateRunningTaskBadge() {
 
 async function updateDefectBadge() {
   try {
-    const { count, error } = await sb.from('quality_defects').select('*', { count:'exact', head:true }).in('status', ['open','fixing']);
+    let query = sb.from('quality_defects').select('*', { count:'exact', head:true }).neq('review_status', 'completed');
+    if (userRole !== 'admin') query = query.eq('executor_id', currentUser.id);
+    const { count, error } = await query;
     if (error) throw error;
     const badge = document.getElementById('bugBadge');
     if (badge) {
@@ -747,10 +756,12 @@ function watchDashboardData() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'qa_tasks' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
       if (currentPage === 'tasks') renderTaskRecords();
+      if (currentPage === 'testmap') renderFeatureTestMap();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'releases' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
       if (currentPage === 'releases') renderReleaseManagement();
+      if (currentPage === 'testmap') renderFeatureTestMap();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'release_checks' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
@@ -768,6 +779,7 @@ function watchDashboardData() {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'task_progress_logs' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
       if (currentPage === 'tasks') renderTaskRecords();
+      if (currentPage === 'testmap') renderFeatureTestMap();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'task_testhub_progress' }, () => {
       if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
@@ -786,8 +798,22 @@ function watchDashboardData() {
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'quality_defects' }, () => {
       updateDefectBadge();
+      if (currentPage === 'dashboard') loadDashboardData(++dashboardLoadToken);
       if (currentPage === 'bugs') renderBugManagement();
       if (currentPage === 'report') renderQualityReport();
+      if (currentPage === 'testmap') renderFeatureTestMap();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'feature_test_assets' }, () => {
+      if (currentPage === 'testmap') renderFeatureTestMap();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'feature_release_changes' }, () => {
+      if (currentPage === 'testmap') renderFeatureTestMap();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'product_features' }, () => {
+      if (currentPage === 'testmap') renderFeatureTestMap();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'prds' }, () => {
+      if (currentPage === 'testmap') renderFeatureTestMap();
     })
     .on('postgres_changes', { event: '*', schema: 'public', table: 'testhub_sync_status' }, () => {
       if (currentPage === 'dashboard' && userRole === 'admin') loadDashboardData(++dashboardLoadToken);
@@ -812,6 +838,7 @@ function renderPage(page) {
   if (page === 'releases') { renderReleaseManagement(); return; }
   if (page === 'report') { renderQualityReport(); return; }
   if (page === 'bugs') { renderBugManagement(); return; }
+  if (page === 'testmap') { renderFeatureTestMap(); return; }
   if (page === 'members') { renderMemberMappings(); return; }
   if (page === 'automation') { renderAutomation(); return; }
   if (page === 'assets') {
@@ -831,7 +858,7 @@ function renderPage(page) {
   }
   if (page === 'prd') {
     content.style.padding = '0';
-    content.innerHTML = `<iframe src='prd.html' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
+    content.innerHTML = `<iframe src='prd.html?v=20260720-prd-defect-link-v8' class='module-frame' style='height:calc(100vh - 56px);border-radius:0;'></iframe>`;
     return;
   }
   if (page === 'onboarding') {
@@ -1008,6 +1035,7 @@ function taskEditorModalHtml() {
           <label class="form-label" for="newTaskTitle">任务标题</label>
           <input class="dashboard-input" id="newTaskTitle" maxlength="300">
         </div>
+        <div id="requirementTaskContext" class="assignee-allocation-note" style="display:none;margin-bottom:12px;"></div>
         <div class="form-group" style="margin-bottom:12px;">
           <label class="form-label" for="newTaskDescription">事项说明（选填）</label>
           <textarea class="dashboard-input" id="newTaskDescription" rows="3" maxlength="2000"></textarea>
@@ -1015,6 +1043,7 @@ function taskEditorModalHtml() {
         <div class="dashboard-form-grid">
           <div class="form-group"><label class="form-label" for="newTaskType">任务类型</label><select class="form-select" id="newTaskType"><option value="prd_review">PRD 评审</option><option value="case_design">用例设计</option><option value="test_execution">测试执行</option><option value="bug_verify">BUG 验证</option><option value="copy_check">文案检查</option><option value="automation">自动化</option><option value="other">其他</option></select></div>
           <div class="form-group"><label class="form-label" for="newTaskStatus">状态</label><select class="form-select" id="newTaskStatus" onchange="toggleTaskWorkflowFields()"><option value="todo">待处理</option><option value="in_progress">进行中</option><option value="blocked">已阻塞</option><option value="done">已完成</option><option value="cancelled">已取消</option></select></div>
+          <div class="form-group"><label class="form-label" for="newTaskRound">测试轮次</label><input class="dashboard-input" id="newTaskRound" type="number" min="1" max="99" step="1" value="1"><div class="assignee-allocation-note">同一 PRD 可创建多轮事项，每轮独立统计。</div></div>
           <div class="form-group assignee-section"><label class="form-label" for="newTaskAssignee">负责人（点击姓名可多选）</label><select class="form-select" id="newTaskAssignee" multiple size="4" onmousedown="toggleAssigneeOption(event)" onchange="renderAssigneeAllocationInputs()" ${userRole === 'admin' ? '' : 'disabled'}><option value="${currentUser.id}" selected>分配给我</option></select><div id="assigneeAllocationPreview"></div></div>
           <div class="form-group"><label class="form-label" for="newTaskEffort">事件总人天</label><input class="dashboard-input" id="newTaskEffort" type="number" min="0.25" max="365" step="0.25" onchange="distributeAssigneeEffortEvenly()"></div>
           <div class="form-group"><label class="form-label" for="newTaskAllocationStart">资源开始日</label><input class="dashboard-input" id="newTaskAllocationStart" type="date"></div>
@@ -1259,11 +1288,19 @@ function releaseStatusText(status) {
 }
 
 function releasePlatformText(platform) {
-  return ({ android:'Android', ios:'iOS', both:'双端' })[platform] || platform;
+  return ({ android:'APP', ios:'APP', both:'APP', app:'APP', pad:'Pad', mobile_all:'APP + Pad', app_pad:'APP + Pad' })[platform] || platform;
+}
+
+function releasePlatformMatches(releasePlatform, selectedPlatform) {
+  if (selectedPlatform === 'all') return true;
+  if (releasePlatform === selectedPlatform) return true;
+  if (selectedPlatform === 'app') return ['android','ios','both','app','mobile_all','app_pad'].includes(releasePlatform);
+  if (selectedPlatform === 'pad') return ['pad','mobile_all','app_pad'].includes(releasePlatform);
+  return false;
 }
 
 function releaseModalHtml() {
-  return `<div class="dashboard-modal" id="releaseEditorModal" onclick="closeReleaseEditor()"><div class="dashboard-modal-panel" style="width:min(620px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="releaseEditorTitle">新建版本</div><button class="dashboard-modal-close" onclick="closeReleaseEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">版本号</label><input class="dashboard-input" id="releaseVersion" maxlength="80" placeholder="例如 2.5.705"></div><div class="form-group"><label class="form-label">版本名称</label><input class="dashboard-input" id="releaseName" maxlength="160" placeholder="例如 证件照功能重构"></div><div class="form-group"><label class="form-label">平台</label><select class="form-select" id="releasePlatform"><option value="both">Android + iOS</option><option value="android">Android</option><option value="ios">iOS</option></select></div><div class="form-group"><label class="form-label">计划发布日期</label><input class="dashboard-input" id="releaseDate" type="date"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="releaseNotes" rows="3" maxlength="1000" placeholder="填写版本范围、主要改动或发布说明"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeReleaseEditor()">取消</button><button class="btn-primary" id="saveReleaseBtn" onclick="saveRelease()">保存版本</button></div></div></div>`;
+  return `<div class="dashboard-modal" id="releaseEditorModal" onclick="closeReleaseEditor()"><div class="dashboard-modal-panel" style="width:min(620px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="releaseEditorTitle">新建版本</div><button class="dashboard-modal-close" onclick="closeReleaseEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">版本号</label><input class="dashboard-input" id="releaseVersion" maxlength="80" placeholder="例如 2.5.705"></div><div class="form-group"><label class="form-label">版本名称</label><input class="dashboard-input" id="releaseName" maxlength="160" placeholder="例如 证件照功能重构"></div><div class="form-group"><label class="form-label">平台</label><select class="form-select" id="releasePlatform"><option value="app_pad">APP + Pad</option><option value="app">APP</option><option value="pad">Pad</option></select></div><div class="form-group"><label class="form-label">计划发布日期</label><input class="dashboard-input" id="releaseDate" type="date"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="releaseNotes" rows="3" maxlength="1000" placeholder="填写版本范围、主要改动或发布说明"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeReleaseEditor()">取消</button><button class="btn-primary" id="saveReleaseBtn" onclick="saveRelease()">保存版本</button></div></div></div>`;
 }
 
 function openReleaseEditor(id = '') {
@@ -1271,7 +1308,8 @@ function openReleaseEditor(id = '') {
   document.getElementById('releaseEditorTitle').textContent = release ? '编辑版本' : '新建版本';
   document.getElementById('releaseVersion').value = release?.version || '';
   document.getElementById('releaseName').value = release?.name || '';
-  document.getElementById('releasePlatform').value = release?.platform || 'both';
+  const editablePlatform = ['android','ios','both'].includes(release?.platform) ? 'app' : (release?.platform === 'mobile_all' ? 'app_pad' : release?.platform);
+  document.getElementById('releasePlatform').value = editablePlatform || 'app_pad';
   document.getElementById('releaseDate').value = release?.planned_release_date || '';
   document.getElementById('releaseNotes').value = release?.notes || '';
   document.getElementById('releaseEditorModal').dataset.releaseId = id;
@@ -1407,6 +1445,9 @@ let qualityReportFilteredTasks = [];
 let defectRecordCache = new Map();
 let defectMemberCache = [];
 let defectReleaseCache = [];
+let defectRequirementCache = [];
+let defectPrdCache = [];
+let defectTaskCache = [];
 
 function defectRootCauseText(value) {
   return ({ requirement:'需求遗漏', design:'设计问题', code:'代码问题', test_case:'用例遗漏', environment:'环境问题', data:'数据问题', communication:'沟通问题', process:'流程问题', other:'其他' })[value] || '待分析';
@@ -1428,12 +1469,61 @@ function safeDefectExternalUrl(value) {
 }
 
 function defectEditorHtml() {
-  return `<div class="dashboard-modal" id="defectEditorModal" onclick="closeDefectEditor()"><div class="dashboard-modal-panel" style="width:min(760px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="defectEditorTitle">登记暴露 BUG</div><button class="dashboard-modal-close" onclick="closeDefectEditor()"><i class="ti ti-x"></i></button></div><div class="form-group"><label class="form-label">BUG 标题</label><input class="dashboard-input" id="defectTitle" maxlength="300"></div><div class="dashboard-form-grid" style="margin-top:12px;"><div class="form-group"><label class="form-label">暴露阶段</label><select class="form-select" id="defectStage"><option value="integration">集成阶段</option><option value="production">已上线</option></select></div><div class="form-group"><label class="form-label">严重程度</label><select class="form-select" id="defectSeverity"><option value="P0">P0</option><option value="P1" selected>P1</option><option value="P2">P2</option><option value="P3">P3</option></select></div><div class="form-group"><label class="form-label">执行负责人</label><select class="form-select" id="defectExecutor"></select></div><div class="form-group"><label class="form-label">所属版本</label><select class="form-select" id="defectRelease"><option value="">不关联版本</option></select></div><div class="form-group"><label class="form-label">发现日期</label><input class="dashboard-input" id="defectFoundAt" type="date"></div><div class="form-group"><label class="form-label">BUG 状态</label><select class="form-select" id="defectStatus"><option value="open">待处理</option><option value="fixing">修复中</option><option value="verified">已验证</option><option value="closed">已关闭</option></select></div><div class="form-group"><label class="form-label">根因分类</label><select class="form-select" id="defectRootCause"><option value="">待分析</option><option value="requirement">需求遗漏</option><option value="design">设计问题</option><option value="code">代码问题</option><option value="test_case">用例遗漏</option><option value="environment">环境问题</option><option value="data">数据问题</option><option value="communication">沟通问题</option><option value="process">流程问题</option><option value="other">其他</option></select></div><div class="form-group"><label class="form-label">复盘状态</label><select class="form-select" id="defectReviewStatus"><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div></div><div class="dashboard-form-grid" style="margin-top:12px;"><div class="form-group"><label class="form-label">PingCode 工作项 ID（选填）</label><input class="dashboard-input" id="defectPingCodeId"></div><div class="form-group"><label class="form-label">PingCode 链接（选填）</label><input class="dashboard-input" id="defectExternalUrl" type="url"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">影响范围</label><textarea class="dashboard-input" id="defectImpact" rows="2"></textarea></div><div class="form-group" style="margin-top:10px;"><label class="form-label">漏出原因</label><textarea class="dashboard-input" id="defectEscapeReason" rows="2" placeholder="为什么在当前阶段之前没有发现"></textarea></div><div class="form-group" style="margin-top:10px;"><label class="form-label">纠正措施</label><textarea class="dashboard-input" id="defectCorrectiveAction" rows="2" placeholder="本次问题如何修复和验证"></textarea></div><div class="form-group" style="margin-top:10px;"><label class="form-label">预防措施</label><textarea class="dashboard-input" id="defectPreventionAction" rows="2" placeholder="后续如何通过用例、流程或检查避免再次发生"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeDefectEditor()">取消</button><button class="btn-primary" id="saveDefectBtn" onclick="saveQualityDefect()">保存 BUG</button></div></div></div>`;
+  return `<div class="dashboard-modal" id="defectEditorModal" onclick="closeDefectEditor()">
+    <div class="dashboard-modal-panel" style="width:min(760px,100%);" onclick="event.stopPropagation()">
+      <div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="defectEditorTitle">登记暴露 BUG</div><button class="dashboard-modal-close" onclick="closeDefectEditor()"><i class="ti ti-x"></i></button></div>
+      <div class="form-group"><label class="form-label">BUG 标题</label><input class="dashboard-input" id="defectTitle" maxlength="300"></div>
+      <div class="dashboard-form-grid" style="margin-top:12px;">
+        <div class="form-group"><label class="form-label">暴露阶段</label><select class="form-select" id="defectStage"><option value="integration">集成阶段</option><option value="production">已上线</option></select></div>
+        <div class="form-group"><label class="form-label">严重程度</label><select class="form-select" id="defectSeverity"><option value="P0">P0</option><option value="P1" selected>P1</option><option value="P2">P2</option><option value="P3">P3</option></select></div>
+        <div class="form-group"><label class="form-label">执行负责人</label><select class="form-select" id="defectExecutor"></select></div>
+        <div class="form-group"><label class="form-label">所属版本</label><select class="form-select" id="defectRelease"><option value="">不关联版本</option></select></div>
+        <div class="form-group"><label class="form-label">关联 PRD（建议）</label><select class="form-select" id="defectPrd" onchange="refreshDefectRequirementOptions();refreshDefectTaskOptions()"><option value="">不关联 PRD</option></select></div>
+        <div class="form-group"><label class="form-label">关联测试轮次（建议）</label><select class="form-select" id="defectTask"><option value="">不关联测试轮次</option></select></div>
+        <div class="form-group"><label class="form-label">验收范围（选填）</label><select class="form-select" id="defectRequirement"><option value="">不关联验收范围</option></select></div>
+        <div class="form-group"><label class="form-label">发现日期</label><input class="dashboard-input" id="defectFoundAt" type="date"></div>
+        <div class="form-group"><label class="form-label">BUG 状态</label><select class="form-select" id="defectStatus"><option value="open">待处理</option><option value="fixing">修复中</option><option value="verified">已验证</option><option value="closed">已关闭</option></select></div>
+        <div class="form-group"><label class="form-label">根因分类（负责人填写）</label><select class="form-select" id="defectRootCause"><option value="">待分析</option><option value="requirement">需求遗漏</option><option value="design">设计问题</option><option value="code">代码问题</option><option value="test_case">用例遗漏</option><option value="environment">环境问题</option><option value="data">数据问题</option><option value="communication">沟通问题</option><option value="process">流程问题</option><option value="other">其他</option></select></div>
+        <div class="form-group"><label class="form-label">复盘状态（负责人填写）</label><select class="form-select" id="defectReviewStatus"><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div>
+        <div class="form-group"><label class="form-label">重开次数（负责人填写）</label><input class="dashboard-input" id="defectReopenCount" type="number" min="0" step="1" value="0"></div>
+        <div class="form-group"><label class="form-label">是否由改动引入（负责人填写）</label><select class="form-select" id="defectChangeInduced"><option value="false">否</option><option value="true">是</option></select></div>
+        <div class="form-group"><label class="form-label">是否属于漏测（负责人填写）</label><select class="form-select" id="defectMissedTest"><option value="false">否</option><option value="true">是</option></select></div>
+      </div>
+      <div class="dashboard-form-grid" style="margin-top:12px;"><div class="form-group"><label class="form-label">PingCode 工作项 ID（负责人填写）</label><input class="dashboard-input" id="defectPingCodeId"></div><div class="form-group"><label class="form-label">PingCode 链接（负责人填写）</label><input class="dashboard-input" id="defectExternalUrl" type="url"></div></div>
+      <div class="form-group" style="margin-top:12px;"><label class="form-label">影响范围</label><textarea class="dashboard-input" id="defectImpact" rows="2"></textarea></div>
+      <div class="form-group" style="margin-top:10px;"><label class="form-label">漏出原因（负责人填写）</label><textarea class="dashboard-input" id="defectEscapeReason" rows="2" placeholder="为什么在当前阶段之前没有发现"></textarea></div>
+      <div class="form-group" style="margin-top:10px;"><label class="form-label">纠正措施（负责人填写）</label><textarea class="dashboard-input" id="defectCorrectiveAction" rows="2" placeholder="本次问题如何修复和验证"></textarea></div>
+      <div class="form-group" style="margin-top:10px;"><label class="form-label">预防措施（负责人填写）</label><textarea class="dashboard-input" id="defectPreventionAction" rows="2" placeholder="后续如何通过用例、流程或检查避免再次发生"></textarea></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeDefectEditor()">取消</button><button class="btn-primary" id="saveDefectBtn" onclick="saveQualityDefect()">保存 BUG</button></div>
+    </div>
+  </div>`;
+}
+
+function refreshDefectRequirementOptions(selectedId = '') {
+  const prdId = document.getElementById('defectPrd')?.value || '';
+  const prd = defectPrdCache.find(item => item.id === prdId);
+  const releaseSelect = document.getElementById('defectRelease');
+  if (prd?.release_id && releaseSelect && !releaseSelect.value) releaseSelect.value = prd.release_id;
+  const requirements = defectRequirementCache.filter(item => !prdId || item.prd_id === prdId);
+  const select = document.getElementById('defectRequirement');
+  if (!select) return;
+  select.innerHTML = `<option value="">不关联验收范围</option>${requirements.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.title)}</option>`).join('')}`;
+  select.value = requirements.some(item => item.id === selectedId) ? selectedId : '';
+}
+
+function refreshDefectTaskOptions(selectedId = '') {
+  const prdId = document.getElementById('defectPrd')?.value || '';
+  const tasks = defectTaskCache.filter(item => !prdId || item.prd_id === prdId);
+  const select = document.getElementById('defectTask');
+  if (!select) return;
+  select.innerHTML = `<option value="">不关联测试轮次</option>${tasks.map(item => `<option value="${item.id}">第 ${Number(item.test_round || 1)} 轮 · ${escapeDashboardHtml(item.title)}</option>`).join('')}`;
+  select.value = tasks.some(item => item.id === selectedId) ? selectedId : '';
 }
 
 function openDefectEditor(id = '') {
   const defect = id ? defectRecordCache.get(id) : null;
   const canEditIdentity = userRole === 'admin';
+  const canEditReview = Boolean(defect) && defect.executor_id === currentUser.id;
   if (!defect && !canEditIdentity) { showToast('仅管理员可以登记新的暴露 BUG', 'error'); return; }
   document.getElementById('defectEditorTitle').textContent = defect ? '编辑 BUG 与复盘' : '登记暴露 BUG';
   document.getElementById('defectTitle').value = defect?.title || '';
@@ -1443,17 +1533,26 @@ function openDefectEditor(id = '') {
   document.getElementById('defectExecutor').value = defect?.executor_id || currentUser.id;
   document.getElementById('defectRelease').innerHTML = `<option value="">不关联版本</option>${defectReleaseCache.map(release => `<option value="${release.id}">${escapeDashboardHtml(release.name || release.version)} · ${releasePlatformText(release.platform)}</option>`).join('')}`;
   document.getElementById('defectRelease').value = defect?.release_id || '';
+  document.getElementById('defectPrd').innerHTML = `<option value="">不关联 PRD</option>${defectPrdCache.map(prd => `<option value="${prd.id}">${escapeDashboardHtml(prd.title)}</option>`).join('')}`;
+  document.getElementById('defectPrd').value = defect?.prd_id || defectRequirementCache.find(item => item.id === defect?.requirement_id)?.prd_id || '';
+  refreshDefectRequirementOptions(defect?.requirement_id || '');
+  refreshDefectTaskOptions(defect?.qa_task_id || '');
   document.getElementById('defectFoundAt').value = defect?.found_at || dashboardTodayInputValue();
   document.getElementById('defectStatus').value = defect?.status || 'open';
   document.getElementById('defectRootCause').value = defect?.root_cause_category || '';
   document.getElementById('defectReviewStatus').value = defect?.review_status || 'pending';
+  document.getElementById('defectReopenCount').value = String(Number(defect?.reopen_count || 0));
+  document.getElementById('defectChangeInduced').value = defect?.is_change_induced ? 'true' : 'false';
+  document.getElementById('defectMissedTest').value = defect?.is_missed_test ? 'true' : 'false';
   document.getElementById('defectPingCodeId').value = defect?.pingcode_id || '';
   document.getElementById('defectExternalUrl').value = defect?.external_url || '';
   document.getElementById('defectImpact').value = defect?.impact || '';
   document.getElementById('defectEscapeReason').value = defect?.escape_reason || '';
   document.getElementById('defectCorrectiveAction').value = defect?.corrective_action || '';
   document.getElementById('defectPreventionAction').value = defect?.prevention_action || '';
-  ['defectTitle','defectStage','defectSeverity','defectExecutor','defectRelease','defectFoundAt','defectPingCodeId','defectExternalUrl'].forEach(field => { document.getElementById(field).disabled = !canEditIdentity; });
+  ['defectTitle','defectStage','defectSeverity','defectExecutor','defectRelease','defectPrd','defectTask','defectRequirement','defectFoundAt'].forEach(field => { document.getElementById(field).disabled = !canEditIdentity; });
+  ['defectStatus','defectRootCause','defectReviewStatus','defectReopenCount','defectChangeInduced','defectMissedTest','defectPingCodeId','defectExternalUrl','defectEscapeReason','defectCorrectiveAction','defectPreventionAction'].forEach(field => { document.getElementById(field).disabled = !canEditReview; });
+  document.getElementById('saveDefectBtn').textContent = !defect ? '创建并交给负责人' : canEditReview ? '保存复盘' : '保存基本信息';
   document.getElementById('defectEditorModal').dataset.defectId = id;
   document.getElementById('defectEditorModal').classList.add('open');
 }
@@ -1469,9 +1568,11 @@ async function saveQualityDefect() {
   const escapeReason = document.getElementById('defectEscapeReason')?.value.trim() || '';
   const preventionAction = document.getElementById('defectPreventionAction')?.value.trim() || '';
   const externalUrlRaw = document.getElementById('defectExternalUrl')?.value.trim() || '';
+  const reopenCount = Number(document.getElementById('defectReopenCount')?.value || 0);
   if (!title) { showToast('请填写 BUG 标题', 'error'); return; }
   if (reviewStatus === 'completed' && (!rootCause || !escapeReason || !preventionAction)) { showToast('完成复盘前必须填写根因、漏出原因和预防措施', 'error'); return; }
   if (externalUrlRaw && !safeDefectExternalUrl(externalUrlRaw)) { showToast('PingCode 链接格式不正确', 'error'); return; }
+  if (!Number.isInteger(reopenCount) || reopenCount < 0) { showToast('重开次数必须是大于等于 0 的整数', 'error'); return; }
   const status = document.getElementById('defectStatus')?.value || 'open';
   const payload = {
     title,
@@ -1479,6 +1580,9 @@ async function saveQualityDefect() {
     external_url:externalUrlRaw || null,
     source:document.getElementById('defectPingCodeId')?.value.trim() ? 'pingcode' : (existing?.source || 'manual'),
     release_id:document.getElementById('defectRelease')?.value || null,
+    prd_id:document.getElementById('defectPrd')?.value || null,
+    qa_task_id:document.getElementById('defectTask')?.value || null,
+    requirement_id:document.getElementById('defectRequirement')?.value || null,
     exposed_stage:document.getElementById('defectStage')?.value || 'integration',
     severity:document.getElementById('defectSeverity')?.value || 'P1',
     status,
@@ -1486,6 +1590,9 @@ async function saveQualityDefect() {
     found_at:document.getElementById('defectFoundAt')?.value || dashboardTodayInputValue(),
     closed_at:status === 'closed' ? (existing?.closed_at || dashboardTodayInputValue()) : null,
     root_cause_category:rootCause,
+    reopen_count:reopenCount,
+    is_change_induced:document.getElementById('defectChangeInduced')?.value === 'true',
+    is_missed_test:document.getElementById('defectMissedTest')?.value === 'true',
     impact:document.getElementById('defectImpact')?.value.trim() || '',
     escape_reason:escapeReason,
     corrective_action:document.getElementById('defectCorrectiveAction')?.value.trim() || '',
@@ -1496,7 +1603,7 @@ async function saveQualityDefect() {
   try {
     const result = id ? await sb.from('quality_defects').update(payload).eq('id',id).select('id').maybeSingle() : await sb.from('quality_defects').insert({ ...payload, created_by:currentUser.id }).select('id').single();
     if (result.error) throw result.error;
-    closeDefectEditor(); showToast(id ? 'BUG 与复盘已更新' : 'BUG 已登记'); await renderBugManagement();
+    closeDefectEditor(); showToast(id ? 'BUG 信息已更新' : 'BUG 已登记，等待负责人填写复盘'); await renderBugManagement();
   } catch (error) { console.error('[defect] save failed:',error); showToast('保存失败：'+error.message,'error'); }
   finally { button.disabled = false; }
 }
@@ -1514,12 +1621,13 @@ function filterDefectRows() {
 async function renderBugManagement() {
   const content=document.getElementById('content'); content.style.padding='24px'; content.innerHTML='<div class="history-card"><div class="dashboard-loading">正在加载 BUG 与复盘数据…</div></div>';
   try {
-    const [defectsResult,membersResult,releasesResult]=await Promise.all([sb.from('quality_defects').select('*').order('found_at',{ascending:false}),sb.from('profiles').select('id,name').order('name'),sb.from('releases').select('id,version,name,platform').order('created_at',{ascending:false})]);
-    if(defectsResult.error)throw defectsResult.error;if(membersResult.error)throw membersResult.error;if(releasesResult.error)throw releasesResult.error;
-    defectMemberCache=membersResult.data||[];defectReleaseCache=releasesResult.data||[];defectRecordCache=new Map((defectsResult.data||[]).map(item=>[item.id,item]));
-    const names=new Map(defectMemberCache.map(item=>[item.id,item.name||'未命名成员'])); const releaseNames=new Map(defectReleaseCache.map(item=>[item.id,item.name||item.version]));
-    const rows=(defectsResult.data||[]).map(defect=>{const canEdit=userRole==='admin'||defect.executor_id===currentUser.id;const externalUrl=safeDefectExternalUrl(defect.external_url);return `<tr data-defect-row data-title="${escapeDashboardHtml(defect.title.toLowerCase())}" data-stage="${defect.exposed_stage}" data-executor="${defect.executor_id}" data-review="${defect.review_status}"><td><strong>${escapeDashboardHtml(defect.title)}</strong>${externalUrl?`<br><a class="risk-action" href="${escapeDashboardHtml(externalUrl)}" target="_blank" rel="noopener">打开 PingCode</a>`:''}</td><td><span class="defect-stage ${defect.exposed_stage}">${defect.exposed_stage==='production'?'已上线':'集成阶段'}</span></td><td>${escapeDashboardHtml(names.get(defect.executor_id)||'未命名成员')}</td><td>${escapeDashboardHtml(releaseNames.get(defect.release_id)||'-')}</td><td>${defect.severity}</td><td>${escapeDashboardHtml(defectStatusText(defect.status))}</td><td>${defectReviewStatusText(defect.review_status)}<br><span class="release-meta">${defectRootCauseText(defect.root_cause_category)}</span></td><td>${defect.found_at}</td><td>${canEdit?`<button class="btn-secondary" onclick="openDefectEditor('${defect.id}')">查看/复盘</button>`:'-'}</td></tr>`;}).join('');
-    content.innerHTML=`<div class="history-card"><div class="card-hd"><div><span class="card-title">🐞 BUG 管理与复盘</span><div class="release-meta">记录集成阶段与已上线暴露问题，归属执行负责人并跟踪预防措施</div></div><div style="display:flex;gap:7px;align-items:center;">${userRole==='admin'?'<button class="btn-primary" onclick="openDefectEditor()"><i class="ti ti-plus"></i> 登记 BUG</button>':''}<span class="card-tag" id="defectVisibleCount">${(defectsResult.data||[]).length} 项</span></div></div><div class="team-task-filters"><input class="dashboard-filter" id="defectKeywordFilter" type="search" placeholder="搜索 BUG" oninput="filterDefectRows()"><select class="dashboard-filter" id="defectStageFilter" onchange="filterDefectRows()"><option value="all">全部暴露阶段</option><option value="integration">集成阶段</option><option value="production">已上线</option></select><select class="dashboard-filter" id="defectExecutorFilter" onchange="filterDefectRows()"><option value="all">全部负责人</option>${defectMemberCache.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||'未命名成员')}</option>`).join('')}</select><select class="dashboard-filter" id="defectReviewFilter" onchange="filterDefectRows()"><option value="all">全部复盘状态</option><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:1050px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>版本</th><th>级别</th><th>状态</th><th>复盘/根因</th><th>发现日期</th><th>操作</th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="dashboard-empty">暂无暴露 BUG 记录</td></tr>'}</tbody></table></div></div>${defectEditorHtml()}`;
+    const [defectsResult,membersResult,releasesResult,requirementsResult,prdsResult,tasksResult]=await Promise.all([sb.from('quality_defects').select('*').order('found_at',{ascending:false}),sb.from('profiles').select('id,name').order('name'),sb.from('releases').select('id,version,name,platform').order('created_at',{ascending:false}),sb.from('requirements').select('id,title,prd_id').order('created_at',{ascending:false}),sb.from('prds').select('id,title,release_id').order('created_at',{ascending:false}),sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status').neq('status','cancelled').order('created_at',{ascending:false})]);
+    if(defectsResult.error)throw defectsResult.error;if(membersResult.error)throw membersResult.error;if(releasesResult.error)throw releasesResult.error;if(requirementsResult.error)throw requirementsResult.error;if(prdsResult.error)throw prdsResult.error;if(tasksResult.error)throw tasksResult.error;
+    defectMemberCache=membersResult.data||[];defectReleaseCache=releasesResult.data||[];defectRequirementCache=requirementsResult.data||[];defectPrdCache=prdsResult.data||[];defectTaskCache=tasksResult.data||[];defectRecordCache=new Map((defectsResult.data||[]).map(item=>[item.id,item]));
+    const names=new Map(defectMemberCache.map(item=>[item.id,item.name||'未命名成员'])); const releaseNames=new Map(defectReleaseCache.map(item=>[item.id,item.name||item.version])); const prdNames=new Map(defectPrdCache.map(item=>[item.id,item.title])); const taskMap=new Map(defectTaskCache.map(item=>[item.id,item]));
+    const rows=(defectsResult.data||[]).map(defect=>{const canEdit=userRole==='admin'||defect.executor_id===currentUser.id;const externalUrl=safeDefectExternalUrl(defect.external_url);const actionLabel=defect.executor_id===currentUser.id&&defect.review_status!=='completed'?'填写复盘':userRole==='admin'?'查看/管理':'查看复盘';const linkedTask=taskMap.get(defect.qa_task_id);const reviewFlags=[Number(defect.reopen_count||0)>0?`重开 ${Number(defect.reopen_count)} 次`:'',defect.is_change_induced?'改动引入':'',defect.is_missed_test?'漏测':''].filter(Boolean).join(' · ');return `<tr data-defect-row data-title="${escapeDashboardHtml(`${defect.title} ${prdNames.get(defect.prd_id)||''} ${linkedTask?.title||''}`.toLowerCase())}" data-stage="${defect.exposed_stage}" data-executor="${defect.executor_id}" data-review="${defect.review_status}"><td><strong>${escapeDashboardHtml(defect.title)}</strong>${externalUrl?`<br><a class="risk-action" href="${escapeDashboardHtml(externalUrl)}" target="_blank" rel="noopener">打开 PingCode</a>`:''}</td><td><span class="defect-stage ${defect.exposed_stage}">${defect.exposed_stage==='production'?'已上线':'集成阶段'}</span></td><td>${escapeDashboardHtml(names.get(defect.executor_id)||'未命名成员')}</td><td>${escapeDashboardHtml(releaseNames.get(defect.release_id)||'-')}<br><span class="release-meta">${escapeDashboardHtml(prdNames.get(defect.prd_id)||'未关联 PRD')}</span>${linkedTask?`<br><span class="release-meta">第 ${Number(linkedTask.test_round||1)} 轮 · ${escapeDashboardHtml(linkedTask.title)}</span>`:''}</td><td>${defect.severity}</td><td>${escapeDashboardHtml(defectStatusText(defect.status))}</td><td>${defectReviewStatusText(defect.review_status)}<br><span class="release-meta">${defectRootCauseText(defect.root_cause_category)}</span>${reviewFlags?`<br><span class="release-meta">${reviewFlags}</span>`:''}</td><td>${defect.found_at}</td><td>${canEdit?`<button class="btn-secondary" onclick="openDefectEditor('${defect.id}')">${actionLabel}</button>`:'-'}</td></tr>`;}).join('');
+    content.innerHTML=`<div class="history-card"><div class="card-hd"><div><span class="card-title">🐞 BUG 管理与复盘</span><div class="release-meta">记录集成阶段与已上线暴露问题，关联版本和 PRD 并跟踪预防措施</div></div><div style="display:flex;gap:7px;align-items:center;">${userRole==='admin'?'<button class="btn-primary" onclick="openDefectEditor()"><i class="ti ti-plus"></i> 登记 BUG</button>':''}<span class="card-tag" id="defectVisibleCount">${(defectsResult.data||[]).length} 项</span></div></div><div class="team-task-filters"><input class="dashboard-filter" id="defectKeywordFilter" type="search" placeholder="搜索 BUG 或 PRD" oninput="filterDefectRows()"><select class="dashboard-filter" id="defectStageFilter" onchange="filterDefectRows()"><option value="all">全部暴露阶段</option><option value="integration">集成阶段</option><option value="production">已上线</option></select><select class="dashboard-filter" id="defectExecutorFilter" onchange="filterDefectRows()"><option value="all">全部负责人</option>${defectMemberCache.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||'未命名成员')}</option>`).join('')}</select><select class="dashboard-filter" id="defectReviewFilter" onchange="filterDefectRows()"><option value="all">全部复盘状态</option><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:1050px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>版本 / PRD</th><th>级别</th><th>状态</th><th>复盘/根因</th><th>发现日期</th><th>操作</th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="dashboard-empty">暂无暴露 BUG 记录</td></tr>'}</tbody></table></div></div>${defectEditorHtml()}`;
+    if(userRole!=='admin'){document.getElementById('defectExecutorFilter').value=currentUser.id;filterDefectRows();}
   } catch(error){console.error('[defect] load failed:',error);content.innerHTML=`<div class="history-card"><div class="dashboard-empty">BUG 数据加载失败：${escapeDashboardHtml(error.message)}</div></div>`;}
 }
 
@@ -1542,7 +1650,7 @@ function qualityTaskMatches(task) {
   const taskStart = task.allocation_start_date || task.created_at?.slice(0,10) || '';
   const taskEnd = task.allocation_end_date || task.due_date?.slice(0,10) || taskStart;
   return (releaseId === 'all' || task.release_id === releaseId)
-    && (platform === 'all' || release?.platform === platform || release?.platform === 'both')
+    && releasePlatformMatches(release?.platform, platform)
     && (memberId === 'all' || assignments.some(item => item.member_id === memberId))
     && (!from || !taskEnd || taskEnd >= from)
     && (!to || !taskStart || taskStart <= to);
@@ -1556,7 +1664,7 @@ function qualityDefectMatches(defect) {
   const to = document.getElementById('qualityToFilter')?.value || '';
   const release = qualityReportRaw.releaseMap.get(defect.release_id);
   return (releaseId === 'all' || defect.release_id === releaseId)
-    && (platform === 'all' || release?.platform === platform || release?.platform === 'both')
+    && releasePlatformMatches(release?.platform, platform)
     && (memberId === 'all' || defect.executor_id === memberId)
     && (!from || defect.found_at >= from)
     && (!to || defect.found_at <= to);
@@ -1630,9 +1738,10 @@ function renderQualityReportResults() {
     return `<tr><td><strong>${escapeDashboardHtml(task.title)}</strong><br><span class="release-meta">${escapeDashboardHtml(qualityReportRaw.releaseMap.get(task.release_id)?.name || qualityReportRaw.releaseMap.get(task.release_id)?.version || '未关联版本')}</span></td><td>${assignments.map(item => escapeDashboardHtml(names.get(item.member_id) || '未命名成员')).join('、')}</td><td>${escapeDashboardHtml(taskStatusText(task.status))}</td><td>${Number(task.effort_person_days || 0).toFixed(1)} / ${taskActual.toFixed(1)}</td><td>${snapshot ? `${snapshot.executed_cases || 0}/${snapshot.total_cases || 0}` : '-'}</td><td>${task.allocation_end_date || task.due_date?.slice(0,10) || '-'}</td></tr>`;
   }).join('');
   document.getElementById('qualityTaskDetails').innerHTML = taskRows || '<tr><td colspan="6" class="dashboard-empty">当前筛选条件下暂无工作事项</td></tr>';
-  const defectRows = defects.map(defect => `<tr><td><strong>${escapeDashboardHtml(defect.title)}</strong></td><td><span class="defect-stage ${defect.exposed_stage}">${defect.exposed_stage === 'production' ? '已上线' : '集成阶段'}</span></td><td>${escapeDashboardHtml(names.get(defect.executor_id) || '未命名成员')}</td><td>${defect.severity}</td><td>${escapeDashboardHtml(defectRootCauseText(defect.root_cause_category))}</td><td>${escapeDashboardHtml(defectReviewStatusText(defect.review_status))}</td><td><button class="risk-action" onclick="navTo('bugs')">查看复盘</button></td></tr>`).join('');
+  const defectRows = defects.map(defect => { const task=qualityReportRaw.qaTaskMap.get(defect.qa_task_id); return `<tr><td><strong>${escapeDashboardHtml(defect.title)}</strong><br><span class="release-meta">PRD：${escapeDashboardHtml(qualityReportRaw.prdMap.get(defect.prd_id) || '未关联')}</span>${task?`<br><span class="release-meta">第 ${Number(task.test_round||1)} 轮 · ${escapeDashboardHtml(task.title)}</span>`:''}</td><td><span class="defect-stage ${defect.exposed_stage}">${defect.exposed_stage === 'production' ? '已上线' : '集成阶段'}</span></td><td>${escapeDashboardHtml(names.get(defect.executor_id) || '未命名成员')}</td><td>${defect.severity}</td><td>${escapeDashboardHtml(defectRootCauseText(defect.root_cause_category))}</td><td>${escapeDashboardHtml(defectReviewStatusText(defect.review_status))}</td><td><button class="risk-action" onclick="navTo('bugs')">查看复盘</button></td></tr>`; }).join('');
   document.getElementById('qualityDefectDetails').innerHTML = defectRows || '<tr><td colspan="7" class="dashboard-empty">当前筛选条件下暂无暴露 BUG</td></tr>';
   renderRetrospectiveReport(defects);
+  renderExternalQualityBrief(defects);
   document.getElementById('qualityResultCount').textContent = `${tasks.length} 项`;
 }
 
@@ -1671,6 +1780,63 @@ function renderRetrospectiveReport(defects) {
   ownerWrap.innerHTML = [...ownerCounts.entries()].sort((a,b)=>b[1].total-a[1].total).map(([id,stat]) => `<div class="retro-action-item"><strong>${escapeDashboardHtml(qualityReportRaw.memberMap.get(id)||'未命名成员')} · ${stat.total} 项</strong><span>集成 ${stat.integration} · 上线 ${stat.production} · 已复盘 ${stat.reviewed}</span></div>`).join('') || '<div class="dashboard-empty">暂无负责人数据</div>';
   const pending = defects.filter(defect => defect.review_status !== 'completed' || !defect.prevention_action);
   actionWrap.innerHTML = pending.slice(0,20).map(defect => `<div class="retro-action-item"><strong>${escapeDashboardHtml(defect.title)}</strong><span>${escapeDashboardHtml(qualityReportRaw.memberMap.get(defect.executor_id)||'未命名成员')} · ${defect.review_status !== 'completed' ? defectReviewStatusText(defect.review_status) : '缺少预防措施'} · ${defect.found_at}</span></div>`).join('') || '<div class="dashboard-empty">当前筛选范围内复盘与预防措施均已闭环</div>';
+}
+
+function externalQualityRoundStats(defects) {
+  const stats = new Map();
+  defects.forEach(defect => {
+    const task = qualityReportRaw.qaTaskMap.get(defect.qa_task_id);
+    const key = task ? Number(task.test_round || 1) : 'unlinked';
+    const stat = stats.get(key) || { total:0, reopenedBugs:0, reopenTimes:0, changeInduced:0, missedTest:0, closed:0 };
+    stat.total += 1;
+    const reopenCount = Number(defect.reopen_count || 0);
+    stat.reopenedBugs += reopenCount > 0 ? 1 : 0;
+    stat.reopenTimes += reopenCount;
+    stat.changeInduced += defect.is_change_induced ? 1 : 0;
+    stat.missedTest += defect.is_missed_test ? 1 : 0;
+    stat.closed += ['verified','closed'].includes(defect.status) ? 1 : 0;
+    stats.set(key, stat);
+  });
+  return [...stats.entries()].sort((a,b) => a[0] === 'unlinked' ? 1 : b[0] === 'unlinked' ? -1 : Number(a[0]) - Number(b[0]));
+}
+
+function renderExternalQualityBrief(defects) {
+  const metrics = document.getElementById('qualityExternalMetrics');
+  const rows = document.getElementById('qualityExternalRoundRows');
+  if (!metrics || !rows) return;
+  const reopenedBugs = defects.filter(item => Number(item.reopen_count || 0) > 0).length;
+  const reopenTimes = defects.reduce((sum,item) => sum + Number(item.reopen_count || 0), 0);
+  const changeInduced = defects.filter(item => item.is_change_induced).length;
+  const missedTest = defects.filter(item => item.is_missed_test).length;
+  const critical = defects.filter(item => ['P0','P1'].includes(item.severity)).length;
+  const closed = defects.filter(item => ['verified','closed'].includes(item.status)).length;
+  metrics.innerHTML = [
+    qualityMetricHtml('发现 BUG', defects.length, '当前筛选范围', null),
+    qualityMetricHtml('P0/P1', critical, '高优先级问题', null),
+    qualityMetricHtml('重新打开', reopenedBugs, `累计重开 ${reopenTimes} 次`, null),
+    qualityMetricHtml('改动引入', changeInduced, `${qualityPercent(changeInduced,defects.length)}%`, null),
+    qualityMetricHtml('漏测', missedTest, `${qualityPercent(missedTest,defects.length)}%`, null),
+    qualityMetricHtml('关闭率', `${qualityPercent(closed,defects.length)}%`, `${closed}/${defects.length} 个`, qualityPercent(closed,defects.length), 'var(--purple)')
+  ].join('');
+  rows.innerHTML = externalQualityRoundStats(defects).map(([round,stat]) => `<tr><td><strong>${round === 'unlinked' ? '未关联轮次' : `第 ${round} 轮`}</strong></td><td>${stat.total}</td><td>${stat.reopenedBugs}</td><td>${stat.reopenTimes}</td><td>${stat.changeInduced}</td><td>${stat.missedTest}</td><td>${stat.closed}/${stat.total}</td></tr>`).join('') || '<tr><td colspan="7" class="dashboard-empty">当前范围暂无 BUG 数据</td></tr>';
+}
+
+function externalQualityBriefText() {
+  const defects = qualityReportRaw.defects.filter(qualityDefectMatches);
+  const releaseId = document.getElementById('qualityReleaseFilter')?.value || 'all';
+  const release = qualityReportRaw.releaseMap.get(releaseId);
+  const reopenedBugs = defects.filter(item => Number(item.reopen_count || 0) > 0).length;
+  const reopenTimes = defects.reduce((sum,item) => sum + Number(item.reopen_count || 0), 0);
+  const changeInduced = defects.filter(item => item.is_change_induced).length;
+  const missedTest = defects.filter(item => item.is_missed_test).length;
+  const closed = defects.filter(item => ['verified','closed'].includes(item.status)).length;
+  const rounds = externalQualityRoundStats(defects).map(([round,stat]) => `${round === 'unlinked' ? '未关联轮次' : `第 ${round} 轮`}：发现 ${stat.total}，重开 BUG ${stat.reopenedBugs} 个/${stat.reopenTimes} 次，改动引入 ${stat.changeInduced}，漏测 ${stat.missedTest}，已关闭 ${stat.closed}`).join('\n');
+  return [`Liene QA 对外质量简报`, `范围：${release ? release.name || release.version : '当前筛选条件'}`, `日期：${new Date().toLocaleDateString('zh-CN')}`, '', `BUG 总数：${defects.length}`, `P0/P1：${defects.filter(item => ['P0','P1'].includes(item.severity)).length}`, `重开 BUG：${reopenedBugs} 个，累计 ${reopenTimes} 次`, `改动引入：${changeInduced}（${qualityPercent(changeInduced,defects.length)}%）`, `漏测：${missedTest}（${qualityPercent(missedTest,defects.length)}%）`, `关闭率：${closed}/${defects.length}（${qualityPercent(closed,defects.length)}%）`, '', '分轮次质量：', rounds || '暂无轮次数据'].join('\n');
+}
+
+async function copyExternalQualityBrief() {
+  try { await navigator.clipboard.writeText(externalQualityBriefText()); showToast('对外质量简报已复制'); }
+  catch(error) { showToast('复制对外质量简报失败：' + error.message, 'error'); }
 }
 
 function qualityRetrospectiveText() {
@@ -1724,19 +1890,22 @@ async function renderQualityReport() {
   content.style.padding = '24px';
   content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在汇总质量数据…</div></div>';
   try {
-    const [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult] = await Promise.all([
+    const [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult] = await Promise.all([
       sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
-      sb.from('qa_tasks').select('id,title,status,release_id,due_date,created_at,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days'),
+      sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,due_date,created_at,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days'),
       sb.from('profiles').select('id,name').order('name'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id'),
       sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),
       sb.from('release_checks').select('release_id,status,severity'),
-      sb.from('quality_defects').select('id,title,release_id,exposed_stage,severity,status,executor_id,found_at,root_cause_category,review_status,impact,escape_reason,corrective_action,prevention_action')
+      sb.from('quality_defects').select('id,title,qa_task_id,prd_id,requirement_id,release_id,exposed_stage,severity,status,executor_id,found_at,root_cause_category,review_status,reopen_count,is_change_induced,is_missed_test,impact,escape_reason,corrective_action,prevention_action'),
+      sb.from('prds').select('id,title')
     ]);
-    for (const result of [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult]) if (result.error) throw result.error;
+    for (const result of [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult]) if (result.error) throw result.error;
     const releaseMap = new Map((releasesResult.data || []).map(item => [item.id,item]));
     const memberMap = new Map((membersResult.data || []).map(item => [item.id,item.name || '未命名成员']));
+    const prdMap = new Map((prdsResult.data || []).map(item => [item.id,item.title || '未命名 PRD']));
+    const qaTaskMap = new Map((tasksResult.data || []).map(item => [item.id,item]));
     const assigneeMap = new Map();
     (assigneesResult.data || []).forEach(item => { const list=assigneeMap.get(item.task_id)||[]; list.push(item); assigneeMap.set(item.task_id,list); });
     const progressMap = new Map();
@@ -1745,14 +1914,416 @@ async function renderQualityReport() {
     taskAssigneesByTask = assigneeMap;
     taskProgressByTask = progressMap;
     taskTestHubProgressByTask = snapshotMap;
-    qualityReportRaw = { releases:releasesResult.data || [], tasks:tasksResult.data || [], members:membersResult.data || [], checks:checksResult.data || [], defects:defectsResult.data || [], releaseMap, memberMap, assigneeMap, progressMap, snapshotMap };
+    qualityReportRaw = { releases:releasesResult.data || [], tasks:tasksResult.data || [], members:membersResult.data || [], checks:checksResult.data || [], defects:defectsResult.data || [], releaseMap, memberMap, prdMap, qaTaskMap, assigneeMap, progressMap, snapshotMap };
     content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">📊 质量报表</span><div class="release-meta">汇总工作事项、团队投入、TestHub 执行进度、发布检查与暴露 BUG 复盘</div></div><div style="display:flex;gap:7px;"><button class="btn-secondary" onclick="copyQualityReportSummary()">复制摘要</button><button class="btn-secondary" onclick="downloadQualityReportCsv()">导出 CSV</button><span class="card-tag" id="qualityResultCount"></span></div></div><div class="team-task-filters"><select class="dashboard-filter" id="qualityReleaseFilter" onchange="renderQualityReportResults()"><option value="all">全部版本</option>${qualityReportRaw.releases.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}</select><select class="dashboard-filter" id="qualityPlatformFilter" onchange="renderQualityReportResults()"><option value="all">全部平台</option><option value="android">Android</option><option value="ios">iOS</option></select><select class="dashboard-filter" id="qualityMemberFilter" onchange="renderQualityReportResults()"><option value="all">全部成员</option>${qualityReportRaw.members.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || '未命名成员')}</option>`).join('')}</select><input class="dashboard-filter" id="qualityFromFilter" type="date" onchange="renderQualityReportResults()" title="统计开始日期"><input class="dashboard-filter" id="qualityToFilter" type="date" onchange="renderQualityReportResults()" title="统计结束日期"><button class="btn-secondary" onclick="clearQualityReportFilters()">清空筛选</button></div><div class="quality-metrics" id="qualityMetrics"></div><div class="quality-section-grid"><div class="history-card" style="margin:0;"><div class="card-title">工作事项明细</div><div style="overflow-x:auto;margin-top:10px;"><table class="history-table" style="min-width:780px;"><thead><tr><th>事项/版本</th><th>负责人</th><th>状态</th><th>计划/实际</th><th>TestHub</th><th>截止日期</th></tr></thead><tbody id="qualityTaskDetails"></tbody></table></div></div><div class="history-card" style="margin:0;"><div class="card-title">成员质量投入</div><div class="release-check-row" style="font-weight:600;"><span>成员</span><span>事项</span><span>完成</span><span>计划</span><span>实际</span></div><div id="qualityMemberStats"></div></div></div><div class="history-card" style="margin-top:14px;"><div class="card-hd"><span class="card-title">BUG 暴露与复盘</span><button class="btn-secondary" onclick="navTo('bugs')">进入 BUG 管理</button></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:850px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>级别</th><th>根因</th><th>复盘状态</th><th>操作</th></tr></thead><tbody id="qualityDefectDetails"></tbody></table></div></div></div>`;
+    content.insertAdjacentHTML('beforeend', `<div class="history-card" style="margin-top:14px;"><div class="card-hd"><div><span class="card-title">📣 对外质量简报</span><div class="release-meta">按测试轮次汇总，不包含负责人姓名、内部原因描述和纠正措施</div></div><button class="btn-primary" onclick="copyExternalQualityBrief()">复制对外简报</button></div><div class="quality-metrics" id="qualityExternalMetrics"></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:760px;"><thead><tr><th>测试轮次</th><th>发现 BUG</th><th>重开 BUG</th><th>重开次数</th><th>改动引入</th><th>漏测</th><th>已关闭</th></tr></thead><tbody id="qualityExternalRoundRows"></tbody></table></div></div>`);
     content.insertAdjacentHTML('beforeend', `<div class="history-card" style="margin-top:14px;"><div class="card-hd"><div><span class="card-title">📝 BUG 复盘报告</span><div class="release-meta">跟随上方版本、平台、成员和日期筛选条件</div></div><button class="btn-secondary" onclick="copyRetrospectiveReport()">复制复盘报告</button></div><div class="retro-grid"><div class="retro-panel"><h4>根因分布</h4><div id="qualityRootCauseStats"></div></div><div class="retro-panel"><h4>执行负责人维度</h4><div id="qualityDefectOwnerStats"></div></div><div class="retro-panel"><h4>待复盘 / 待关闭措施</h4><div id="qualityRetrospectiveActions"></div></div></div></div>`);
+    document.getElementById('qualityPlatformFilter').innerHTML='<option value="all">全部平台</option><option value="app">APP</option><option value="pad">Pad</option>';
     renderQualityReportResults();
   } catch (error) {
     console.error('[quality] load failed:', error);
     content.innerHTML = `<div class="history-card"><div class="dashboard-empty">质量报表加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
   }
+}
+
+let versionTestMapRaw = null;
+let versionTestMapSelectedReleaseId = '';
+
+function versionAssetTypeText(value) {
+  return ({ xmind:'XMind', document:'文档', link:'链接' })[value] || value;
+}
+
+function versionTestMapModalHtml() {
+  return `<div class="dashboard-modal" id="versionAssetModal" onclick="closeVersionAssetEditor()"><div class="dashboard-modal-panel" style="width:min(680px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title">添加测试资产</div><button class="dashboard-modal-close" onclick="closeVersionAssetEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">所属版本</label><select class="form-select" id="versionAssetRelease" onchange="refreshVersionAssetPrdOptions()"></select></div><div class="form-group"><label class="form-label">所属功能 / PRD</label><select class="form-select" id="versionAssetPrd"><option value="">版本公共资产</option></select></div><div class="form-group"><label class="form-label">资产类型</label><select class="form-select" id="versionAssetType"><option value="xmind">XMind</option><option value="document">测试文档</option><option value="link">外部链接</option></select></div><div class="form-group"><label class="form-label">名称</label><input class="dashboard-input" id="versionAssetName" maxlength="200" placeholder="例如：经典照片打印测试点"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">上传文件（最大 20MB）</label><input class="dashboard-input" id="versionAssetFile" type="file" accept=".xmind,.pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg"></div><div class="form-group" style="margin-top:12px;"><label class="form-label">或者填写外部链接</label><input class="dashboard-input" id="versionAssetUrl" type="url" placeholder="钉钉文档、云盘或其他可访问链接"></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="versionAssetNotes" rows="2" placeholder="适用平台、范围或更新说明"></textarea></div><div class="release-meta" style="margin-top:10px;">XMind 保留为设计源文件；TestHub 计划和执行数据由工作事项自动汇总，无需在这里重复录入。</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeVersionAssetEditor()">取消</button><button class="btn-primary" id="saveVersionAssetBtn" onclick="saveVersionTestAsset()">保存资产</button></div></div></div>`;
+}
+
+function versionTaskPlanIds(task) {
+  const values = Array.isArray(task.testhub_plan_ids) ? [...task.testhub_plan_ids] : [];
+  if (task.testhub_plan_id) values.push(task.testhub_plan_id);
+  return [...new Set(values.filter(Boolean))];
+}
+
+function refreshVersionAssetPrdOptions(selectedId = '') {
+  const releaseId = document.getElementById('versionAssetRelease')?.value || '';
+  const release = versionTestMapRaw?.releases.find(item => item.id === releaseId);
+  const prds = (versionTestMapRaw?.prds || []).filter(item => item.release_id === releaseId || (!item.release_id && release && item.version === release.version));
+  const select = document.getElementById('versionAssetPrd');
+  if (!select) return;
+  select.innerHTML = `<option value="">版本公共资产</option>${prds.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.title)}</option>`).join('')}`;
+  select.value = prds.some(item => item.id === selectedId) ? selectedId : '';
+}
+
+function openVersionAssetEditor(prdId = '') {
+  if (!versionTestMapRaw?.releases.length) { showToast('请先创建版本', 'error'); return; }
+  const modal = document.getElementById('versionAssetModal');
+  document.getElementById('versionAssetRelease').innerHTML = versionTestMapRaw.releases.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || item.version)} · ${releasePlatformText(item.platform)}</option>`).join('');
+  document.getElementById('versionAssetRelease').value = versionTestMapSelectedReleaseId || versionTestMapRaw.releases[0].id;
+  refreshVersionAssetPrdOptions(prdId);
+  document.getElementById('versionAssetType').value = 'xmind';
+  document.getElementById('versionAssetName').value = '';
+  document.getElementById('versionAssetFile').value = '';
+  document.getElementById('versionAssetUrl').value = '';
+  document.getElementById('versionAssetNotes').value = '';
+  modal.classList.add('open');
+}
+
+function closeVersionAssetEditor() { document.getElementById('versionAssetModal')?.classList.remove('open'); }
+
+async function saveVersionTestAsset() {
+  const releaseId = document.getElementById('versionAssetRelease')?.value || '';
+  const prdId = document.getElementById('versionAssetPrd')?.value || null;
+  const assetType = document.getElementById('versionAssetType')?.value || 'xmind';
+  const name = document.getElementById('versionAssetName')?.value.trim() || '';
+  const externalUrl = document.getElementById('versionAssetUrl')?.value.trim() || '';
+  const file = document.getElementById('versionAssetFile')?.files?.[0] || null;
+  if (!releaseId || !name) { showToast('请选择版本并填写资产名称', 'error'); return; }
+  if (!file && !externalUrl) { showToast('请上传文件或填写外部链接', 'error'); return; }
+  if (externalUrl && !safeDefectExternalUrl(externalUrl)) { showToast('外部链接格式不正确', 'error'); return; }
+  if (file && file.size > 20 * 1024 * 1024) { showToast('文件不能超过 20MB', 'error'); return; }
+  if (file && assetType === 'xmind' && !file.name.toLowerCase().endsWith('.xmind')) { showToast('XMind 资产请选择 .xmind 文件', 'error'); return; }
+  const button = document.getElementById('saveVersionAssetBtn');
+  button.disabled = true;
+  let storagePath = null;
+  try {
+    if (file) {
+      const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]+/g, '_');
+      storagePath = `${currentUser.id}/${crypto.randomUUID()}-${safeFileName}`;
+      const upload = await sb.storage.from('qa-test-assets').upload(storagePath, file, { upsert:false, contentType:file.type || 'application/octet-stream' });
+      if (upload.error) throw upload.error;
+    }
+    const result = await sb.from('version_test_assets').insert({ release_id:releaseId, prd_id:prdId, asset_type:assetType, name, storage_path:storagePath, external_url:externalUrl || null, file_name:file?.name || null, file_size:file?.size || null, notes:document.getElementById('versionAssetNotes')?.value.trim() || '', created_by:currentUser.id }).select('id').single();
+    if (result.error) throw result.error;
+    closeVersionAssetEditor();
+    showToast('测试资产已添加');
+    await renderVersionTestMap();
+  } catch (error) {
+    if (storagePath) await sb.storage.from('qa-test-assets').remove([storagePath]);
+    console.error('[test-map] save asset failed:', error);
+    showToast('保存测试资产失败：' + error.message, 'error');
+  } finally { button.disabled = false; }
+}
+
+async function openVersionTestAsset(assetId) {
+  const asset = versionTestMapRaw?.assets.find(item => item.id === assetId);
+  if (!asset) return;
+  try {
+    let url = safeDefectExternalUrl(asset.external_url || '');
+    if (asset.storage_path) {
+      const result = await sb.storage.from('qa-test-assets').createSignedUrl(asset.storage_path, 120);
+      if (result.error) throw result.error;
+      url = result.data.signedUrl;
+    }
+    if (!url) throw new Error('资产地址不存在');
+    const link = document.createElement('a'); link.href = url; link.target = '_blank'; link.rel = 'noopener'; link.click();
+  } catch (error) { showToast('打开测试资产失败：' + error.message, 'error'); }
+}
+
+async function deleteVersionTestAsset(assetId) {
+  const asset = versionTestMapRaw?.assets.find(item => item.id === assetId);
+  if (!asset || !window.confirm(`确认删除测试资产“${asset.name}”吗？`)) return;
+  try {
+    const result = await sb.from('version_test_assets').delete().eq('id', assetId);
+    if (result.error) throw result.error;
+    if (asset.storage_path) {
+      const remove = await sb.storage.from('qa-test-assets').remove([asset.storage_path]);
+      if (remove.error) console.warn('[test-map] orphaned file:', remove.error);
+    }
+    showToast('测试资产已删除');
+    await renderVersionTestMap();
+  } catch (error) { showToast('删除测试资产失败：' + error.message, 'error'); }
+}
+
+function versionTestMapChangeRelease() {
+  versionTestMapSelectedReleaseId = document.getElementById('versionTestMapRelease')?.value || '';
+  renderVersionTestMapRows();
+}
+
+function renderVersionTestMapRows() {
+  if (!versionTestMapRaw) return;
+  const release = versionTestMapRaw.releases.find(item => item.id === versionTestMapSelectedReleaseId);
+  const keyword = (document.getElementById('versionTestMapKeyword')?.value || '').trim().toLowerCase();
+  const prds = versionTestMapRaw.prds.filter(item => (item.release_id === release?.id || (!item.release_id && release && item.version === release.version)) && (!keyword || `${item.title} ${item.product || ''} ${item.author || ''}`.toLowerCase().includes(keyword)));
+  const releaseAssets = versionTestMapRaw.assets.filter(item => item.release_id === release?.id);
+  const releaseTasks = versionTestMapRaw.tasks.filter(item => item.release_id === release?.id || prds.some(prd => prd.id === item.prd_id));
+  const releaseTaskIds = new Set(releaseTasks.map(item => item.id));
+  const releaseDefects = versionTestMapRaw.defects.filter(item => prds.some(prd => prd.id === item.prd_id) || releaseTaskIds.has(item.qa_task_id));
+  const totalPlans = new Set(releaseTasks.flatMap(versionTaskPlanIds)).size;
+  const snapshots = releaseTasks.map(item => versionTestMapRaw.snapshotMap.get(item.id)).filter(Boolean);
+  const totalCases = snapshots.reduce((sum,item) => sum + Number(item.total_cases || 0), 0);
+  const executedCases = snapshots.reduce((sum,item) => sum + Number(item.executed_cases || 0), 0);
+  const metrics = document.getElementById('versionTestMapMetrics');
+  if (metrics) metrics.innerHTML = [qualityMetricHtml('版本功能', prds.length, release ? `${release.version} · ${releasePlatformText(release.platform)}` : '暂无版本', null),qualityMetricHtml('XMind', releaseAssets.filter(item => item.asset_type === 'xmind').length, '已收录设计文件', null),qualityMetricHtml('TestHub 计划', totalPlans, '由工作事项自动汇总', null),qualityMetricHtml('用例执行率', `${qualityPercent(executedCases,totalCases)}%`, `${executedCases}/${totalCases} 条`, qualityPercent(executedCases,totalCases), 'var(--purple)'),qualityMetricHtml('关联 BUG', releaseDefects.length, '当前版本', null)].join('');
+  const shared = releaseAssets.filter(item => !item.prd_id);
+  const sharedWrap = document.getElementById('versionSharedAssets');
+  if (sharedWrap) sharedWrap.innerHTML = shared.length ? `<strong>版本公共资产：</strong>${shared.map(item => `<button class="btn-secondary" style="padding:5px 9px;" onclick="openVersionTestAsset('${item.id}')">${versionAssetTypeText(item.asset_type)} · ${escapeDashboardHtml(item.name)}</button>`).join('')}` : '<span class="release-meta">暂无版本公共测试资产</span>';
+  const rows = prds.map(prd => {
+    const assets = releaseAssets.filter(item => item.prd_id === prd.id);
+    const xmindAssets = assets.filter(item => item.asset_type === 'xmind');
+    const tasks = releaseTasks.filter(item => item.prd_id === prd.id);
+    const taskIds = new Set(tasks.map(item => item.id));
+    const plans = new Set(tasks.flatMap(versionTaskPlanIds));
+    const taskSnapshots = tasks.map(item => versionTestMapRaw.snapshotMap.get(item.id)).filter(Boolean);
+    const total = taskSnapshots.reduce((sum,item) => sum + Number(item.total_cases || 0), 0);
+    const executed = taskSnapshots.reduce((sum,item) => sum + Number(item.executed_cases || 0), 0);
+    const rounds = [...new Set(tasks.map(item => Number(item.test_round || 1)))].sort((a,b)=>a-b);
+    const defects = versionTestMapRaw.defects.filter(item => item.prd_id === prd.id || taskIds.has(item.qa_task_id));
+    const gaps = [];
+    if (!xmindAssets.length) gaps.push('缺 XMind');
+    if (!plans.size) gaps.push('缺 TestHub 计划');
+    if (total && executed < total) gaps.push('执行中');
+    const status = gaps.length ? gaps.join(' · ') : tasks.length ? '资产已关联' : '待安排测试';
+    const assetHtml = assets.length ? assets.map(item => { const canDelete=userRole==='admin'||item.created_by===currentUser.id;return `<div style="display:flex;gap:5px;align-items:center;margin:3px 0;"><button class="risk-action" onclick="openVersionTestAsset('${item.id}')">${versionAssetTypeText(item.asset_type)} · ${escapeDashboardHtml(item.name)}</button>${canDelete?`<button class="dashboard-modal-close" style="width:24px;height:24px;" onclick="deleteVersionTestAsset('${item.id}')" title="删除"><i class="ti ti-trash"></i></button>`:''}</div>`; }).join('') : '<span class="release-meta">尚未添加</span>';
+    return `<tr><td><strong>${escapeDashboardHtml(prd.title)}</strong><br><span class="release-meta">${escapeDashboardHtml(prd.product || '未设置产品线')} · ${escapeDashboardHtml(prd.author || '未设置负责人')}</span></td><td>${assetHtml}</td><td><strong>${plans.size} 个计划</strong><br><span class="release-meta">执行 ${executed}/${total} · ${qualityPercent(executed,total)}%</span></td><td>${rounds.length ? rounds.map(item=>`第 ${item} 轮`).join('、') : '-'}</td><td><strong>${defects.length}</strong><br><span class="release-meta">未关闭 ${defects.filter(item=>!['verified','closed'].includes(item.status)).length}</span></td><td><span class="card-tag" style="background:${gaps.length?'#FFF3CC':'#DDF7EE'};color:${gaps.length?'#7a5a00':'#0F6E56'};">${escapeDashboardHtml(status)}</span></td><td><button class="btn-primary" style="padding:6px 10px;" onclick="openVersionAssetEditor('${prd.id}')">添加资产</button></td></tr>`;
+  }).join('');
+  const body = document.getElementById('versionTestMapRows');
+  if (body) body.innerHTML = rows || '<tr><td colspan="7" class="dashboard-empty">当前版本暂无匹配的 PRD 功能</td></tr>';
+  const count = document.getElementById('versionTestMapCount'); if (count) count.textContent = `${prds.length} 个功能`;
+}
+
+async function renderVersionTestMap() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载版本测试地图…</div></div>';
+  try {
+    const [releasesResult,prdsResult,tasksResult,snapshotsResult,defectsResult,assetsResult] = await Promise.all([
+      sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
+      sb.from('prds').select('id,title,release_id,version,product,author,status').order('created_at',{ascending:false}),
+      sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status,testhub_plan_id,testhub_plan_ids').neq('status','cancelled'),
+      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),
+      sb.from('quality_defects').select('id,prd_id,qa_task_id,status,severity'),
+      sb.from('version_test_assets').select('*').order('updated_at',{ascending:false})
+    ]);
+    for (const result of [releasesResult,prdsResult,tasksResult,snapshotsResult,defectsResult,assetsResult]) if (result.error) throw result.error;
+    versionTestMapRaw = { releases:releasesResult.data||[], prds:prdsResult.data||[], tasks:tasksResult.data||[], defects:defectsResult.data||[], assets:assetsResult.data||[], snapshotMap:new Map((snapshotsResult.data||[]).map(item=>[item.task_id,item])) };
+    if (!versionTestMapRaw.releases.some(item => item.id === versionTestMapSelectedReleaseId)) versionTestMapSelectedReleaseId = versionTestMapRaw.releases.find(item=>item.status==='active')?.id || versionTestMapRaw.releases[0]?.id || '';
+    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">🗺️ 版本测试地图</span><div class="release-meta">以版本和功能为中心，统一索引 XMind，并自动汇总 TestHub、轮次与 BUG</div></div><div style="display:flex;gap:7px;align-items:center;"><button class="btn-primary" onclick="openVersionAssetEditor()"><i class="ti ti-plus"></i> 添加版本资产</button><span class="card-tag" id="versionTestMapCount"></span></div></div><div class="team-task-filters"><select class="dashboard-filter" id="versionTestMapRelease" onchange="versionTestMapChangeRelease()">${versionTestMapRaw.releases.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}</select><input class="dashboard-filter" id="versionTestMapKeyword" type="search" placeholder="搜索功能、产品线或负责人" oninput="renderVersionTestMapRows()"></div><div class="quality-metrics" id="versionTestMapMetrics"></div><div id="versionSharedAssets" style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:12px 0;"></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:1080px;"><thead><tr><th>版本功能 / PRD</th><th>XMind / 测试资产</th><th>TestHub</th><th>测试轮次</th><th>BUG</th><th>覆盖状态</th><th>操作</th></tr></thead><tbody id="versionTestMapRows"></tbody></table></div></div>${versionTestMapModalHtml()}`;
+    document.getElementById('versionTestMapRelease').value = versionTestMapSelectedReleaseId;
+    renderVersionTestMapRows();
+  } catch (error) {
+    console.error('[test-map] load failed:', error);
+    content.innerHTML = `<div class="history-card"><div class="dashboard-empty">版本测试地图加载失败：${escapeDashboardHtml(error.message)}<br><span class="release-meta">请先执行版本测试资产数据库迁移</span></div></div>`;
+  }
+}
+
+let featureTestMapRaw = null;
+let editingFeatureId = null;
+const selectedFeatureIds = new Set();
+let visibleFeatureIds = [];
+
+function toggleFeatureSelection(featureId){if(selectedFeatureIds.has(featureId))selectedFeatureIds.delete(featureId);else selectedFeatureIds.add(featureId);renderFeatureTestMapRows();}
+function selectVisibleFeatures(){visibleFeatureIds.forEach(id=>selectedFeatureIds.add(id));renderFeatureTestMapRows();}
+function clearFeatureSelection(){selectedFeatureIds.clear();renderFeatureTestMapRows();}
+
+function featureBatchToolbarHtml(features){
+  if(userRole!=='admin')return '';
+  const selected=featureTestMapRaw.features.filter(item=>selectedFeatureIds.has(item.id));
+  const modules=[...new Set(featureTestMapRaw.features.map(item=>item.module_name).filter(Boolean))].sort();
+  const ownerOptions=featureTestMapRaw.members.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||'未命名成员')}</option>`).join('');
+  const targetOptions=selected.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.module_name)} · ${escapeDashboardHtml(item.name)}</option>`).join('');
+  return `<div class="feature-batch-toolbar"><div class="feature-batch-row"><strong><i class="ti ti-checklist"></i> 已选 ${selected.length} 项</strong><button class="btn-secondary" onclick="selectVisibleFeatures()">选择当前结果（${features.length}）</button><button class="btn-secondary" onclick="clearFeatureSelection()">清空选择</button><input class="dashboard-filter" id="featureBatchModule" list="featureBatchModuleList" placeholder="模块不变 / 输入新模块"><datalist id="featureBatchModuleList">${modules.map(item=>`<option value="${escapeDashboardHtml(item)}"></option>`).join('')}</datalist><select class="dashboard-filter" id="featureBatchOwner"><option value="">负责人不变</option><option value="__none__">清空负责人</option>${ownerOptions}</select><select class="dashboard-filter" id="featureBatchPlatform"><option value="">平台不变</option><option value="app">APP</option><option value="app_pad">APP + Pad</option><option value="pad">Pad</option><option value="web">Web</option><option value="pc">PC</option></select><button class="btn-primary" onclick="applyFeatureBatchUpdate()" ${selected.length?'':'disabled'}>批量应用</button></div>${selected.length>1?`<div class="feature-batch-row" style="margin-top:8px;"><span class="release-meta">合并重复功能：</span><select class="dashboard-filter" id="featureMergeTarget">${targetOptions}</select><button class="btn-secondary" onclick="mergeSelectedFeatures()">保留此项并合并其余 ${selected.length-1} 项</button></div>`:''}</div>`;
+}
+
+async function applyFeatureBatchUpdate(){
+  const ids=[...selectedFeatureIds];if(!ids.length){showToast('请先选择需要整理的功能','error');return;}
+  const moduleName=document.getElementById('featureBatchModule')?.value.trim()||'';const owner=document.getElementById('featureBatchOwner')?.value||'';const platform=document.getElementById('featureBatchPlatform')?.value||'';const payload={};if(moduleName)payload.module_name=moduleName;if(owner)payload.owner_id=owner==='__none__'?null:owner;if(platform)payload.platform_scope=platform;if(!Object.keys(payload).length){showToast('请选择至少一个需要批量修改的字段','error');return;}
+  try{const result=await sb.from('product_features').update(payload).in('id',ids);if(result.error)throw result.error;showToast(`已批量更新 ${ids.length} 个功能`);selectedFeatureIds.clear();await renderFeatureTestMap();}catch(error){showToast('批量更新失败：'+error.message,'error');}
+}
+
+async function mergeSelectedFeatures(){
+  const targetId=document.getElementById('featureMergeTarget')?.value||'';const sourceIds=[...selectedFeatureIds].filter(id=>id!==targetId);if(!targetId||!sourceIds.length){showToast('请至少选择两个功能','error');return;}const target=featureTestMapRaw.features.find(item=>item.id===targetId);const sources=featureTestMapRaw.features.filter(item=>sourceIds.includes(item.id));if(!window.confirm(`确认保留“${target?.name||'目标功能'}”，并将 ${sources.length} 个功能的版本记录和测试资产合并到该功能吗？\n被合并功能会归档，不会直接删除。`))return;
+  try{const result=await sb.rpc('merge_product_features',{target_feature_id:targetId,source_feature_ids:sourceIds});if(result.error)throw result.error;showToast(`已合并 ${sourceIds.length} 个重复功能`);selectedFeatureIds.clear();await renderFeatureTestMap();}catch(error){showToast('合并功能失败：'+error.message,'error');}
+}
+
+function featureMapModalHtml() {
+  return `<div class="dashboard-modal" id="featureEditorModal"><div class="dashboard-modal-panel" style="width:min(680px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title">新增产品功能</div><button class="dashboard-modal-close" onclick="closeFeatureEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">功能名称</label><input class="dashboard-input" id="featureName" maxlength="200"></div><div class="form-group"><label class="form-label">所属模块</label><input class="dashboard-input" id="featureModule" maxlength="100" placeholder="例如：经典照片打印"></div><div class="form-group"><label class="form-label">产品线</label><input class="dashboard-input" id="featureProduct" value="Liene Photo" maxlength="100"></div><div class="form-group"><label class="form-label">平台范围</label><select class="form-select" id="featurePlatform"><option value="mobile_all">Android + iOS + Pad</option><option value="both">Android + iOS</option><option value="android">Android</option><option value="ios">iOS</option><option value="pad">Pad</option><option value="web">Web</option><option value="pc">PC</option></select></div><div class="form-group"><label class="form-label">维护负责人</label><select class="form-select" id="featureOwner"><option value="">暂不指定</option></select></div><div class="form-group"><label class="form-label">TestHub 用例库 ID（选填）</label><input class="dashboard-input" id="featureLibraryId"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">功能说明</label><textarea class="dashboard-input" id="featureDescription" rows="3"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeFeatureEditor()">取消</button><button class="btn-primary" id="saveFeatureBtn" onclick="saveProductFeature()">保存功能</button></div></div></div>
+  <div class="dashboard-modal" id="featureChangeModal"><div class="dashboard-modal-panel" style="width:min(700px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title">登记版本功能变更</div><button class="dashboard-modal-close" onclick="closeFeatureChangeEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">功能</label><select class="form-select" id="featureChangeFeature"></select></div><div class="form-group"><label class="form-label">版本</label><select class="form-select" id="featureChangeRelease" onchange="refreshFeatureChangePrds()"></select></div><div class="form-group"><label class="form-label">关联 PRD（建议）</label><select class="form-select" id="featureChangePrd"><option value="">不关联 PRD</option></select></div><div class="form-group"><label class="form-label">变更类型</label><select class="form-select" id="featureChangeType"><option value="changed">功能调整</option><option value="new">新增功能</option><option value="deprecated">功能下线</option></select></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">变更摘要</label><textarea class="dashboard-input" id="featureChangeSummary" rows="3" placeholder="说明本版本改了什么，以及需要补充哪些测试范围"></textarea></div><div class="release-meta" style="margin-top:10px;">保存后该功能会出现“XMind 待更新”提醒，直到上传本版本资产或确认无需更新。</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeFeatureChangeEditor()">取消</button><button class="btn-primary" id="saveFeatureChangeBtn" onclick="saveFeatureReleaseChange()">登记变更并提醒</button></div></div></div>
+  <div class="dashboard-modal" id="featureAssetModal"><div class="dashboard-modal-panel" style="width:min(680px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title">上传 / 关联功能测试资产</div><button class="dashboard-modal-close" onclick="closeFeatureAssetEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">功能</label><select class="form-select" id="featureAssetFeature"></select></div><div class="form-group"><label class="form-label">已适配版本</label><select class="form-select" id="featureAssetRelease"><option value="">基础资产 / 不指定版本</option></select></div><div class="form-group"><label class="form-label">资产类型</label><select class="form-select" id="featureAssetType"><option value="xmind">XMind</option><option value="document">测试文档</option><option value="link">外部链接</option></select></div><div class="form-group"><label class="form-label">资产名称</label><input class="dashboard-input" id="featureAssetName" maxlength="200"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">上传文件（最大 20MB）</label><input class="dashboard-input" id="featureAssetFile" type="file" accept=".xmind,.pdf,.doc,.docx,.xlsx,.png,.jpg,.jpeg"></div><div class="form-group" style="margin-top:12px;"><label class="form-label">或者填写外部链接</label><input class="dashboard-input" id="featureAssetUrl" type="url" placeholder="钉钉文档、云盘或其他可访问链接"></div><div class="form-group" style="margin-top:12px;"><label class="form-label">更新说明</label><textarea class="dashboard-input" id="featureAssetNotes" rows="2"></textarea></div><div class="release-meta" style="margin-top:10px;">选择版本并保存后，该版本的“XMind 待更新”提醒会自动完成。</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeFeatureAssetEditor()">取消</button><button class="btn-primary" id="saveFeatureAssetBtn" onclick="saveFeatureTestAsset()">保存并完成更新</button></div></div></div>`;
+}
+
+function openFeatureEditor(featureId = null) {
+  if (userRole !== 'admin') { showToast('仅管理员可以维护产品功能', 'error'); return; }
+  const feature=featureId?featureTestMapRaw?.features.find(item=>item.id===featureId):null;editingFeatureId=feature?.id||null;
+  const title=document.querySelector('#featureEditorModal .dashboard-modal-title');if(title)title.textContent=feature?'编辑产品功能':'新增产品功能';
+  const platformSelect=document.getElementById('featurePlatform');platformSelect.innerHTML='<option value="app_pad">APP + Pad</option><option value="app">APP</option><option value="pad">Pad</option><option value="web">Web</option><option value="pc">PC</option>';
+  const editablePlatform=['android','ios','both'].includes(feature?.platform_scope)?'app':(feature?.platform_scope==='mobile_all'?'app_pad':feature?.platform_scope);
+  document.getElementById('featureName').value=feature?.name||'';document.getElementById('featureModule').value=feature?.module_name||'';document.getElementById('featureProduct').value=feature?.product_line||'Liene Photo';platformSelect.value=editablePlatform||'app_pad';document.getElementById('featureDescription').value=feature?.description||'';document.getElementById('featureLibraryId').value=feature?.testhub_library_id||'';
+  document.getElementById('featureOwner').innerHTML=`<option value="">暂不指定</option>${featureTestMapRaw.members.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||'未命名成员')}</option>`).join('')}`;
+  document.getElementById('featureOwner').value=feature?.owner_id||'';
+  document.getElementById('featureEditorModal').classList.add('open');
+}
+function closeFeatureEditor(){editingFeatureId=null;document.getElementById('featureEditorModal')?.classList.remove('open');}
+
+async function saveProductFeature(){
+  const name=document.getElementById('featureName')?.value.trim()||'';if(!name){showToast('请填写功能名称','error');return;}
+  const button=document.getElementById('saveFeatureBtn');button.disabled=true;
+  try{const payload={name,product_line:document.getElementById('featureProduct').value.trim()||'Liene Photo',module_name:document.getElementById('featureModule').value.trim()||'未分类',platform_scope:document.getElementById('featurePlatform').value,description:document.getElementById('featureDescription').value.trim(),owner_id:document.getElementById('featureOwner').value||null,testhub_library_id:document.getElementById('featureLibraryId').value.trim()||null};const result=editingFeatureId?await sb.from('product_features').update(payload).eq('id',editingFeatureId):await sb.from('product_features').insert({...payload,created_by:currentUser.id}).select('id').single();if(result.error)throw result.error;const wasEditing=Boolean(editingFeatureId);closeFeatureEditor();showToast(wasEditing?'产品功能已更新':'产品功能已加入全功能地图');await renderFeatureTestMap();}catch(error){showToast('保存功能失败：'+error.message,'error');}finally{button.disabled=false;}
+}
+
+let featureTriageRows=[];
+let featureTriageEditingPrdId=null;
+
+function importExistingPrdsAsFeatures(){openPrdFeatureTriage();}
+
+function ensurePrdFeatureTriageModal(){
+  if(document.getElementById('featureTriageModal'))return;
+  document.body.insertAdjacentHTML('beforeend',`<div class="dashboard-modal" id="featureTriageModal"><div class="dashboard-modal-panel" style="width:min(1120px,100%);max-height:92vh;overflow:auto;" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div><div class="dashboard-modal-title">整理 PRD 归属</div><div class="release-meta">PRD 默认是版本分支；关联稳定功能后才进入全功能测试地图</div></div><button class="dashboard-modal-close" onclick="closePrdFeatureTriage()"><i class="ti ti-x"></i></button></div><div class="team-task-filters"><select class="dashboard-filter" id="featureTriageStatus" onchange="renderPrdFeatureTriageList()"><option value="pending">待归类</option><option value="mapped">已关联</option><option value="ignored">已忽略</option><option value="all">全部 PRD</option></select><input class="dashboard-filter" id="featureTriageKeyword" type="search" placeholder="搜索 PRD、版本或产品线" oninput="renderPrdFeatureTriageList()"></div><div id="featureTriageBody" style="margin-top:12px;"></div></div></div>`);
+}
+
+function closePrdFeatureTriage(){featureTriageEditingPrdId=null;document.getElementById('featureTriageModal')?.classList.remove('open');}
+
+async function openPrdFeatureTriage(){
+  if(userRole!=='admin'){showToast('仅管理员可以整理 PRD 归属','error');return;}ensurePrdFeatureTriageModal();document.getElementById('featureTriageModal').classList.add('open');document.getElementById('featureTriageBody').innerHTML='<div class="dashboard-loading">正在加载 PRD 归属…</div>';
+  try{const result=await sb.from('prd_feature_triage').select('*');if(result.error)throw result.error;const triageMap=new Map((result.data||[]).map(item=>[item.prd_id,item]));const changesByPrd=new Map();featureTestMapRaw.changes.filter(item=>item.prd_id).forEach(item=>{const list=changesByPrd.get(item.prd_id)||[];list.push(item);changesByPrd.set(item.prd_id,list);});featureTriageRows=featureTestMapRaw.prds.map(prd=>{const triage=triageMap.get(prd.id);const changes=changesByPrd.get(prd.id)||[];const status=triage?.status==='ignored'?'ignored':(changes.length?'mapped':triage?.status||'pending');return {...prd,triage_status:status,triage_note:triage?.note||'',feature_changes:changes};});renderPrdFeatureTriageList();}catch(error){document.getElementById('featureTriageBody').innerHTML=`<div class="dashboard-empty">PRD 归属加载失败：${escapeDashboardHtml(error.message)}<br><span class="release-meta">请先执行 PRD 功能归类数据库迁移</span></div>`;}
+}
+
+function renderPrdFeatureTriageList(){
+  const body=document.getElementById('featureTriageBody');if(!body)return;const status=document.getElementById('featureTriageStatus')?.value||'pending';const keyword=(document.getElementById('featureTriageKeyword')?.value||'').trim().toLowerCase();const featureMap=new Map(featureTestMapRaw.features.map(item=>[item.id,item]));const releaseMap=new Map(featureTestMapRaw.releases.map(item=>[item.id,item]));const rows=featureTriageRows.filter(item=>(status==='all'||item.triage_status===status)&&(!keyword||`${item.title} ${item.version||''} ${item.product||''}`.toLowerCase().includes(keyword)));
+  const editorPrd=featureTriageRows.find(item=>item.id===featureTriageEditingPrdId);const linkedIds=new Set(editorPrd?.feature_changes.map(item=>item.feature_id)||[]);const editorHtml=editorPrd?`<div class="feature-module-section" style="margin-bottom:12px;border-color:#c9b5ff;"><div class="card-hd"><div><strong>关联功能：${escapeDashboardHtml(editorPrd.title)}</strong><div class="release-meta">可同时选择多个受影响的长期功能；已关联项不可在此删除历史记录</div></div><button class="dashboard-modal-close" onclick="featureTriageEditingPrdId=null;renderPrdFeatureTriageList()"><i class="ti ti-x"></i></button></div><input class="dashboard-input" id="featureMappingKeyword" placeholder="搜索已有功能" oninput="filterFeatureMappingChoices()" style="margin:10px 0;"><div id="featureMappingChoices" class="feature-card-grid">${featureTestMapRaw.features.filter(item=>item.status==='active').map(item=>`<label class="feature-mini-stat feature-mapping-choice" data-search="${escapeDashboardHtml(`${item.product_line} ${item.module_name} ${item.name}`.toLowerCase())}" style="text-align:left;display:flex;gap:8px;align-items:flex-start;cursor:pointer;"><input type="checkbox" name="featureMappingChoice" value="${item.id}" ${linkedIds.has(item.id)?'checked disabled':''}><span><strong style="font-size:12px;">${escapeDashboardHtml(item.name)}</strong><small style="display:block;">${escapeDashboardHtml(item.module_name)} · ${featurePlatformText(item.platform_scope)}${linkedIds.has(item.id)?' · 已关联':''}</small></span></label>`).join('')}</div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px;"><button class="btn-secondary" onclick="featureTriageEditingPrdId=null;renderPrdFeatureTriageList()">取消</button><button class="btn-primary" onclick="savePrdFeatureMapping('${editorPrd.id}')">保存新增关联</button></div></div>`:'';
+  const listHtml=rows.map(prd=>{const release=releaseMap.get(prd.release_id);const names=prd.feature_changes.map(change=>featureMap.get(change.feature_id)?.name).filter(Boolean);const badge=prd.triage_status==='mapped'?'<span class="feature-state-chip">已关联</span>':prd.triage_status==='ignored'?'<span class="feature-state-chip missing">已忽略</span>':'<span class="feature-state-chip pending">待归类</span>';const actions=prd.triage_status==='pending'?`<button class="btn-primary" onclick="editPrdFeatureMapping('${prd.id}')">关联已有功能</button><button class="btn-secondary" onclick="createFeatureFromPrd('${prd.id}')">确认为新功能</button><button class="btn-secondary" onclick="setPrdFeatureTriage('${prd.id}','ignored')">无需纳入</button>`:prd.triage_status==='mapped'?`<button class="btn-secondary" onclick="editPrdFeatureMapping('${prd.id}')">继续关联功能</button>`:`<button class="btn-secondary" onclick="setPrdFeatureTriage('${prd.id}','pending')">恢复待归类</button>`;return `<div class="release-check-row" style="grid-template-columns:minmax(260px,2fr) minmax(130px,1fr) minmax(220px,1.5fr) auto;align-items:center;"><div><strong>${escapeDashboardHtml(prd.title)}</strong><div class="release-meta">${escapeDashboardHtml(prd.product||'Liene Photo')} · ${escapeDashboardHtml(release?.version||prd.version||'未关联版本')}</div></div><div>${badge}</div><div class="release-meta">${names.length?`已关联：${escapeDashboardHtml(names.join('、'))}`:'尚未进入全功能目录'}</div><div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;">${actions}</div></div>`;}).join('');
+  body.innerHTML=editorHtml+(listHtml||'<div class="dashboard-empty">当前条件下没有 PRD</div>');
+}
+
+function editPrdFeatureMapping(prdId){featureTriageEditingPrdId=prdId;renderPrdFeatureTriageList();document.getElementById('featureTriageBody')?.scrollIntoView({behavior:'smooth',block:'start'});}
+function filterFeatureMappingChoices(){const keyword=(document.getElementById('featureMappingKeyword')?.value||'').trim().toLowerCase();document.querySelectorAll('.feature-mapping-choice').forEach(item=>item.style.display=!keyword||item.dataset.search.includes(keyword)?'flex':'none');}
+
+function resolvePrdFeatureRelease(prd){return prd.release_id||featureTestMapRaw.releases.find(item=>item.version===prd.version)?.id||null;}
+
+async function linkPrdToFeatures(prd,featureIds,changeType='changed'){
+  const releaseId=resolvePrdFeatureRelease(prd);if(!releaseId)throw new Error('该 PRD 尚未关联版本，请先在 PRD 管理中设置交付版本');const existing=new Set(prd.feature_changes.map(item=>item.feature_id));const rows=featureIds.filter(id=>!existing.has(id)).map(featureId=>({feature_id:featureId,release_id:releaseId,prd_id:prd.id,change_type:changeType,change_summary:changeType==='new'?`PRD“${prd.title}”创建了新的长期功能，请建立完整测试资产`:`PRD“${prd.title}”影响该功能，请确认并更新测试资产`,asset_update_status:'pending',created_by:currentUser.id}));if(rows.length){const result=await sb.from('feature_release_changes').insert(rows);if(result.error)throw result.error;}const triage=await sb.from('prd_feature_triage').upsert({prd_id:prd.id,status:'mapped',note:'已关联全局功能',updated_by:currentUser.id},{onConflict:'prd_id'});if(triage.error)throw triage.error;return rows.length;
+}
+
+async function savePrdFeatureMapping(prdId){const prd=featureTriageRows.find(item=>item.id===prdId);const ids=[...document.querySelectorAll('input[name="featureMappingChoice"]:checked:not(:disabled)')].map(item=>item.value);if(!ids.length){showToast('请选择至少一个尚未关联的功能','error');return;}try{const count=await linkPrdToFeatures(prd,ids);showToast(`已新增 ${count} 条功能关联，并生成测试资产更新提醒`);featureTriageEditingPrdId=null;await renderFeatureTestMap();await openPrdFeatureTriage();}catch(error){showToast('保存 PRD 归属失败：'+error.message,'error');}}
+
+async function createFeatureFromPrd(prdId){const prd=featureTriageRows.find(item=>item.id===prdId);if(!prd||!window.confirm(`确认“${prd.title}”是一个新的长期功能，而不是现有功能的版本分支吗？`))return;try{const key=value=>(value||'').trim().toLowerCase();let feature=featureTestMapRaw.features.find(item=>item.status==='active'&&key(item.product_line)===key(prd.product||'Liene Photo')&&key(item.name)===key(prd.title));if(!feature){const result=await sb.from('product_features').insert({name:prd.title,product_line:prd.product||'Liene Photo',module_name:'待整理',platform_scope:'app',description:'由 PRD 确认为新的长期功能，请补充模块和维护负责人',created_by:currentUser.id}).select('*').single();if(result.error)throw result.error;feature=result.data;}const count=await linkPrdToFeatures(prd,[feature.id],'new');showToast(count?'已创建新功能并关联 PRD':'该 PRD 已关联同名功能');await renderFeatureTestMap();await openPrdFeatureTriage();}catch(error){showToast('创建全局功能失败：'+error.message,'error');}}
+
+async function setPrdFeatureTriage(prdId,status){try{const result=await sb.from('prd_feature_triage').upsert({prd_id:prdId,status,note:status==='ignored'?'管理员确认无需进入全功能地图':'',updated_by:currentUser.id},{onConflict:'prd_id'});if(result.error)throw result.error;showToast(status==='ignored'?'该 PRD 已从待归类清单移除':'该 PRD 已恢复为待归类');await openPrdFeatureTriage();}catch(error){showToast('更新 PRD 归类状态失败：'+error.message,'error');}}
+
+function refreshFeatureChangePrds(selectedId=''){
+  const releaseId=document.getElementById('featureChangeRelease')?.value||'';const release=featureTestMapRaw.releases.find(item=>item.id===releaseId);const prds=featureTestMapRaw.prds.filter(item=>item.release_id===releaseId||(!item.release_id&&release&&item.version===release.version));const select=document.getElementById('featureChangePrd');if(!select)return;select.innerHTML=`<option value="">不关联 PRD</option>${prds.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.title)}</option>`).join('')}`;select.value=prds.some(item=>item.id===selectedId)?selectedId:'';
+}
+function openFeatureChangeEditor(featureId=''){
+  if(userRole!=='admin'){showToast('仅管理员可以登记版本功能变更','error');return;}
+  document.getElementById('featureChangeFeature').innerHTML=featureTestMapRaw.features.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.module_name)} · ${escapeDashboardHtml(item.name)}</option>`).join('');document.getElementById('featureChangeFeature').value=featureId||featureTestMapRaw.features[0]?.id||'';document.getElementById('featureChangeRelease').innerHTML=featureTestMapRaw.releases.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||item.version)} · ${releasePlatformText(item.platform)}</option>`).join('');document.getElementById('featureChangeRelease').value=featureTestMapRaw.releases.find(item=>item.status==='active')?.id||featureTestMapRaw.releases[0]?.id||'';refreshFeatureChangePrds();document.getElementById('featureChangeType').value='changed';document.getElementById('featureChangeSummary').value='';document.getElementById('featureChangeModal').classList.add('open');
+}
+function closeFeatureChangeEditor(){document.getElementById('featureChangeModal')?.classList.remove('open');}
+
+async function saveFeatureReleaseChange(){
+  const featureId=document.getElementById('featureChangeFeature')?.value||'';const releaseId=document.getElementById('featureChangeRelease')?.value||'';if(!featureId||!releaseId){showToast('请选择功能和版本','error');return;}const button=document.getElementById('saveFeatureChangeBtn');button.disabled=true;
+  try{const prdId=document.getElementById('featureChangePrd').value||null;let duplicateQuery=sb.from('feature_release_changes').select('id,asset_update_status').eq('feature_id',featureId).eq('release_id',releaseId);duplicateQuery=prdId?duplicateQuery.eq('prd_id',prdId):duplicateQuery.is('prd_id',null);const duplicate=await duplicateQuery.limit(1);if(duplicate.error)throw duplicate.error;if(duplicate.data?.length){showToast(duplicate.data[0].asset_update_status==='pending'?'该版本变更已在待处理清单中':'该版本变更已有处理记录，请勿重复登记','error');return;}const result=await sb.from('feature_release_changes').insert({feature_id:featureId,release_id:releaseId,prd_id:prdId,change_type:document.getElementById('featureChangeType').value,change_summary:document.getElementById('featureChangeSummary').value.trim(),asset_update_status:'pending',created_by:currentUser.id}).select('id').single();if(result.error)throw result.error;closeFeatureChangeEditor();showToast('版本变更已登记，XMind 更新提醒已生成');await renderFeatureTestMap();}catch(error){showToast('登记变更失败：'+error.message,'error');}finally{button.disabled=false;}
+}
+
+function openFeatureAssetEditor(featureId='',releaseId=''){
+  document.getElementById('featureAssetFeature').innerHTML=featureTestMapRaw.features.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.module_name)} · ${escapeDashboardHtml(item.name)}</option>`).join('');document.getElementById('featureAssetFeature').value=featureId||featureTestMapRaw.features[0]?.id||'';document.getElementById('featureAssetRelease').innerHTML=`<option value="">基础资产 / 不指定版本</option>${featureTestMapRaw.releases.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}`;document.getElementById('featureAssetRelease').value=releaseId||'';document.getElementById('featureAssetType').value='xmind';document.getElementById('featureAssetName').value='';document.getElementById('featureAssetFile').value='';document.getElementById('featureAssetUrl').value='';document.getElementById('featureAssetNotes').value='';document.getElementById('featureAssetModal').classList.add('open');
+}
+function closeFeatureAssetEditor(){document.getElementById('featureAssetModal')?.classList.remove('open');}
+
+async function saveFeatureTestAsset(){
+  const featureId=document.getElementById('featureAssetFeature')?.value||'';const releaseId=document.getElementById('featureAssetRelease')?.value||null;const assetType=document.getElementById('featureAssetType')?.value||'xmind';const name=document.getElementById('featureAssetName')?.value.trim()||'';const externalUrl=document.getElementById('featureAssetUrl')?.value.trim()||'';const file=document.getElementById('featureAssetFile')?.files?.[0]||null;if(!featureId||!name){showToast('请选择功能并填写资产名称','error');return;}if(!file&&!externalUrl){showToast('请上传文件或填写外部链接','error');return;}if(externalUrl&&!safeDefectExternalUrl(externalUrl)){showToast('外部链接格式不正确','error');return;}if(file&&file.size>20*1024*1024){showToast('文件不能超过20MB','error');return;}if(file&&assetType==='xmind'&&!file.name.toLowerCase().endsWith('.xmind')){showToast('XMind资产请选择.xmind文件','error');return;}const button=document.getElementById('saveFeatureAssetBtn');button.disabled=true;let storagePath=null;
+  try{if(file){const safeName=file.name.replace(/[^a-zA-Z0-9._-]+/g,'_');storagePath=`${currentUser.id}/${crypto.randomUUID()}-${safeName}`;const upload=await sb.storage.from('qa-test-assets').upload(storagePath,file,{upsert:false,contentType:file.type||'application/octet-stream'});if(upload.error)throw upload.error;}const result=await sb.from('feature_test_assets').insert({feature_id:featureId,verified_release_id:releaseId,asset_type:assetType,name,storage_path:storagePath,external_url:externalUrl||null,file_name:file?.name||null,file_size:file?.size||null,notes:document.getElementById('featureAssetNotes').value.trim(),created_by:currentUser.id}).select('id').single();if(result.error)throw result.error;if(releaseId){const update=await sb.from('feature_release_changes').update({asset_update_status:'updated',completed_at:new Date().toISOString(),completed_by:currentUser.id}).eq('feature_id',featureId).eq('release_id',releaseId).eq('asset_update_status','pending');if(update.error)throw update.error;}closeFeatureAssetEditor();showToast(releaseId?'资产已更新，版本提醒已完成':'功能测试资产已添加');await renderFeatureTestMap();}catch(error){if(storagePath)await sb.storage.from('qa-test-assets').remove([storagePath]);showToast('保存资产失败：'+error.message,'error');}finally{button.disabled=false;}
+}
+
+async function markFeatureChangeNotNeeded(changeId){
+  try{const result=await sb.from('feature_release_changes').update({asset_update_status:'not_needed',completed_at:new Date().toISOString(),completed_by:currentUser.id}).eq('id',changeId);if(result.error)throw result.error;showToast('已确认本次变更无需更新测试资产');await renderFeatureTestMap();}catch(error){showToast('更新提醒失败：'+error.message,'error');}
+}
+
+async function openFeatureTestAsset(assetId){
+  const asset=featureTestMapRaw?.assets.find(item=>item.id===assetId);if(!asset)return;try{let url=safeDefectExternalUrl(asset.external_url||'');if(asset.storage_path){const result=await sb.storage.from('qa-test-assets').createSignedUrl(asset.storage_path,120);if(result.error)throw result.error;url=result.data.signedUrl;}if(!url)throw new Error('资产地址不存在');const link=document.createElement('a');link.href=url;link.target='_blank';link.rel='noopener';link.click();}catch(error){showToast('打开资产失败：'+error.message,'error');}
+}
+
+async function deleteFeatureTestAsset(assetId){
+  const asset=featureTestMapRaw?.assets.find(item=>item.id===assetId);if(!asset||!window.confirm(`确认删除“${asset.name}”吗？`))return;try{const result=await sb.from('feature_test_assets').delete().eq('id',assetId);if(result.error)throw result.error;if(asset.storage_path)await sb.storage.from('qa-test-assets').remove([asset.storage_path]);showToast('测试资产已删除');await renderFeatureTestMap();}catch(error){showToast('删除资产失败：'+error.message,'error');}
+}
+
+function featurePlatformText(value){return({android:'APP',ios:'APP',both:'APP',app:'APP',pad:'Pad',mobile_all:'APP + Pad',app_pad:'APP + Pad',web:'Web',pc:'PC'})[value]||value;}
+function featureChangeTypeText(value){return({new:'新增',changed:'调整',deprecated:'下线'})[value]||value;}
+
+function renderFeatureTestMapRowsLegacy(){
+  if(!featureTestMapRaw)return;const keyword=(document.getElementById('featureMapKeyword')?.value||'').trim().toLowerCase();const product=document.getElementById('featureMapProduct')?.value||'all';const moduleName=document.getElementById('featureMapModule')?.value||'all';const state=document.getElementById('featureMapState')?.value||'all';const releaseMap=new Map(featureTestMapRaw.releases.map(item=>[item.id,item]));const memberMap=new Map(featureTestMapRaw.members.map(item=>[item.id,item.name||'未命名成员']));
+  let features=featureTestMapRaw.features.filter(feature=>feature.status==='active'&&(product==='all'||feature.product_line===product)&&(moduleName==='all'||feature.module_name===moduleName)&&(!keyword||`${feature.name} ${feature.product_line} ${feature.module_name}`.toLowerCase().includes(keyword)));
+  features=features.filter(feature=>{const assets=featureTestMapRaw.assets.filter(item=>item.feature_id===feature.id);const pending=featureTestMapRaw.changes.some(item=>item.feature_id===feature.id&&item.asset_update_status==='pending');return state==='all'||(state==='pending'&&pending)||(state==='missing'&&!assets.some(item=>item.asset_type==='xmind'))||(state==='current'&&!pending&&assets.some(item=>item.asset_type==='xmind'));});
+  const rows=features.map(feature=>{const assets=featureTestMapRaw.assets.filter(item=>item.feature_id===feature.id);const changes=featureTestMapRaw.changes.filter(item=>item.feature_id===feature.id);const pending=changes.filter(item=>item.asset_update_status==='pending');const prdIds=new Set(changes.map(item=>item.prd_id).filter(Boolean));const tasks=featureTestMapRaw.tasks.filter(item=>prdIds.has(item.prd_id));const taskIds=new Set(tasks.map(item=>item.id));const plans=new Set(tasks.flatMap(versionTaskPlanIds));const snapshots=tasks.map(item=>featureTestMapRaw.snapshotMap.get(item.id)).filter(Boolean);const total=snapshots.reduce((sum,item)=>sum+Number(item.total_cases||0),0);const executed=snapshots.reduce((sum,item)=>sum+Number(item.executed_cases||0),0);const rounds=[...new Set(tasks.map(item=>Number(item.test_round||1)))].sort((a,b)=>a-b);const defects=featureTestMapRaw.defects.filter(item=>prdIds.has(item.prd_id)||taskIds.has(item.qa_task_id));const xmind=assets.filter(item=>item.asset_type==='xmind');const assetHtml=assets.length?assets.slice(0,4).map(item=>{const release=releaseMap.get(item.verified_release_id);const canDelete=userRole==='admin'||item.created_by===currentUser.id;return `<div style="display:flex;gap:5px;align-items:center;margin:3px 0;"><button class="risk-action" onclick="openFeatureTestAsset('${item.id}')">${versionAssetTypeText(item.asset_type)} · ${escapeDashboardHtml(item.name)}</button>${release?`<span class="release-meta">适配 ${escapeDashboardHtml(release.version)}</span>`:''}${canDelete?`<button class="dashboard-modal-close" style="width:24px;height:24px;" onclick="deleteFeatureTestAsset('${item.id}')"><i class="ti ti-trash"></i></button>`:''}</div>`;}).join(''):'<span class="release-meta">暂无测试资产</span>';const pendingHtml=pending.length?pending.map(change=>{const release=releaseMap.get(change.release_id);return `<div style="background:#FFF3CC;border-radius:9px;padding:7px;margin:4px 0;"><strong>${escapeDashboardHtml(release?.version||'未知版本')} ${featureChangeTypeText(change.change_type)} · XMind待更新</strong><br><span class="release-meta">${escapeDashboardHtml(change.change_summary||'未填写变更摘要')}</span><div style="display:flex;gap:5px;margin-top:5px;"><button class="risk-action" onclick="openFeatureAssetEditor('${feature.id}','${change.release_id}')">上传新版</button><button class="risk-action" onclick="markFeatureChangeNotNeeded('${change.id}')">无需更新</button></div></div>`;}).join(''):'<span class="card-tag" style="background:#DDF7EE;color:#0F6E56;">测试资产有效</span>';
+    return `<tr><td><strong>${escapeDashboardHtml(feature.name)}</strong><br><span class="release-meta">${escapeDashboardHtml(feature.product_line)} / ${escapeDashboardHtml(feature.module_name)} · ${featurePlatformText(feature.platform_scope)}</span><br><span class="release-meta">维护：${escapeDashboardHtml(memberMap.get(feature.owner_id)||'未指定')}</span></td><td>${assetHtml}<button class="btn-secondary" style="padding:5px 9px;margin-top:4px;" onclick="openFeatureAssetEditor('${feature.id}')">添加资产</button></td><td>${pendingHtml}</td><td><strong>${plans.size} 个计划</strong><br><span class="release-meta">${rounds.length?rounds.map(item=>`第${item}轮`).join('、'):'暂无轮次'} · 执行 ${executed}/${total}</span></td><td><strong>${defects.length}</strong><br><span class="release-meta">未关闭 ${defects.filter(item=>!['verified','closed'].includes(item.status)).length}</span></td><td>${userRole==='admin'?`<button class="btn-primary" style="padding:6px 10px;" onclick="openFeatureChangeEditor('${feature.id}')">登记版本变更</button>`:'-'}</td></tr>`;}).join('');
+  document.getElementById('featureMapRows').innerHTML=rows||'<tr><td colspan="6" class="dashboard-empty">当前筛选条件下暂无功能</td></tr>';document.getElementById('featureMapCount').textContent=`${features.length} 个功能`;
+}
+
+function renderFeatureTestMapRows(){
+  if(!featureTestMapRaw)return;
+  const triageButton=document.querySelector('button[onclick="importExistingPrdsAsFeatures()"]');if(triageButton)triageButton.textContent='整理 PRD 归属';
+  const validFeatureIds=new Set(featureTestMapRaw.features.filter(item=>item.status==='active').map(item=>item.id));for(const id of selectedFeatureIds)if(!validFeatureIds.has(id))selectedFeatureIds.delete(id);
+  const stateSelect=document.getElementById('featureMapState');
+  if(stateSelect&&!stateSelect.dataset.coverageOptions){const selected=stateSelect.value;stateSelect.innerHTML='<option value="all">全部状态</option><option value="pending">XMind 待更新</option><option value="missing">缺少 XMind</option><option value="no_owner">未配置负责人</option><option value="unlinked">未关联 PRD</option><option value="no_task">未创建工作事项</option><option value="no_plan">未关联 TestHub 计划</option><option value="complete">覆盖完整</option>';stateSelect.value=[...stateSelect.options].some(item=>item.value===selected)?selected:'all';stateSelect.dataset.coverageOptions='true';}
+  const keyword=(document.getElementById('featureMapKeyword')?.value||'').trim().toLowerCase();
+  const product=document.getElementById('featureMapProduct')?.value||'all';
+  const moduleName=document.getElementById('featureMapModule')?.value||'all';
+  const state=document.getElementById('featureMapState')?.value||'all';
+  const releaseMap=new Map(featureTestMapRaw.releases.map(item=>[item.id,item]));
+  const memberMap=new Map(featureTestMapRaw.members.map(item=>[item.id,item.name||'未命名成员']));
+  const featureDetails=new Map();
+  featureTestMapRaw.features.filter(feature=>feature.status==='active').forEach(feature=>{
+    const assets=featureTestMapRaw.assets.filter(item=>item.feature_id===feature.id);
+    const changes=featureTestMapRaw.changes.filter(item=>item.feature_id===feature.id);
+    const pending=changes.filter(item=>item.asset_update_status==='pending');
+    const prdIds=new Set(changes.map(item=>item.prd_id).filter(Boolean));
+    const tasks=featureTestMapRaw.tasks.filter(item=>prdIds.has(item.prd_id));
+    const taskIds=new Set(tasks.map(item=>item.id));
+    const plans=new Set(tasks.flatMap(versionTaskPlanIds));
+    const snapshots=tasks.map(item=>featureTestMapRaw.snapshotMap.get(item.id)).filter(Boolean);
+    const total=snapshots.reduce((sum,item)=>sum+Number(item.total_cases||0),0);
+    const executed=snapshots.reduce((sum,item)=>sum+Number(item.executed_cases||0),0);
+    const rounds=[...new Set(tasks.map(item=>Number(item.test_round||1)))].sort((a,b)=>a-b);
+    const defects=featureTestMapRaw.defects.filter(item=>prdIds.has(item.prd_id)||taskIds.has(item.qa_task_id));
+    const hasXmind=assets.some(item=>item.asset_type==='xmind');
+    featureDetails.set(feature.id,{assets,changes,pending,prdIds,tasks,plans,total,executed,rounds,defects,hasXmind});
+  });
+  let features=featureTestMapRaw.features.filter(feature=>{
+    if(feature.status!=='active'||(product!=='all'&&feature.product_line!==product)||(moduleName!=='all'&&feature.module_name!==moduleName))return false;
+    if(keyword&&!`${feature.name} ${feature.product_line} ${feature.module_name}`.toLowerCase().includes(keyword))return false;
+    const detail=featureDetails.get(feature.id);
+    const complete=detail.hasXmind&&!detail.pending.length&&feature.owner_id&&detail.prdIds.size&&detail.tasks.length&&detail.plans.size;
+    return state==='all'||(state==='pending'&&detail.pending.length)||(state==='missing'&&!detail.hasXmind)||(state==='no_owner'&&!feature.owner_id)||(state==='unlinked'&&!detail.prdIds.size)||(state==='no_task'&&!detail.tasks.length)||(state==='no_plan'&&!detail.plans.size)||(state==='complete'&&complete);
+  });
+  visibleFeatureIds=features.map(item=>item.id);
+  const oldRows=document.getElementById('featureMapRows');
+  if(oldRows){const table=oldRows.closest('table');const wrapper=table?.parentElement;if(wrapper)wrapper.outerHTML='<div id="featureMapBoard" class="feature-map-board"></div>';}
+  const board=document.getElementById('featureMapBoard');
+  if(!board)return;
+  const grouped=new Map();
+  features.forEach(feature=>{const key=`${feature.product_line}::${feature.module_name}`;const list=grouped.get(key)||[];list.push(feature);grouped.set(key,list);});
+  const orderedFeatures=[...grouped.values()].flat();
+  const batchHtml=featureBatchToolbarHtml(features);
+  const allPending=features.flatMap(feature=>(featureDetails.get(feature.id)?.pending||[]).map(change=>({feature,change})));
+  const allActive=featureTestMapRaw.features.filter(item=>item.status==='active');
+  const gapItems=[['missing','缺少 XMind',allActive.filter(item=>!featureDetails.get(item.id).hasXmind).length],['no_owner','未配置负责人',allActive.filter(item=>!item.owner_id).length],['unlinked','未关联 PRD',allActive.filter(item=>!featureDetails.get(item.id).prdIds.size).length],['no_task','未创建事项',allActive.filter(item=>!featureDetails.get(item.id).tasks.length).length],['no_plan','无 TestHub 计划',allActive.filter(item=>!featureDetails.get(item.id).plans.size).length]];
+  const gapHtml=`<div class="feature-module-section"><div class="feature-module-head"><div><div class="feature-module-title"><i class="ti ti-scan"></i>覆盖缺口</div><div class="feature-module-summary">点击分类即可定位需要补齐的功能</div></div><button class="btn-secondary" onclick="document.getElementById('featureMapState').value='all';renderFeatureTestMapRows()">查看全部</button></div><div class="feature-card-stats" style="grid-template-columns:repeat(auto-fit,minmax(130px,1fr));">${gapItems.map(([value,label,count])=>`<button class="feature-mini-stat" style="border:0;cursor:pointer;${count?'color:#9a3412;':''}" onclick="document.getElementById('featureMapState').value='${value}';renderFeatureTestMapRows()"><strong>${count}</strong><span>${label}</span></button>`).join('')}</div></div>`;
+  const editHtml=userRole==='admin'&&features.length?`<div style="display:flex;justify-content:flex-end;gap:7px;align-items:center;"><select class="dashboard-filter" id="featureQuickEdit">${features.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.module_name)} · ${escapeDashboardHtml(item.name)} · ${featurePlatformText(item.platform_scope)}</option>`).join('')}</select><button class="btn-secondary" onclick="openFeatureEditor(document.getElementById('featureQuickEdit').value)"><i class="ti ti-edit"></i> 编辑功能</button></div>`:'';
+  const pendingByRelease=new Map();allPending.forEach(item=>{const release=releaseMap.get(item.change.release_id);const label=release?.version||'未知版本';pendingByRelease.set(label,(pendingByRelease.get(label)||0)+1);});
+  const alertHtml=allPending.length?`<div class="feature-map-alert"><div><strong><i class="ti ti-alert-triangle"></i> ${allPending.length} 项测试资产待更新</strong><div class="release-meta" style="margin-top:4px;">${[...pendingByRelease.entries()].map(([label,count])=>`${escapeDashboardHtml(label)}：${count} 项`).join(' · ')}</div></div><button class="btn-secondary" onclick="document.getElementById('featureMapState').value='pending';renderFeatureTestMapRows()">进入待处理清单</button></div>`:'';
+  const sections=[...grouped.entries()].map(([key,moduleFeatures])=>{
+    const [productLine,moduleLabel]=key.split('::');
+    const covered=moduleFeatures.filter(item=>featureDetails.get(item.id).hasXmind).length;
+    const cards=moduleFeatures.map(feature=>{
+      const detail=featureDetails.get(feature.id);
+      const pendingChange=detail.pending[0];
+      const featureGaps=[!detail.hasXmind?'缺少 XMind':'',!feature.owner_id?'未配置负责人':'',!detail.prdIds.size?'未关联 PRD':'',!detail.tasks.length?'未创建事项':'',!detail.plans.size?'无 TestHub 计划':''].filter(Boolean);
+      const statusClass=pendingChange?'pending':(featureGaps.length?'missing':'');
+      const statusText=pendingChange?'XMind 待更新':(featureGaps.length?`待补齐 ${featureGaps.length} 项`:'覆盖完整');
+      const featureGapHtml=featureGaps.length?`<div class="feature-asset-list">${featureGaps.map(item=>`<span class="feature-state-chip missing">${item}</span>`).join('')}</div>`:'';
+      const percent=detail.total?Math.min(100,Math.round(detail.executed/detail.total*100)):0;
+      const openDefects=detail.defects.filter(item=>!['verified','closed'].includes(item.status)).length;
+      const assetHtml=detail.assets.length?detail.assets.slice(0,5).map(asset=>`<button class="feature-asset-pill" onclick="openFeatureTestAsset('${asset.id}')"><i class="ti ti-${asset.asset_type==='xmind'?'sitemap':'file'}"></i>${escapeDashboardHtml(asset.name)}</button>`).join(''):'<span class="release-meta">尚未添加 XMind 或用例资产</span>';
+      const changeHtml=pendingChange?(()=>{const release=releaseMap.get(pendingChange.release_id);return `<div class="feature-change-alert"><strong>${escapeDashboardHtml(release?.version||'新版本')} · ${featureChangeTypeText(pendingChange.change_type)}</strong><div style="margin-top:3px;">${escapeDashboardHtml(pendingChange.change_summary||'版本发生变更，请确认原测试资产是否需要更新')}</div><div class="feature-card-actions"><button class="risk-action" onclick="openFeatureAssetEditor('${feature.id}','${pendingChange.release_id}')">上传新版资产</button><button class="risk-action" onclick="markFeatureChangeNotNeeded('${pendingChange.id}')">确认无需更新</button></div></div>`;})():'';
+      return `<article class="feature-visual-card ${statusClass}"><div class="feature-card-top"><div><div class="feature-card-name">${escapeDashboardHtml(feature.name)}</div><div class="feature-card-meta">${featurePlatformText(feature.platform_scope)} · 维护人：${escapeDashboardHtml(memberMap.get(feature.owner_id)||'未指定')}</div></div><span class="feature-state-chip ${statusClass}">${statusText}</span></div>${featureGapHtml}${changeHtml}<div class="feature-asset-list">${assetHtml}</div><div class="feature-progress-wrap"><div class="feature-progress-head"><span>TestHub 用例执行</span><strong>${detail.executed}/${detail.total}</strong></div><div class="feature-progress-track"><div class="feature-progress-fill" style="width:${percent}%"></div></div></div><div class="feature-card-stats"><div class="feature-mini-stat"><strong>${detail.plans.size}</strong><span>测试计划</span></div><div class="feature-mini-stat"><strong>${detail.rounds.length}</strong><span>测试轮次</span></div><div class="feature-mini-stat"><strong>${openDefects}/${detail.defects.length}</strong><span>未关闭/BUG</span></div></div><div class="feature-card-actions"><button class="btn-secondary" onclick="openFeatureAssetEditor('${feature.id}')"><i class="ti ti-plus"></i> 添加资产</button>${userRole==='admin'?`<button class="btn-secondary" onclick="openFeatureChangeEditor('${feature.id}')"><i class="ti ti-history"></i> 登记变更</button>`:''}</div></article>`;
+    }).join('');
+    return `<section class="feature-module-section"><div class="feature-module-head"><div><div class="feature-module-title"><i class="ti ti-folders"></i>${escapeDashboardHtml(moduleLabel)}</div><div class="feature-module-summary">${escapeDashboardHtml(productLine)} · ${moduleFeatures.length} 个功能</div></div><div style="min-width:130px;"><div class="feature-progress-head"><span>XMind 覆盖</span><strong>${qualityPercent(covered,moduleFeatures.length)}%</strong></div><div class="feature-progress-track"><div class="feature-progress-fill" style="width:${qualityPercent(covered,moduleFeatures.length)}%"></div></div></div></div><div class="feature-card-grid">${cards}</div></section>`;
+  }).join('');
+  board.innerHTML=batchHtml+gapHtml+editHtml+alertHtml+(sections||'<div class="dashboard-empty">当前筛选条件下暂无功能</div>');
+  board.querySelectorAll('.feature-visual-card').forEach((card,index)=>{const feature=orderedFeatures[index];if(!feature)return;const selected=selectedFeatureIds.has(feature.id);card.classList.toggle('selected',selected);card.insertAdjacentHTML('afterbegin',`<button class="feature-select-toggle" title="${selected?'取消选择':'选择功能'}" onclick="event.stopPropagation();toggleFeatureSelection('${feature.id}')"><i class="ti ti-${selected?'check':'square'}"></i></button>`);});
+  const count=document.getElementById('featureMapCount');if(count)count.textContent=`${features.length} 个功能`;
+}
+
+async function renderFeatureTestMap(){
+  const content=document.getElementById('content');content.style.padding='24px';content.innerHTML='<div class="history-card"><div class="dashboard-loading">正在加载全功能测试地图…</div></div>';
+  try{const [featuresResult,changesResult,assetsResult,releasesResult,prdsResult,tasksResult,snapshotsResult,defectsResult,membersResult]=await Promise.all([sb.from('product_features').select('*').order('module_name'),sb.from('feature_release_changes').select('*').order('created_at',{ascending:false}),sb.from('feature_test_assets').select('*').order('updated_at',{ascending:false}),sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),sb.from('prds').select('id,title,release_id,version,product').order('created_at',{ascending:false}),sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status,testhub_plan_id,testhub_plan_ids').neq('status','cancelled'),sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),sb.from('quality_defects').select('id,prd_id,qa_task_id,status,severity'),sb.from('profiles').select('id,name').order('name')]);for(const result of [featuresResult,changesResult,assetsResult,releasesResult,prdsResult,tasksResult,snapshotsResult,defectsResult,membersResult])if(result.error)throw result.error;featureTestMapRaw={features:featuresResult.data||[],changes:changesResult.data||[],assets:assetsResult.data||[],releases:releasesResult.data||[],prds:prdsResult.data||[],tasks:tasksResult.data||[],defects:defectsResult.data||[],members:membersResult.data||[],snapshotMap:new Map((snapshotsResult.data||[]).map(item=>[item.task_id,item]))};const active=featureTestMapRaw.features.filter(item=>item.status==='active');const xmindFeatures=new Set(featureTestMapRaw.assets.filter(item=>item.asset_type==='xmind').map(item=>item.feature_id));const pending=featureTestMapRaw.changes.filter(item=>item.asset_update_status==='pending');const productOptions=[...new Set(active.map(item=>item.product_line))].sort();const moduleOptions=[...new Set(active.map(item=>item.module_name))].sort();content.innerHTML=`<div class="history-card"><div class="card-hd"><div><span class="card-title">🗺️ 全功能测试地图</span><div class="release-meta">功能长期维护；版本变更会提醒更新既有 XMind 和测试资产</div></div><div style="display:flex;gap:7px;align-items:center;">${userRole==='admin'?'<button class="btn-secondary" onclick="importExistingPrdsAsFeatures()">从现有PRD初始化</button><button class="btn-secondary" onclick="openFeatureEditor()">新增功能</button><button class="btn-primary" onclick="openFeatureChangeEditor()">登记版本变更</button>':''}<span class="card-tag" id="featureMapCount"></span></div></div><div class="team-task-filters"><input class="dashboard-filter" id="featureMapKeyword" type="search" placeholder="搜索功能、产品线或模块" oninput="renderFeatureTestMapRows()"><select class="dashboard-filter" id="featureMapProduct" onchange="renderFeatureTestMapRows()"><option value="all">全部产品线</option>${productOptions.map(item=>`<option value="${escapeDashboardHtml(item)}">${escapeDashboardHtml(item)}</option>`).join('')}</select><select class="dashboard-filter" id="featureMapModule" onchange="renderFeatureTestMapRows()"><option value="all">全部模块</option>${moduleOptions.map(item=>`<option value="${escapeDashboardHtml(item)}">${escapeDashboardHtml(item)}</option>`).join('')}</select><select class="dashboard-filter" id="featureMapState" onchange="renderFeatureTestMapRows()"><option value="all">全部资产状态</option><option value="pending">XMind待更新</option><option value="missing">缺少XMind</option><option value="current">资产有效</option></select></div><div class="quality-metrics">${qualityMetricHtml('全功能',active.length,'当前有效功能',null)}${qualityMetricHtml('XMind覆盖',`${qualityPercent(xmindFeatures.size,active.length)}%`,`${xmindFeatures.size}/${active.length} 个功能`,qualityPercent(xmindFeatures.size,active.length),'var(--purple)')}${qualityMetricHtml('待更新提醒',pending.length,pending.length?'有版本变更需要处理':'测试资产均有效',null)}${qualityMetricHtml('历史版本变更',featureTestMapRaw.changes.length,'可追溯记录',null)}</div><div style="overflow-x:auto;"><table class="history-table" style="min-width:1180px;"><thead><tr><th>全局功能</th><th>当前 XMind / 资产</th><th>版本变更提醒</th><th>TestHub / 轮次</th><th>BUG</th><th>操作</th></tr></thead><tbody id="featureMapRows"></tbody></table></div></div>${featureMapModalHtml()}`;renderFeatureTestMapRows();}catch(error){console.error('[feature-map] load failed:',error);content.innerHTML=`<div class="history-card"><div class="dashboard-empty">全功能测试地图加载失败：${escapeDashboardHtml(error.message)}<br><span class="release-meta">请先执行全功能测试地图数据库迁移</span></div></div>`;}
 }
 
 async function renderTaskRecords() {
@@ -1762,10 +2333,10 @@ async function renderTaskRecords() {
 
   try {
     let query = sb.from('qa_tasks')
-      .select('id,title,description,priority,task_type,status,assignee_id,due_date,release_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days')
+      .select('id,title,description,priority,task_type,status,test_round,assignee_id,due_date,release_id,prd_id,requirement_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,related_id,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days')
       .order('created_at', { ascending:false })
       .limit(200);
-    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, activityResult] = await Promise.all([
+    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, activityResult, requirementsResult, prdsResult] = await Promise.all([
       query,
       sb.from('profiles').select('id,name'),
       sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at').order('work_date', { ascending:false }),
@@ -1774,7 +2345,9 @@ async function renderTaskRecords() {
       sb.from('task_testhub_daily_execution').select('task_id,work_date,executor_key,member_id,executor_name,executed_cases,synced_at'),
       sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false }),
       sb.from('releases').select('id,version,name,platform,status'),
-      sb.from('qa_task_activity').select('task_id,action,changed_fields,changed_by,created_at').order('created_at', { ascending:false }).limit(1000)
+      sb.from('qa_task_activity').select('task_id,action,changed_fields,changed_by,created_at').order('created_at', { ascending:false }).limit(1000),
+      sb.from('requirements').select('id,title'),
+      sb.from('prds').select('id,title')
     ]);
     if (tasksResult.error) throw tasksResult.error;
     if (profilesResult.error) throw profilesResult.error;
@@ -1785,6 +2358,8 @@ async function renderTaskRecords() {
     if (historyResult.error) throw historyResult.error;
     if (releasesResult.error) throw releasesResult.error;
     if (activityResult.error) throw activityResult.error;
+    if (requirementsResult.error) throw requirementsResult.error;
+    if (prdsResult.error) throw prdsResult.error;
     dashboardMembers = profilesResult.data || [];
     taskProgressByTask = new Map();
     (progressResult.data || []).forEach(log => {
@@ -1824,6 +2399,8 @@ async function renderTaskRecords() {
 
     const names = new Map((profilesResult.data || []).map(profile => [profile.id, profile.name || '未命名成员']));
     const releaseNames = new Map((releasesResult.data || []).map(release => [release.id, `${release.name || release.version}${release.platform ? ` · ${release.platform}` : ''}`]));
+    const requirementNames = new Map((requirementsResult.data || []).map(requirement => [requirement.id, requirement.title]));
+    const prdNames = new Map((prdsResult.data || []).map(prd => [prd.id, prd.title]));
     const statuses = {
       todo: '<span class="status-badge status-queued">待处理</span>',
       in_progress: '<span class="status-badge status-running">进行中</span>',
@@ -1863,7 +2440,7 @@ async function renderTaskRecords() {
         <td><strong>${escapeDashboardHtml(task.title)}</strong></td>
         <td>${assignments.map(item => escapeDashboardHtml(names.get(item.member_id) || '未命名成员')).join('、')}</td>
         <td>${statuses[task.status] || escapeDashboardHtml(task.status)}</td>
-        <td>${escapeDashboardHtml(range)}${task.release_id ? `<br><span style="color:var(--purple);font-size:10px;">版本：${escapeDashboardHtml(releaseNames.get(task.release_id) || '未命名版本')}</span>` : ''}<br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(points)} · 实际累计 ${actual.totalActual.toFixed(2)} 点${escapeDashboardHtml(testHubText)}</span>${task.status === 'blocked' && task.blocked_reason ? `<div class="assignee-allocation-note">阻塞：${escapeDashboardHtml(task.blocked_reason)}${task.blocked_until ? ` · 预计 ${escapeDashboardHtml(task.blocked_until)} 解除` : ''}</div>` : ''}${task.status === 'done' && task.completion_note ? `<div class="assignee-allocation-note">完成：${escapeDashboardHtml(task.completion_note)}</div>` : ''}${renderTaskMemberDailyDetail(task, names, snapshot)}${renderTaskAllocationHistory(task, names)}${renderTaskActivity(task, names)}</td>
+        <td>${escapeDashboardHtml(range)}<br><span style="color:#7a5a00;font-size:10px;">第 ${Number(task.test_round || 1)} 轮</span>${task.release_id ? `<br><span style="color:var(--purple);font-size:10px;">版本：${escapeDashboardHtml(releaseNames.get(task.release_id) || '未命名版本')}</span>` : ''}${task.requirement_id ? `<br><span style="color:#0F6E56;font-size:10px;">验收范围：${escapeDashboardHtml(requirementNames.get(task.requirement_id) || '已关联验收范围')}</span>` : task.prd_id ? `<br><span style="color:#0F6E56;font-size:10px;">PRD：${escapeDashboardHtml(prdNames.get(task.prd_id) || '已关联 PRD')}</span>` : ''}<br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(points)} · 实际累计 ${actual.totalActual.toFixed(2)} 点${escapeDashboardHtml(testHubText)}</span>${task.status === 'blocked' && task.blocked_reason ? `<div class="assignee-allocation-note">阻塞：${escapeDashboardHtml(task.blocked_reason)}${task.blocked_until ? ` · 预计 ${escapeDashboardHtml(task.blocked_until)} 解除` : ''}</div>` : ''}${task.status === 'done' && task.completion_note ? `<div class="assignee-allocation-note">完成：${escapeDashboardHtml(task.completion_note)}</div>` : ''}${renderTaskMemberDailyDetail(task, names, snapshot)}${renderTaskAllocationHistory(task, names)}${renderTaskActivity(task, names)}</td>
         <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="openEditQaTask('${task.id}', ${canEdit ? 'false' : 'true'})">${canEdit ? '查看/编辑' : '查看'}</button>${canEdit ? `<button class="btn-secondary" onclick="duplicateQaTask('${task.id}')">复制</button>` : ''}${testHubPlanCount ? '<span class="progress-mode-badge auto">TestHub 自动</span>' : `<button class="btn-primary" onclick="openProgressModal('${task.id}')">填报进度</button><span class="progress-mode-badge manual">手工</span>`}${userRole === 'admin' && testHubPlanCount ? `<button class="btn-secondary" onclick="syncTestHubProgress('${task.id}', this)">刷新进度</button>` : ''}</div></td>
       </tr>`;
     }).join('');
@@ -2900,7 +3477,10 @@ async function loadDashboardData(token) {
     sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false }),
     userRole === 'admin'
       ? sb.from('admin_risk_actions').select('risk_key,action,snoozed_until,updated_at')
-      : Promise.resolve({ data:[], error:null })
+      : Promise.resolve({ data:[], error:null }),
+    userRole === 'admin'
+      ? sb.from('quality_defects').select('id,title,executor_id,review_status,found_at,exposed_stage,severity').neq('review_status','completed').order('found_at',{ascending:true})
+      : sb.from('quality_defects').select('id,title,executor_id,review_status,found_at,exposed_stage,severity').eq('executor_id',currentUser.id).neq('review_status','completed').order('found_at',{ascending:true})
   ]);
 
   if (token !== dashboardLoadToken || currentPage !== 'dashboard') return;
@@ -2921,6 +3501,7 @@ async function loadDashboardData(token) {
   const testHubDailyResult = dashboardQueryResult(results[13], []);
   const allocationHistoryResult = dashboardQueryResult(results[14], []);
   const riskActionsResult = dashboardQueryResult(results[15], []);
+  const pendingDefectsResult = dashboardQueryResult(results[16], []);
   taskAssigneesByTask = new Map();
   taskAssigneesResult.data.forEach(item => {
     const list = taskAssigneesByTask.get(item.task_id) || [];
@@ -2997,8 +3578,18 @@ async function loadDashboardData(token) {
       .reduce((subtotal, log) => subtotal + Number(log.progress_points || 0), 0);
   }, 0);
   const memberGapToday = Math.max(memberPlannedToday - memberActualToday, 0);
+  const pendingDefects = pendingDefectsResult.data;
 
   const risks = [];
+  if (pendingDefects.length) {
+    const oldest = pendingDefects[0];
+    risks.push({
+      level: pendingDefects.some(item => item.exposed_stage === 'production' || ['P0','P1'].includes(item.severity)) ? 'high' : 'medium',
+      title: userRole === 'admin' ? `全员有 ${pendingDefects.length} 个 BUG 待负责人复盘` : `我有 ${pendingDefects.length} 个 BUG 待复盘`,
+      meta: `最早：${oldest.title} · ${oldest.found_at}`,
+      action:'bugs', actionLabel:userRole === 'admin' ? '查看复盘进度' : '去填写'
+    });
+  }
   if (userRole === 'admin' && automationFailures.length) risks.push({ level:'high', title:`最近24小时有 ${automationFailures.length} 次自动化失败`, meta:'检查执行历史与失败原因', action:'automation', actionLabel:'查看结果' });
   if (userRole === 'admin' && staleRuns.length) risks.push({ level:'high', title:`${staleRuns.length} 个自动化任务运行超过2小时`, meta:'检查 Runner 和设备状态', action:'automation', actionLabel:'查看任务' });
   if (userRole === 'admin' && offlineDevices.length) risks.push({ level:'high', title:`${offlineDevices.length} 台自动化设备离线`, meta:offlineDevices.map(d => d.model_name || d.platform).slice(0,3).join('、'), action:'automation', actionLabel:'检查设备' });
@@ -3057,7 +3648,7 @@ async function loadDashboardData(token) {
 
   const resourceDataFailed = userRole === 'admin' && (resourceMembersResult.failed || resourceTasksResult.failed || workCalendarResult.failed);
   const systemRiskDataFailed = userRole === 'admin' && (riskActionsResult.failed || runsResult.failed || devicesResult.failed || consumablesResult.failed || checksResult.failed || releaseResult.failed || resourceDataFailed || syncHealthResult.failed);
-  const riskDataFailed = tasksResult.failed || progressResult.failed || testHubProgressResult.failed || allocationHistoryResult.failed || systemRiskDataFailed;
+  const riskDataFailed = tasksResult.failed || progressResult.failed || testHubProgressResult.failed || allocationHistoryResult.failed || pendingDefectsResult.failed || systemRiskDataFailed;
   if (userRole === 'admin') {
     setDashboardMetric('sc-tasks', todayTasks.length, tasksResult.failed);
     setDashboardMetric('sc-auto-failed', automationFailures.length, runsResult.failed);
@@ -3095,6 +3686,8 @@ async function openNewTaskModal() {
   const modal = document.getElementById('newTaskModal');
   if (!modal) return;
   editingQaTaskId = null;
+  editingQaTaskPrdId = null;
+  editingQaTaskRequirementId = null;
   taskEditorReadOnly = false;
   modal.querySelectorAll('input, textarea, select').forEach(element => {
     element.disabled = element.id === 'newTaskAssignee' && userRole !== 'admin';
@@ -3109,8 +3702,11 @@ async function openNewTaskModal() {
   if (templateSelect) templateSelect.value = '';
   document.getElementById('newTaskTitle').value = '';
   document.getElementById('newTaskDescription').value = '';
+  const requirementContext = document.getElementById('requirementTaskContext');
+  if (requirementContext) { requirementContext.style.display = 'none'; requirementContext.textContent = ''; }
   document.getElementById('newTaskType').value = 'other';
   document.getElementById('newTaskStatus').value = 'todo';
+  document.getElementById('newTaskRound').value = '1';
   document.getElementById('newTaskBlockedReason').value = '';
   document.getElementById('newTaskBlockedUntil').value = '';
   document.getElementById('newTaskCompletionNote').value = '';
@@ -3141,6 +3737,8 @@ async function openEditQaTask(id, readOnly = false) {
   const modal = document.getElementById('newTaskModal');
   if (!task || !modal) { showToast('未找到工作事项，请刷新后重试', 'error'); return; }
   editingQaTaskId = id;
+  editingQaTaskPrdId = task.prd_id || null;
+  editingQaTaskRequirementId = task.requirement_id || null;
   taskEditorReadOnly = readOnly;
   const assignments = taskAssigneeList(task);
   await loadTaskAssignees(assignments.map(item => item.member_id), assignments);
@@ -3149,10 +3747,16 @@ async function openEditQaTask(id, readOnly = false) {
   document.getElementById('saveTaskBtnText').textContent = '保存修改';
   document.getElementById('newTaskTitle').value = task.title || '';
   document.getElementById('newTaskDescription').value = task.description || '';
+  const requirementContext = document.getElementById('requirementTaskContext');
+  if (requirementContext) {
+    requirementContext.style.display = task.prd_id || task.requirement_id ? '' : 'none';
+    requirementContext.textContent = task.requirement_id ? '该事项已关联 PRD 验收范围，完成或阻塞状态会自动回写交付进度。' : task.prd_id ? '该事项已直接关联 PRD，将计入该 PRD 的交付进度。' : '';
+  }
   const templateSelect = document.getElementById('newTaskTemplate');
   if (templateSelect) templateSelect.value = '';
   document.getElementById('newTaskType').value = task.task_type || 'other';
   document.getElementById('newTaskStatus').value = task.status || 'todo';
+  document.getElementById('newTaskRound').value = String(task.test_round || 1);
   document.getElementById('newTaskEffort').value = task.effort_person_days || '';
   renderAssigneeAllocationInputs(new Map(assignments.map(item => [item.member_id, Number(item.allocated_effort)])));
   document.getElementById('newTaskAllocationStart').value = task.allocation_start_date || '';
@@ -3187,12 +3791,15 @@ async function duplicateQaTask(id) {
   if (!task || !canCurrentUserEditTask(task)) { showToast('没有复制该事项的权限', 'error'); return; }
   const assignments = taskAssigneeList(task).map(item => ({ member_id:item.member_id, allocated_effort:Number(item.allocated_effort) }));
   await openNewTaskModal();
+  editingQaTaskPrdId = task.prd_id || null;
+  editingQaTaskRequirementId = task.requirement_id || null;
   document.getElementById('taskModalTitle').textContent = '复制工作事项';
   document.getElementById('saveTaskBtnText').textContent = '创建副本';
   document.getElementById('newTaskTitle').value = `${task.title}（副本）`;
   document.getElementById('newTaskDescription').value = task.description || '';
   document.getElementById('newTaskType').value = task.task_type || 'other';
   document.getElementById('newTaskStatus').value = 'todo';
+  document.getElementById('newTaskRound').value = String(Math.min(Number(task.test_round || 1) + 1, 99));
   document.getElementById('newTaskEffort').value = task.effort_person_days || 1;
   document.getElementById('newTaskAllocationStart').value = task.allocation_start_date || dashboardTodayInputValue();
   document.getElementById('newTaskAllocationEnd').value = task.allocation_end_date || dashboardTodayInputValue();
@@ -3598,6 +4205,7 @@ async function saveQaTask() {
   const priority = existingTask?.priority || 'P1';
   const taskType = document.getElementById('newTaskType')?.value;
   const status = document.getElementById('newTaskStatus')?.value || 'todo';
+  const testRound = Number(document.getElementById('newTaskRound')?.value || 1);
   const releaseId = document.getElementById('newTaskRelease')?.value || null;
   const blockedReason = document.getElementById('newTaskBlockedReason')?.value.trim() || '';
   const blockedOwnerId = document.getElementById('newTaskBlockedOwner')?.value || null;
@@ -3613,6 +4221,7 @@ async function saveQaTask() {
   const testHubEffort = testHubPlanIds.length ? effort : null;
   const button = document.getElementById('saveTaskBtn');
   if (!title) { showToast('请填写任务标题', 'error'); return; }
+  if (!Number.isInteger(testRound) || testRound < 1 || testRound > 99) { showToast('测试轮次必须是 1 到 99 的整数', 'error'); return; }
   if (!Number.isFinite(effort) || effort <= 0) { showToast('预估人天必须大于 0', 'error'); return; }
   if (!assigneeIds.length) { showToast('请至少选择 1 位负责人', 'error'); return; }
   if (status === 'blocked' && !blockedReason) { showToast('请填写阻塞原因', 'error'); return; }
@@ -3644,7 +4253,10 @@ async function saveQaTask() {
       priority,
       task_type: taskType,
       status,
+      test_round: testRound,
       release_id: releaseId,
+      prd_id: editingQaTaskPrdId,
+      requirement_id: editingQaTaskRequirementId,
       blocked_reason: status === 'blocked' ? blockedReason : null,
       blocked_owner_id: status === 'blocked' ? blockedOwnerId : null,
       blocked_until: status === 'blocked' ? blockedUntil : null,
@@ -3654,6 +4266,7 @@ async function saveQaTask() {
       due_date: due.toISOString(),
       source: existingTask?.source || 'manual',
       related_type: existingTask?.related_type || null,
+      related_id: existingTask?.related_id || null,
       external_id: existingTask?.external_id || null,
       external_url: existingTask?.external_url || null,
       effort_person_days: effort,
@@ -3728,6 +4341,85 @@ async function copyTodaySummary() {
     showToast('复制失败，请检查浏览器剪贴板权限', 'error');
   }
 }
+
+async function openRequirementTask(requirement) {
+  if (!requirement?.id) return;
+  const item = document.querySelector(`.sb-item[onclick*="'tasks'"]`);
+  if (!item) { showToast('未找到工作事项入口', 'error'); return; }
+  nav(item, 'tasks');
+  for (let attempt = 0; attempt < 60 && !document.getElementById('newTaskModal'); attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (!document.getElementById('newTaskModal')) { showToast('工作事项页面加载失败，请重试', 'error'); return; }
+  await openNewTaskModal();
+  editingQaTaskPrdId = requirement.prd_id || null;
+  editingQaTaskRequirementId = requirement.id;
+  const nextRound = Number(requirement.next_round || 1);
+  document.getElementById('taskModalTitle').textContent = '从验收范围创建工作事项';
+  document.getElementById('saveTaskBtnText').textContent = '创建关联事项';
+  document.getElementById('newTaskTitle').value = `[验收][第${nextRound}轮] ${requirement.title || requirement.prd_title || ''}`;
+  document.getElementById('newTaskRound').value = String(nextRound);
+  document.getElementById('newTaskDescription').value = [requirement.prd_title ? `所属 PRD：${requirement.prd_title}` : '', requirement.description || ''].filter(Boolean).join('\n');
+  document.getElementById('newTaskType').value = 'test_execution';
+  if (requirement.release_id) await loadTaskReleases(requirement.release_id);
+  if (requirement.release_date) {
+    const today = dashboardTodayInputValue();
+    const deadline = requirement.release_date < today ? today : requirement.release_date;
+    document.getElementById('newTaskAllocationEnd').value = deadline;
+  }
+  const context = document.getElementById('requirementTaskContext');
+  if (context) {
+    context.style.display = '';
+    context.textContent = `已关联验收范围：${requirement.title || '未命名验收范围'}。事项状态会自动汇总到 PRD 交付进度。`;
+  }
+  distributeAssigneeEffortEvenly();
+}
+
+async function openPrdTask(prd) {
+  if (!prd?.id) return;
+  const item = document.querySelector(`.sb-item[onclick*="'tasks'"]`);
+  if (!item) { showToast('未找到工作事项入口', 'error'); return; }
+  nav(item, 'tasks');
+  for (let attempt = 0; attempt < 60 && !document.getElementById('newTaskModal'); attempt += 1) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (!document.getElementById('newTaskModal')) { showToast('工作事项页面加载失败，请重试', 'error'); return; }
+  await openNewTaskModal();
+  editingQaTaskPrdId = prd.id;
+  editingQaTaskRequirementId = null;
+  const nextRound = Number(prd.next_round || 1);
+  document.getElementById('taskModalTitle').textContent = '从 PRD 创建工作事项';
+  document.getElementById('saveTaskBtnText').textContent = '创建关联事项';
+  document.getElementById('newTaskTitle').value = `[PRD][第${nextRound}轮] ${prd.title || ''}`;
+  document.getElementById('newTaskRound').value = String(nextRound);
+  document.getElementById('newTaskDescription').value = prd.notes || '';
+  document.getElementById('newTaskType').value = 'test_execution';
+  if (prd.release_id) await loadTaskReleases(prd.release_id);
+  if (prd.release_date) {
+    const today = dashboardTodayInputValue();
+    document.getElementById('newTaskAllocationEnd').value = prd.release_date < today ? today : prd.release_date;
+  }
+  const context = document.getElementById('requirementTaskContext');
+  if (context) {
+    context.style.display = '';
+    context.textContent = `已直接关联 PRD：${prd.title || '未命名 PRD'}。无需额外拆分验收范围。`;
+  }
+  distributeAssigneeEffortEvenly();
+}
+
+window.addEventListener('message', event => {
+  if (event.origin !== window.location.origin) return;
+  const action = event.data?.type === 'open-requirement-task'
+    ? openRequirementTask(event.data.requirement)
+    : event.data?.type === 'open-prd-task'
+      ? openPrdTask(event.data.prd)
+      : null;
+  if (!action) return;
+  action.catch(error => {
+    console.error('[requirement] open task failed:', error);
+    showToast('创建关联工作事项失败：' + error.message, 'error');
+  });
+});
 
 function navTo(page) {
   const item = document.querySelector(`.sb-item[onclick*="'${page}'"]`);

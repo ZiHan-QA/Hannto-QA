@@ -45,12 +45,43 @@ body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var
 
 /* PRD 卡片列表 */
 .prd-grid { display:flex; flex-direction:column; gap:10px; }
+.version-section { background:#fff; border:0.5px solid var(--border); border-radius:14px; overflow:hidden; }
+.version-section.current { border-color:rgba(95,39,205,0.35); box-shadow:0 5px 18px rgba(95,39,205,0.08); }
+.version-head { display:flex; align-items:center; gap:12px; padding:14px 16px; background:linear-gradient(90deg,#fff,#fffaf4); cursor:pointer; }
+.version-section.current .version-head { background:linear-gradient(90deg,#f7f3ff,#fff); }
+.version-name { font-size:14px; font-weight:600; color:var(--text); display:flex; align-items:center; gap:7px; }
+.version-current { font-size:10px; color:#fff; background:var(--purple); padding:2px 7px; border-radius:8px; }
+.version-meta { display:flex; gap:12px; flex-wrap:wrap; color:var(--sub); font-size:10px; }
+.version-meta .risk { color:#c0265a; }
+.version-progress { margin-left:auto; min-width:150px; }
+.version-progress-text { display:flex; justify-content:space-between; font-size:10px; color:var(--sub); margin-bottom:4px; }
+.version-progress-bar { height:5px; border-radius:5px; background:#F1EFE8; overflow:hidden; }
+.version-progress-bar span { display:block; height:100%; border-radius:5px; background:linear-gradient(90deg,var(--purple),var(--pink)); }
+.version-chevron { color:var(--sub); font-size:16px; }
+.version-body { border-top:0.5px solid var(--border); }
+.version-section.collapsed .version-body { display:none; }
+.prd-table-head,.prd-row { display:grid; grid-template-columns:minmax(260px,2fr) 90px 105px 120px 95px 130px; align-items:center; gap:10px; }
+.prd-table-head { padding:8px 16px; color:var(--sub); font-size:10px; background:#fffdfa; border-bottom:0.5px solid var(--border); }
+.prd-card { border-bottom:0.5px solid var(--border); }
+.prd-card:last-child { border-bottom:0; }
+.prd-row { padding:11px 16px; cursor:pointer; transition:background 0.15s; }
+.prd-row:hover { background:#fffaf6; }
+.prd-card.expanded .prd-row { background:#fff8fb; }
+.prd-main { min-width:0; }
+.prd-main-title { font-size:12px; font-weight:500; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.prd-main-meta { margin-top:3px; color:var(--sub); font-size:10px; display:flex; gap:9px; flex-wrap:wrap; }
+.prd-cell { font-size:11px; color:var(--text); }
+.prd-cell small { display:block; color:var(--sub); font-size:9px; margin-top:2px; }
+.delivery-cell { color:var(--purple); }
+.risk-cell { color:#0F6E56; }
+.risk-cell.has-risk { color:#c0265a; font-weight:500; }
+.risk-cell.has-warning { color:#7a5a00; font-weight:500; }
+.prd-task-button { border:0; border-radius:7px; padding:5px 8px; background:#EDE8FF; color:var(--purple); cursor:pointer; font:inherit; font-size:10px; display:flex; align-items:center; gap:3px; white-space:nowrap; }
+.prd-task-button:hover { background:var(--purple); color:#fff; }
 .prd-card {
-  background:#fff; border-radius:14px; border:0.5px solid var(--border);
-  padding:16px 18px; cursor:pointer; transition:all 0.15s;
+  background:#fff;
 }
-.prd-card:hover { border-color:var(--pink); box-shadow:0 4px 16px rgba(255,107,157,0.1); transform:translateY(-1px); }
-.prd-card.expanded { border-color:var(--pink); }
+.prd-card:hover { background:#fffaf6; }
 .prd-card-head { display:flex; align-items:flex-start; gap:12px; }
 .prd-icon { width:38px; height:38px; border-radius:10px; background:#EDE8FF; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 .prd-icon i { font-size:18px; color:var(--purple); }
@@ -59,7 +90,7 @@ body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var
 .prd-meta { font-size:11px; color:var(--sub); display:flex; gap:12px; flex-wrap:wrap; }
 .prd-meta span { display:flex; align-items:center; gap:4px; }
 .prd-actions { display:flex; gap:6px; flex-shrink:0; }
-.prd-body { margin-top:14px; padding-top:14px; border-top:0.5px solid var(--border); display:none; }
+.prd-body { padding:14px 16px 16px; border-top:0.5px solid var(--border); display:none; background:#fff; }
 .prd-card.expanded .prd-body { display:block; }
 
 .tag { font-size:10px; padding:2px 8px; border-radius:10px; font-weight:500; white-space:nowrap; }
@@ -93,6 +124,12 @@ body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var
 .req-status-测试中   { background:#FFF3CC; color:#7a5a00; }
 .req-status-已完成   { background:#CCF5EE; color:#0F6E56; }
 .req-status-已跳过   { background:#F1EFE8; color:#5F5E5A; }
+.req-delivery { margin-top:7px; padding:8px 10px; border-radius:8px; background:#fff; border:0.5px solid var(--border); display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:10px; color:var(--sub); }
+.req-delivery strong { color:var(--text); font-weight:500; }
+.req-delivery .risk { color:#c0265a; }
+.req-delivery .ok { color:#0F6E56; }
+.req-create-task { margin-left:auto; border:0; border-radius:7px; padding:5px 9px; background:#EDE8FF; color:var(--purple); cursor:pointer; font:inherit; font-weight:500; }
+.req-create-task:hover { background:var(--purple); color:#fff; }
 .req-del { background:none; border:none; cursor:pointer; color:rgba(157,106,64,0.4); font-size:13px; padding:2px; border-radius:5px; transition:all 0.15s; flex-shrink:0; margin-top:1px; }
 .req-del:hover { color:#E24B4A; background:rgba(226,75,74,0.08); }
 
@@ -152,6 +189,19 @@ body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var
 .action-btn { background:none; border:none; cursor:pointer; color:var(--sub); font-size:14px; padding:3px; border-radius:6px; transition:all 0.15s; }
 .action-btn:hover { background:rgba(255,107,157,0.1); color:var(--pink); }
 .action-btn.del:hover { background:rgba(226,75,74,0.1); color:#E24B4A; }
+@media (max-width:900px) {
+  body { padding:12px; }
+  .stat-row { grid-template-columns:repeat(2,1fr); }
+  .prd-table-head { display:none; }
+  .prd-row { grid-template-columns:1fr auto; gap:8px; }
+  .prd-cell { display:flex; gap:5px; align-items:center; }
+  .prd-cell::before { content:attr(data-label); color:var(--sub); font-size:9px; }
+  .prd-row .prd-cell:nth-of-type(n+2) { grid-column:1; }
+  .prd-actions { grid-column:2; grid-row:1; }
+  .version-progress { display:none; }
+  .version-head { align-items:flex-start; }
+  .version-meta { gap:6px 10px; }
+}
 </style>
 </head>
 <body>
@@ -160,8 +210,8 @@ body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var
 <div class="stat-row">
   <div class="sc p"><div class="sc-icon p"><i class="ti ti-file-description"></i></div><div class="sc-val" id="s-total">-</div><div class="sc-label">PRD 总数</div></div>
   <div class="sc y"><div class="sc-icon y"><i class="ti ti-loader"></i></div><div class="sc-val" id="s-active">-</div><div class="sc-label">进行中</div></div>
-  <div class="sc t"><div class="sc-icon t"><i class="ti ti-list-check"></i></div><div class="sc-val" id="s-reqs">-</div><div class="sc-label">需求点总数</div></div>
-  <div class="sc pu"><div class="sc-icon pu"><i class="ti ti-check"></i></div><div class="sc-val" id="s-done">-</div><div class="sc-label">已完成需求点</div></div>
+  <div class="sc t"><div class="sc-icon t"><i class="ti ti-list-check"></i></div><div class="sc-val" id="s-reqs">-</div><div class="sc-label">验收范围总数（可选）</div></div>
+  <div class="sc pu"><div class="sc-icon pu"><i class="ti ti-check"></i></div><div class="sc-val" id="s-done">-</div><div class="sc-label">已完成验收范围</div></div>
 </div>
 
 <!-- 工具栏 -->
@@ -174,6 +224,8 @@ body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var
     <option value="">全部状态</option>
     <option>进行中</option><option>已完成</option><option>暂停</option><option>已归档</option>
   </select>
+  <select class="filter-select" id="versionFilter" onchange="renderList()"><option value="">全部版本</option></select>
+  <select class="filter-select" id="deliveryFilter" onchange="renderList()"><option value="">全部交付状态</option><option value="risk">只看有风险</option><option value="incomplete">只看未完成</option><option value="done">只看已完成</option></select>
   <button class="btn btn-primary ml-auto" onclick="openDrawer()"><i class="ti ti-plus"></i>新增 PRD</button>
 </div>
 
@@ -181,7 +233,7 @@ body { font-family:'Noto Sans SC',sans-serif; background:var(--cream); color:var
 <div class="prd-grid" id="prdList"></div>
 
 <!-- 抽屉：新增/编辑 PRD -->
-<div class="drawer-overlay" id="overlay" onclick="closeDrawer()"></div>
+<div class="drawer-overlay" id="overlay"></div>
 <div class="drawer" id="drawer">
   <div class="drawer-head">
     <i class="ti ti-file-description" style="color:var(--purple);font-size:16px;"></i>
@@ -217,6 +269,12 @@ function promptApiKey() {
 
 let allPrds = [];
 let allReqs = [];
+let allReleases = [];
+let requirementTasks = new Map();
+let prdTasks = new Map();
+let taskSnapshots = new Map();
+let requirementDefects = new Map();
+let prdDefects = new Map();
 let editId = null;
 let expandedId = null;
 let editReqs = [];
@@ -248,74 +306,218 @@ async function loadStats() {
 }
 
 async function loadData() {
-  const { data: prds } = await sb.from('prds').select('*').order('created_at',{ascending:false});
-  const { data: reqs } = await sb.from('requirements').select('*').order('created_at',{ascending:true});
-  allPrds = prds || [];
-  allReqs = reqs || [];
+  const [prdsResult, reqsResult, releasesResult, tasksResult, snapshotsResult, defectsResult] = await Promise.all([
+    sb.from('prds').select('*').order('created_at',{ascending:false}),
+    sb.from('requirements').select('*').order('created_at',{ascending:true}),
+    sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
+    sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,due_date,testhub_plan_ids'),
+    sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status'),
+    sb.from('quality_defects').select('id,prd_id,requirement_id,status,exposed_stage')
+  ]);
+  for (const result of [prdsResult, reqsResult, releasesResult, tasksResult, snapshotsResult, defectsResult]) {
+    if (result.error) throw result.error;
+  }
+  allPrds = prdsResult.data || [];
+  allReqs = reqsResult.data || [];
+  allReleases = releasesResult.data || [];
+  requirementTasks = new Map();
+  prdTasks = new Map();
+  (tasksResult.data || []).forEach(task => {
+    if (task.requirement_id) {
+      const tasks = requirementTasks.get(task.requirement_id) || [];
+      tasks.push(task);
+      requirementTasks.set(task.requirement_id, tasks);
+    }
+    if (task.prd_id) {
+      const tasks = prdTasks.get(task.prd_id) || [];
+      tasks.push(task);
+      prdTasks.set(task.prd_id, tasks);
+    }
+  });
+  taskSnapshots = new Map((snapshotsResult.data || []).map(item => [item.task_id, item]));
+  requirementDefects = new Map();
+  prdDefects = new Map();
+  (defectsResult.data || []).forEach(defect => {
+    if (defect.requirement_id) {
+      const defects = requirementDefects.get(defect.requirement_id) || [];
+      defects.push(defect);
+      requirementDefects.set(defect.requirement_id, defects);
+    }
+    if (defect.prd_id) {
+      const defects = prdDefects.get(defect.prd_id) || [];
+      defects.push(defect);
+      prdDefects.set(defect.prd_id, defects);
+    }
+  });
+  refreshVersionFilter();
+  renderList();
+}
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char]));
+}
+
+function releaseLabel(releaseId) {
+  const release = allReleases.find(item => item.id === releaseId);
+  if (!release) return '';
+  return `${release.name || release.version}${release.platform ? ` · ${release.platform}` : ''}`;
+}
+
+function requirementDelivery(r) {
+  const tasks = requirementTasks.get(r.id) || [];
+  const active = tasks.filter(task => task.status !== 'cancelled');
+  const done = active.filter(task => task.status === 'done').length;
+  const blocked = active.filter(task => task.status === 'blocked').length;
+  const overdue = active.filter(task => ['todo','in_progress','blocked'].includes(task.status) && task.due_date && task.due_date.slice(0,10) < new Date().toISOString().slice(0,10)).length;
+  const snapshots = active.map(task => taskSnapshots.get(task.id)).filter(Boolean);
+  const totalCases = snapshots.reduce((sum,item) => sum + Number(item.total_cases || 0), 0);
+  const executedCases = snapshots.reduce((sum,item) => sum + Number(item.executed_cases || 0), 0);
+  const defects = requirementDefects.get(r.id) || [];
+  const openDefects = defects.filter(item => !['verified','closed'].includes(item.status)).length;
+  const risk = blocked || overdue || openDefects;
+  return `<div class="req-delivery"><strong>${active.length ? `交付 ${done}/${active.length} 项` : '尚未创建工作事项'}</strong>${totalCases ? `<span>TestHub ${executedCases}/${totalCases}</span>` : ''}${blocked ? `<span class="risk">阻塞 ${blocked}</span>` : ''}${overdue ? `<span class="risk">逾期 ${overdue}</span>` : ''}${defects.length ? `<span class="${openDefects ? 'risk' : 'ok'}">关联 BUG ${defects.length}</span>` : ''}${active.length && !risk && done === active.length ? '<span class="ok">已完成交付</span>' : ''}<button class="req-create-task" onclick="createTaskForRequirement(event,'${r.id}')">${active.length ? '继续拆分任务' : '创建工作事项'}</button></div>`;
+}
+
+function createTaskForRequirement(event, requirementId) {
+  event.stopPropagation();
+  const requirement = allReqs.find(item => item.id === requirementId);
+  const prd = requirement ? allPrds.find(item => item.id === requirement.prd_id) : null;
+  if (!requirement || !prd) return;
+  const nextRound = Math.max(0,...(requirementTasks.get(requirement.id) || []).map(task => Number(task.test_round || 1))) + 1;
+  window.parent.postMessage({
+    type:'open-requirement-task',
+    requirement:{ id:requirement.id, prd_id:prd.id, title:requirement.title, description:requirement.description || '', prd_title:prd.title, release_id:prd.release_id || null, release_date:prd.release_date || '', next_round:nextRound }
+  }, window.location.origin);
+}
+
+function createTaskForPrd(event, prdId) {
+  event.stopPropagation();
+  const prd = allPrds.find(item => item.id === prdId);
+  if (!prd) return;
+  const directTasks = (prdTasks.get(prd.id) || []).filter(task => !task.requirement_id);
+  const nextRound = Math.max(0,...directTasks.map(task => Number(task.test_round || 1))) + 1;
+  window.parent.postMessage({
+    type:'open-prd-task',
+    prd:{ id:prd.id, title:prd.title, notes:prd.notes || '', release_id:prd.release_id || null, release_date:prd.release_date || '', next_round:nextRound }
+  }, window.location.origin);
+}
+
+let collapsedVersionGroups = new Set();
+
+function normalizeVersion(value) {
+  return String(value || '').trim().replace(/^v/i, '').toLowerCase();
+}
+
+function prdVersionGroup(prd) {
+  const directRelease = allReleases.find(release => release.id === prd.release_id);
+  if (directRelease) return { key:`release:${directRelease.id}`, release:directRelease, label:releaseLabel(directRelease.id), current:directRelease.status === 'active', legacy:false };
+  const version = normalizeVersion(prd.version);
+  const matches = version ? allReleases.filter(release => normalizeVersion(release.version) === version) : [];
+  if (matches.length === 1) {
+    const release = matches[0];
+    return { key:`release:${release.id}`, release, label:releaseLabel(release.id), current:release.status === 'active', legacy:true };
+  }
+  if (version) return { key:`legacy:${version}`, release:null, label:`v${prd.version}`, current:false, legacy:true };
+  return { key:'unassigned', release:null, label:'未关联版本', current:false, legacy:false };
+}
+
+function prdDeliveryMetrics(prd) {
+  const requirements = allReqs.filter(requirement => requirement.prd_id === prd.id);
+  const tasks = [...new Map([...(prdTasks.get(prd.id) || []),...requirements.flatMap(requirement => requirementTasks.get(requirement.id) || [])].map(task => [task.id,task])).values()].filter(task => task.status !== 'cancelled');
+  const defects = [...new Map([...(prdDefects.get(prd.id) || []),...requirements.flatMap(requirement => requirementDefects.get(requirement.id) || [])].map(defect => [defect.id,defect])).values()];
+  const doneRequirements = requirements.filter(requirement => requirement.status === '已完成').length;
+  const doneTasks = tasks.filter(task => task.status === 'done').length;
+  const blocked = tasks.filter(task => task.status === 'blocked').length;
+  const overdue = tasks.filter(task => ['todo','in_progress','blocked'].includes(task.status) && task.due_date && task.due_date.slice(0,10) < new Date().toISOString().slice(0,10)).length;
+  const openDefects = defects.filter(defect => !['verified','closed'].includes(defect.status)).length;
+  const unplanned = requirements.filter(requirement => !(requirementTasks.get(requirement.id) || []).some(task => task.status !== 'cancelled')).length;
+  const needsTask = prd.status === '进行中' && tasks.length === 0 ? 1 : 0;
+  const criticalRiskCount = blocked + overdue + openDefects;
+  const riskCount = criticalRiskCount + (prd.status === '进行中' ? unplanned : 0) + needsTask;
+  const maxRound = Math.max(0,...tasks.map(task => Number(task.test_round || 1)));
+  return { requirements, tasks, doneRequirements, doneTasks, blocked, overdue, openDefects, unplanned, needsTask, criticalRiskCount, riskCount, maxRound, complete:tasks.length > 0 && doneTasks === tasks.length && (!requirements.length || doneRequirements === requirements.length) };
+}
+
+function refreshVersionFilter() {
+  const select = document.getElementById('versionFilter');
+  if (!select) return;
+  const selected = select.value;
+  const groups = [...new Map(allPrds.map(prd => { const group=prdVersionGroup(prd); return [group.key,group]; })).values()]
+    .sort((a,b) => Number(b.current)-Number(a.current) || a.label.localeCompare(b.label,'zh-CN'));
+  select.innerHTML = `<option value="">全部版本</option>${groups.map(group => `<option value="${escapeHtml(group.key)}">${escapeHtml(group.label)}${group.current?'（当前）':''}${group.key==='unassigned'?' · 待整理':''}</option>`).join('')}`;
+  select.value = groups.some(group => group.key === selected) ? selected : '';
+}
+
+function toggleVersionGroup(key) {
+  if (collapsedVersionGroups.has(key)) collapsedVersionGroups.delete(key);
+  else collapsedVersionGroups.add(key);
   renderList();
 }
 
 function renderList() {
   const kw = document.getElementById('searchInput').value.toLowerCase();
   const st = document.getElementById('statusFilter').value;
+  const version = document.getElementById('versionFilter')?.value || '';
+  const delivery = document.getElementById('deliveryFilter')?.value || '';
   const data = allPrds.filter(p => {
-    const mk = !kw || (p.title+p.version+p.product).toLowerCase().includes(kw);
+    const mk = !kw || `${p.title||''}${p.version||''}${p.product||''}${p.author||''}`.toLowerCase().includes(kw);
     const ms = !st || p.status === st;
-    return mk && ms;
+    const group = prdVersionGroup(p);
+    const metrics = prdDeliveryMetrics(p);
+    const mv = !version || group.key === version;
+    const md = !delivery || (delivery === 'risk' && metrics.riskCount > 0) || (delivery === 'incomplete' && !metrics.complete) || (delivery === 'done' && metrics.complete);
+    return mk && ms && mv && md;
   });
   const list = document.getElementById('prdList');
   if (!data.length) {
     list.innerHTML = `<div class="empty"><i class="ti ti-file-off"></i>暂无 PRD，点击右上角新增</div>`;
     return;
   }
-  list.innerHTML = data.map(p => {
-    const reqs = allReqs.filter(r => r.prd_id === p.id);
-    const doneReqs = reqs.filter(r => r.status === '已完成').length;
-    const isExpanded = expandedId === p.id;
-    return `
-    <div class="prd-card ${isExpanded?'expanded':''}" id="card-${p.id}">
-      <div class="prd-card-head" onclick="toggleExpand('${p.id}')">
-        <div class="prd-icon"><i class="ti ti-file-description"></i></div>
-        <div class="prd-info">
-          <div class="prd-title">
-            ${p.title}
-            <span class="tag tag-${p.status||'进行中'}">${p.status||'进行中'}</span>
-            ${p.version?`<span style="font-size:10px;background:#FFF3CC;color:#7a5a00;padding:2px 7px;border-radius:8px;">v${p.version}</span>`:''}
-          </div>
-          <div class="prd-meta">
-            ${p.product?`<span><i class="ti ti-device-mobile" style="font-size:11px;"></i>${p.product}</span>`:''}
-            ${p.author?`<span><i class="ti ti-user" style="font-size:11px;"></i>${p.author}</span>`:''}
-            ${p.release_date?`<span><i class="ti ti-calendar" style="font-size:11px;"></i>${p.release_date}</span>`:''}
-            <span><i class="ti ti-list-check" style="font-size:11px;"></i>${doneReqs}/${reqs.length} 需求点</span>
-            ${p.dingtalk_url?`<a href="${p.dingtalk_url}" target="_blank" onclick="event.stopPropagation()" style="color:var(--teal);font-size:11px;display:flex;align-items:center;gap:3px;"><i class="ti ti-external-link" style="font-size:11px;"></i>钉钉文档</a>`:''}
-          </div>
-        </div>
-        <div class="prd-actions" onclick="event.stopPropagation()">
-          <button class="action-btn" onclick="openDrawer('${p.id}')" title="编辑"><i class="ti ti-edit"></i></button>
-          <button class="action-btn del" onclick="deletePrd('${p.id}')" title="删除"><i class="ti ti-trash"></i></button>
-          <button class="action-btn" onclick="toggleExpand('${p.id}')" title="${isExpanded?'收起':'展开'}">
-            <i class="ti ti-chevron-${isExpanded?'up':'down'}"></i>
-          </button>
-        </div>
-      </div>
-      <div class="prd-body">
-        ${renderReqBody(p.id, reqs)}
-      </div>
-    </div>`;
+  const grouped = new Map();
+  data.forEach(prd => {
+    const group = prdVersionGroup(prd);
+    const row = grouped.get(group.key) || { ...group, prds:[] };
+    row.prds.push(prd);
+    grouped.set(group.key,row);
+  });
+  const groups = [...grouped.values()].sort((a,b) => Number(b.current)-Number(a.current) || (a.key==='unassigned'?1:0)-(b.key==='unassigned'?1:0) || String(b.release?.planned_release_date||'').localeCompare(String(a.release?.planned_release_date||'')) || b.label.localeCompare(a.label,'zh-CN'));
+  list.innerHTML = groups.map(group => {
+    const groupMetrics = group.prds.map(prd => prdDeliveryMetrics(prd));
+    const totalRequirements = groupMetrics.reduce((sum,item) => sum + item.requirements.length,0);
+    const doneRequirements = groupMetrics.reduce((sum,item) => sum + item.doneRequirements,0);
+    const totalTasks = groupMetrics.reduce((sum,item) => sum + item.tasks.length,0);
+    const doneTasks = groupMetrics.reduce((sum,item) => sum + item.doneTasks,0);
+    const risks = groupMetrics.reduce((sum,item) => sum + item.riskCount,0);
+    const collapsed = collapsedVersionGroups.has(group.key);
+    const rows = group.prds.sort((a,b) => ({进行中:0,暂停:1,已完成:2,已归档:3}[a.status]??9)-({进行中:0,暂停:1,已完成:2,已归档:3}[b.status]??9) || String(b.updated_at||'').localeCompare(String(a.updated_at||''))).map(p => {
+      const metrics = prdDeliveryMetrics(p);
+      const isExpanded = expandedId === p.id;
+      const riskParts = [metrics.blocked?`${metrics.blocked} 阻塞`:'',metrics.overdue?`${metrics.overdue} 逾期`:'',metrics.openDefects?`${metrics.openDefects} BUG`:'',metrics.needsTask?'待安排测试':'',p.status==='进行中'&&metrics.unplanned?`${metrics.unplanned} 个验收范围待安排`:''].filter(Boolean);
+      const riskClass = metrics.criticalRiskCount ? 'has-risk' : riskParts.length ? 'has-warning' : '';
+      return `<div class="prd-card ${isExpanded?'expanded':''}" id="card-${p.id}"><div class="prd-row" onclick="toggleExpand('${p.id}')"><div class="prd-main"><div class="prd-main-title" title="${escapeHtml(p.title)}">${escapeHtml(p.title)}</div><div class="prd-main-meta">${p.product?`<span>${escapeHtml(p.product)}</span>`:''}${p.author?`<span>负责人 ${escapeHtml(p.author)}</span>`:''}${p.release_date?`<span>上线 ${escapeHtml(p.release_date)}</span>`:''}${p.dingtalk_url?`<a href="${escapeHtml(p.dingtalk_url)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" style="color:var(--teal);">钉钉文档</a>`:''}</div></div><div class="prd-cell" data-label="状态"><span class="tag tag-${p.status||'进行中'}">${escapeHtml(p.status||'进行中')}</span></div><div class="prd-cell" data-label="验收范围">${metrics.doneRequirements}/${metrics.requirements.length}<small>${metrics.unplanned?`${metrics.unplanned} 个未安排`:metrics.requirements.length?'可选验收范围':'无需拆分'}</small></div><div class="prd-cell delivery-cell" data-label="交付">${metrics.doneTasks}/${metrics.tasks.length}<small>${metrics.tasks.length?`已建至第 ${metrics.maxRound} 轮`:'尚未安排'}</small></div><div class="prd-cell risk-cell ${riskClass}" data-label="风险">${riskParts.join(' · ')||'正常'}</div><div class="prd-actions" onclick="event.stopPropagation()"><button class="prd-task-button" onclick="createTaskForPrd(event,'${p.id}')" title="${metrics.tasks.length?'新增下一轮工作事项':'直接创建工作事项'}"><i class="ti ti-square-plus"></i>${metrics.tasks.length?'下一轮':'建事项'}</button><button class="action-btn" onclick="openDrawer('${p.id}')" title="编辑"><i class="ti ti-edit"></i></button><button class="action-btn del" onclick="deletePrd('${p.id}')" title="删除"><i class="ti ti-trash"></i></button><button class="action-btn" onclick="toggleExpand('${p.id}')" title="${isExpanded?'收起':'展开'}"><i class="ti ti-chevron-${isExpanded?'up':'down'}"></i></button></div></div><div class="prd-body">${renderReqBody(p.id,metrics.requirements)}</div></div>`;
+    }).join('');
+    return `<section class="version-section ${group.current?'current':''} ${collapsed?'collapsed':''}"><div class="version-head" onclick="toggleVersionGroup('${group.key}')"><div><div class="version-name"><i class="ti ti-rocket"></i>${escapeHtml(group.label)}${group.current?'<span class="version-current">当前版本</span>':''}${group.legacy?'<span class="tag tag-暂停">自动归组</span>':''}</div><div class="version-meta"><span>${group.prds.length} 个 PRD</span><span>验收范围 ${doneRequirements}/${totalRequirements}</span><span>事项 ${doneTasks}/${totalTasks}</span>${risks?`<span class="risk">${risks} 项待处理</span>`:'<span>暂无风险</span>'}${group.release?.planned_release_date?`<span>计划发布 ${escapeHtml(group.release.planned_release_date)}</span>`:''}</div></div><div class="version-progress"><div class="version-progress-text"><span>事项完成率</span><strong>${totalTasks?Math.round(doneTasks/totalTasks*100):0}%</strong></div><div class="version-progress-bar"><span style="width:${totalTasks?Math.round(doneTasks/totalTasks*100):0}%"></span></div></div><i class="ti ti-chevron-${collapsed?'down':'up'} version-chevron"></i></div><div class="version-body"><div class="prd-table-head"><span>PRD / 负责人</span><span>状态</span><span>验收范围</span><span>事项交付</span><span>风险</span><span>操作</span></div>${rows}</div></section>`;
   }).join('');
+}
+
+function renderPrdRounds(prdId) {
+  const tasks = (prdTasks.get(prdId) || []).filter(task => !task.requirement_id && task.status !== 'cancelled').sort((a,b) => Number(a.test_round||1)-Number(b.test_round||1));
+  if (!tasks.length) return '';
+  const statusNames = {todo:'待处理',in_progress:'进行中',blocked:'已阻塞',done:'已完成',cancelled:'已取消'};
+  return `<div style="margin-bottom:14px;"><div class="req-head"><span class="req-title">🧪 测试轮次（${tasks.length}）</span><button class="btn btn-purple" style="padding:4px 10px;font-size:11px;" onclick="createTaskForPrd(event,'${prdId}')"><i class="ti ti-plus"></i>新增下一轮</button></div><div class="req-list">${tasks.map(task => { const snapshot=taskSnapshots.get(task.id); return `<div class="req-delivery"><strong>第 ${Number(task.test_round||1)} 轮</strong><span>${escapeHtml(task.title)}</span><span class="${task.status==='blocked'?'risk':task.status==='done'?'ok':''}">${escapeHtml(statusNames[task.status]||task.status)}</span>${snapshot?`<span>TestHub ${Number(snapshot.executed_cases||0)}/${Number(snapshot.total_cases||0)}</span>`:''}${task.due_date?`<span>截止 ${escapeHtml(task.due_date.slice(0,10))}</span>`:''}</div>`; }).join('')}</div></div>`;
 }
 
 function renderReqBody(prdId, reqs) {
   return `
+    ${renderPrdRounds(prdId)}
     <div class="req-head">
-      <span class="req-title">📋 需求点（${reqs.length}）</span>
+      <span class="req-title">📋 验收范围（可选，${reqs.length}）</span>
       <button class="btn btn-purple" style="padding:4px 10px;font-size:11px;" onclick="openReqDrawer('${prdId}')">
-        <i class="ti ti-pencil"></i>编辑需求点
+        <i class="ti ti-pencil"></i>编辑验收范围
       </button>
       <button onclick="promptApiKey()" style="background:none;border:0.5px solid rgba(255,255,255,0.15);border-radius:8px;padding:6px 10px;color:rgba(255,255,255,0.4);font-size:11px;cursor:pointer;white-space:nowrap;font-family:'Noto Sans SC',sans-serif;" title="设置 API Key">
         ⚙️ ${getApiKey() ? 'Key 已设置' : '设置 Key'}
       </button>
-      </div>
     </div>
     ${reqs.length ? `
     <div class="req-list">
@@ -330,9 +532,10 @@ function renderReqBody(prdId, reqs) {
               <span class="req-status req-status-${r.status||'待测试'}">${r.status||'待测试'}</span>
               ${r.pingcode_case_ids?`<span class="req-case"><i class="ti ti-link" style="font-size:10px;"></i>用例 ${r.pingcode_case_ids}</span>`:''}
             </div>
+            ${requirementDelivery(r)}
           </div>
         </div>`).join('')}
-    </div>` : `<div style="text-align:center;padding:16px;color:var(--sub);font-size:12px;">暂无需求点，点击编辑需求点添加</div>`}
+    </div>` : `<div style="text-align:center;padding:16px;color:var(--sub);font-size:12px;">简单 PRD 无需拆分；可直接点击行尾“建事项”。复杂流程可添加验收范围。</div>`}
     ${renderChangeLog(prdId)}`;
 }
 
@@ -363,6 +566,9 @@ function openDrawer(id) {
   editId = id || null;
   const p = id ? allPrds.find(r => r.id === id) : null;
   const v = k => p ? (p[k]||'') : '';
+  document.querySelector('.drawer-foot').innerHTML = `
+    <button class="btn btn-primary" style="flex:1;" onclick="savePrd()"><i class="ti ti-check"></i>保存</button>
+    <button class="btn btn-outline" onclick="closeDrawer()">取消</button>`;
   document.getElementById('drawerTitle').textContent = id ? '编辑 PRD' : '新增 PRD';
   document.getElementById('drawerBody').innerHTML = `
     <div class="form-section">基本信息</div>
@@ -378,6 +584,7 @@ function openDrawer(id) {
     <div class="form-group"><label>状态</label>
       <select id="f-status">${['进行中','已完成','暂停','已归档'].map(s=>`<option ${v('status')===s?'selected':''}>${s}</option>`).join('')}</select>
     </div>
+    <div class="form-group"><label>交付版本</label><select id="f-release"><option value="">暂不关联版本</option>${allReleases.map(release=>`<option value="${release.id}" ${v('release_id')===release.id?'selected':''}>${escapeHtml(releaseLabel(release.id))}${release.status==='active'?'（当前）':''}</option>`).join('')}</select></div>
     <div class="form-section">钉钉文档</div>
     <div class="form-group">
       <label>钉钉文档链接</label>
@@ -403,6 +610,7 @@ async function savePrd() {
     title, version:g('f-version'), author:g('f-author'),
     product:g('f-product'), release_date:g('f-date')||null,
     status:g('f-status')||'进行中',
+    release_id:g('f-release')||null,
     dingtalk_url:g('f-url'), notes:g('f-notes'),
     updated_at: new Date().toISOString()
   };
@@ -421,7 +629,7 @@ async function savePrd() {
 }
 
 async function deletePrd(id) {
-  if (!confirm('确定删除此 PRD？相关需求点也会一并删除。')) return;
+  if (!confirm('确定删除此 PRD？相关验收范围也会一并删除。')) return;
   await sb.from('prds').delete().eq('id',id);
   if (expandedId === id) expandedId = null;
   await loadStats();
@@ -442,16 +650,16 @@ function openReqDrawer(prdId) {
 }
 
 function renderReqDrawer(prd) {
-  document.getElementById('drawerTitle').textContent = `需求点 · ${prd?.title||''}`;
+  document.getElementById('drawerTitle').textContent = `验收范围 · ${prd?.title||''}`;
   // 重写 foot
   document.querySelector('.drawer-foot').innerHTML = `
-    <button class="btn btn-primary" style="flex:1;" onclick="saveReqs()"><i class="ti ti-check"></i>保存需求点</button>
+    <button class="btn btn-primary" style="flex:1;" onclick="saveReqs()"><i class="ti ti-check"></i>保存验收范围</button>
     <button class="btn btn-outline" onclick="closeDrawer()">取消</button>`;
 
   const aiSection = `
     <div class="ai-box">
-      <div class="ai-box-title"><i class="ti ti-robot"></i>AI 自动拆解需求点</div>
-      <textarea class="ai-textarea" id="aiContent" placeholder="粘贴钉钉文档内容，AI 自动提取需求点..."></textarea>
+      <div class="ai-box-title"><i class="ti ti-robot"></i>AI 自动拆解验收范围</div>
+      <textarea class="ai-textarea" id="aiContent" placeholder="粘贴钉钉文档内容，AI 自动提取可独立验收的范围..."></textarea>
       <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
       <button class="ai-btn" id="aiBtn" onclick="aiExtract()" style="margin-top:0;">
         <i class="ti ti-wand"></i>开始拆解
@@ -462,16 +670,16 @@ function renderReqDrawer(prd) {
 
   document.getElementById('drawerBody').innerHTML = `
     ${aiSection}
-    <div style="font-size:11px;color:var(--sub);margin-bottom:8px;margin-top:4px;">需求点列表（${editReqs.length}）</div>
+    <div style="font-size:11px;color:var(--sub);margin-bottom:8px;margin-top:4px;">验收范围列表（${editReqs.length}）</div>
     <div id="reqEditList">${reqsHtml}</div>
-    <button class="add-req-btn" onclick="addReqItem()"><i class="ti ti-plus"></i>手动添加需求点</button>`;
+    <button class="add-req-btn" onclick="addReqItem()"><i class="ti ti-plus"></i>手动添加验收范围</button>`;
 }
 
 function reqEditItem(r, i) {
   return `
     <div class="req-edit-item" id="req-edit-${i}">
       <button class="req-edit-del" onclick="removeReqItem(${i})"><i class="ti ti-x"></i></button>
-      <input placeholder="需求点标题 *" value="${r.title||''}" oninput="editReqs[${i}].title=this.value">
+      <input placeholder="验收范围标题 *" value="${r.title||''}" oninput="editReqs[${i}].title=this.value">
       <textarea placeholder="描述（可选）" oninput="editReqs[${i}].description=this.value">${r.description||''}</textarea>
       <div class="req-edit-row">
         <select onchange="editReqs[${i}].priority=this.value">
@@ -486,7 +694,7 @@ function reqEditItem(r, i) {
 }
 
 function addReqItem() {
-  editReqs.push({title:'',description:'',priority:'中',status:'待测试',pingcode_case_ids:''});
+  editReqs.push({id:null,title:'',description:'',priority:'中',status:'待测试',pingcode_case_ids:''});
   const i = editReqs.length - 1;
   const list = document.getElementById('reqEditList');
   const div = document.createElement('div');
@@ -511,12 +719,16 @@ function removeReqItem(i) {
 
 async function saveReqs() {
   const valid = editReqs.filter(r => r.title?.trim());
-  if (!valid.length && editReqs.length > 0) { alert('请至少填写需求点标题'); return; }
+  if (!valid.length && editReqs.length > 0) { alert('请至少填写验收范围标题'); return; }
   try {
-    // 删除旧的，插入新的
-    await sb.from('requirements').delete().eq('prd_id', currentPrdId);
+    const keptIds = valid.map(r => r.id).filter(Boolean);
+    let deleteQuery = sb.from('requirements').delete().eq('prd_id', currentPrdId);
+    if (keptIds.length) deleteQuery = deleteQuery.not('id', 'in', `(${keptIds.join(',')})`);
+    const { error: deleteError } = await deleteQuery;
+    if (deleteError) throw deleteError;
     if (valid.length) {
       const inserts = valid.map(r => ({
+        ...(r.id ? {id:r.id} : {}),
         prd_id: currentPrdId,
         title: r.title.trim(),
         description: r.description||'',
@@ -524,7 +736,7 @@ async function saveReqs() {
         status: r.status||'待测试',
         pingcode_case_ids: r.pingcode_case_ids||''
       }));
-      const { error } = await sb.from('requirements').insert(inserts);
+      const { error } = await sb.from('requirements').upsert(inserts, {onConflict:'id'});
       if (error) throw error;
     }
     closeDrawer();
@@ -555,7 +767,7 @@ async function aiExtract() {
         model: 'qwen-plus',
         messages: [{
           role: 'user',
-          content: `请从以下 PRD 内容中提取所有需求点，以 JSON 数组格式返回，每个元素包含：title（需求点标题）、description（简要描述）、priority（高/中/低）。只返回 JSON 数组，不要其他内容。\n\nPRD 内容：\n${content}`
+          content: `请从以下 PRD 内容中提取需要独立跟踪的验收范围，以 JSON 数组格式返回。只有可以分配给不同负责人、关联不同测试计划、分批完成或具有独立风险的内容才拆分。每个元素包含：title（验收范围标题）、description（验收说明）、priority（高/中/低）。只返回 JSON 数组，不要其他内容。\n\nPRD 内容：\n${content}`
         }]
       })
     });
@@ -573,7 +785,7 @@ async function aiExtract() {
       document.getElementById('aiContent').value = '';
     }
   } catch(e) {
-    alert('AI 拆解失败，请检查 API Key 或手动添加需求点');
+    alert('AI 拆解失败，请检查 API Key 或手动添加验收范围');
   }
   btn.disabled = false;
   btn.innerHTML = `<i class="ti ti-wand"></i>开始拆解`;
