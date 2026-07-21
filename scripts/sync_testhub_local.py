@@ -354,12 +354,39 @@ def update_sync_health(
 
 def fetch_open_tasks(access_token: str) -> list[dict[str, Any]]:
     query = urllib.parse.urlencode({
-        "select": "id,title,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_scope_mode,testhub_scope_suite_ids",
-        "status": "in.(todo,in_progress)",
+        "select": "id,title,status,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_scope_mode,testhub_scope_suite_ids",
+        "status": "in.(todo,in_progress,done)",
         "testhub_library_id": "not.is.null",
     }, safe="(),.*")
     url = f"{SUPABASE_URL}/rest/v1/qa_tasks?{query}"
     return request_json(url, headers=supabase_headers(access_token), retries=2) or []
+
+
+def sync_task_status_from_testhub(
+    task: dict[str, Any], total: int, executed: int, access_token: str
+) -> str:
+    """Keep a linked task state aligned with its scoped TestHub execution."""
+    target_status = "todo" if total <= 0 or executed <= 0 else "done" if executed >= total else "in_progress"
+    if str(task.get("status") or "todo") == target_status:
+        return target_status
+    query = urllib.parse.urlencode({"id": f"eq.{task['id']}"})
+    payload: dict[str, Any] = {
+        "status": target_status,
+        "completed_at": datetime.now(timezone.utc).isoformat() if target_status == "done" else None,
+        "completion_note": f"TestHub 自动同步：已执行 {executed}/{total} Case" if target_status == "done" else None,
+        "blocked_reason": None,
+        "blocked_owner_id": None,
+        "blocked_until": None,
+    }
+    request_json(
+        f"{SUPABASE_URL}/rest/v1/qa_tasks?{query}",
+        method="PATCH",
+        headers=supabase_headers(access_token, prefer="return=minimal"),
+        body=payload,
+        retries=2,
+    )
+    task["status"] = target_status
+    return target_status
 
 
 def fetch_profile_directory(access_token: str) -> dict[str, dict[str, str]]:
@@ -676,6 +703,7 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 "synced_at": datetime.now(timezone.utc).isoformat(),
             }
             request_json(upsert_url, method="POST", headers=upsert_headers, body=row, retries=2)
+            synced_task_status = sync_task_status_from_testhub(task, total, executed, access_token)
             task_records, task_mapped, task_unmapped = replace_daily_execution(
                 str(task["id"]), all_runs, profile_directory, access_token
             )

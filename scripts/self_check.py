@@ -34,6 +34,7 @@ def main() -> None:
     task_scope_migration = (ROOT / "supabase/migrations/20260721_task_scope_and_half_day.sql").read_text(encoding="utf-8")
     release_currents_migration = (ROOT / "supabase/migrations/20260721_release_platform_currents.sql").read_text(encoding="utf-8")
     release_indexes_fix_migration = (ROOT / "supabase/migrations/20260721_release_active_indexes_fix.sql").read_text(encoding="utf-8")
+    assignee_status_migration = (ROOT / "supabase/migrations/20260721_assignee_task_status.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
 
     require(html, [
@@ -49,6 +50,7 @@ def main() -> None:
         "function refreshDashboardSyncStatus",
         "function applyTaskTemplate",
         "function resourceCapacityTableHtml",
+        "Capacity color is based on the whole workday",
         "function openResourceCellDetails",
         "testHubSyncDiagnostics",
         "function duplicateQaTask",
@@ -120,6 +122,11 @@ def main() -> None:
         "cachedScopedTotal",
         "function autoBindPingCodeMembers",
         "function clearPingCodeMapping",
+        "function canCurrentUserUpdateTaskStatus",
+        "function testHubSnapshotMatchesTask",
+        "function loadSavedTestHubPlans",
+        "update_qa_task_status",
+        "taskEditorStatusOnly",
         "task_testhub_daily_execution').select('executor_key,executor_name,synced_at')",
         "discoveredDirectoryRows",
         "已执行 ${executedCases} / 总 Case ${displayedTotalCases}",
@@ -230,6 +237,13 @@ def main() -> None:
         "releases_one_active_pad_idx",
         "releases_one_active_pc_idx",
     ], "release active indexes fix migration")
+    require(assignee_status_migration, [
+        "create or replace function public.update_qa_task_status",
+        "security definer",
+        "Only task assignees can update task status",
+        "blocked_reason",
+        "completion_note",
+    ], "assignee task status migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
@@ -262,6 +276,8 @@ def main() -> None:
         "def upsert_pingcode_user_directory",
         "def auto_map_pingcode_profiles",
         "auto_mapped_profiles",
+        "def sync_task_status_from_testhub",
+        '"status": "in.(todo,in_progress,done)"',
     ], "TestHub sync")
 
     if html.count('id="newTaskModal"') != 1:
