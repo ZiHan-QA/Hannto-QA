@@ -646,6 +646,7 @@ let taskAllocationHistoryByTask = new Map();
 let taskActivityByTask = new Map();
 let pingCodeDirectoryCache = new Map();
 let testHubPlanChoiceCache = new Map();
+let testHubSuiteChoiceCache = new Map();
 let editingQaTaskId = null;
 let editingQaTaskPrdId = null;
 let editingQaTaskRequirementId = null;
@@ -940,7 +941,7 @@ async function renderMemberMappings() {
     const [profilesResult, directoryResult, tasksResult, assigneesResult, calendarResult] = await Promise.all([
       sb.from('profiles').select('id,name,role,daily_capacity,pingcode_user_id,pingcode_display_name').order('name'),
       sb.from('pingcode_user_directory').select('pingcode_user_id,display_name,last_seen_at').order('display_name'),
-      sb.from('qa_tasks').select('id,title,status,effort_person_days,allocation_start_date,allocation_end_date').in('status',['todo','in_progress','blocked']),
+      sb.from('qa_tasks').select('id,title,status,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').in('status',['todo','in_progress','blocked']),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('work_calendar').select('work_date,is_workday,name')
     ]);
@@ -1046,14 +1047,15 @@ function taskEditorModalHtml() {
           <div class="form-group"><label class="form-label" for="newTaskRound">测试轮次</label><input class="dashboard-input" id="newTaskRound" type="number" min="1" max="99" step="1" value="1"><div class="assignee-allocation-note">同一 PRD 可创建多轮事项，每轮独立统计。</div></div>
           <div class="form-group assignee-section"><label class="form-label" for="newTaskAssignee">负责人（点击姓名可多选）</label><select class="form-select" id="newTaskAssignee" multiple size="4" onmousedown="toggleAssigneeOption(event)" onchange="renderAssigneeAllocationInputs()" ${userRole === 'admin' ? '' : 'disabled'}><option value="${currentUser.id}" selected>分配给我</option></select><div id="assigneeAllocationPreview"></div></div>
           <div class="form-group"><label class="form-label" for="newTaskEffort">事件总人天</label><input class="dashboard-input" id="newTaskEffort" type="number" min="0.25" max="365" step="0.25" onchange="distributeAssigneeEffortEvenly()"></div>
-          <div class="form-group"><label class="form-label" for="newTaskAllocationStart">资源开始日</label><input class="dashboard-input" id="newTaskAllocationStart" type="date"></div>
-          <div class="form-group"><label class="form-label" for="newTaskAllocationEnd">截止日期（包含当天）</label><input class="dashboard-input" id="newTaskAllocationEnd" type="date"></div>
+          <div class="form-group"><label class="form-label" for="newTaskAllocationStart">资源开始</label><div style="display:grid;grid-template-columns:1fr 88px;gap:6px;"><input class="dashboard-input" id="newTaskAllocationStart" type="date"><select class="form-select" id="newTaskAllocationStartPeriod"><option value="am">上午</option><option value="pm">下午</option></select></div></div>
+          <div class="form-group"><label class="form-label" for="newTaskAllocationEnd">截止时间（包含所选半天）</label><div style="display:grid;grid-template-columns:1fr 88px;gap:6px;"><input class="dashboard-input" id="newTaskAllocationEnd" type="date"><select class="form-select" id="newTaskAllocationEndPeriod"><option value="am">上午</option><option value="pm" selected>下午</option></select></div></div>
         </div>
         ${taskWorkflowFieldsHtml()}
         <div class="dashboard-form-grid" style="margin-top:12px;">
           <div class="form-group"><label class="form-label" for="newTaskTestHubLibrary">TestHub 用例库（选填）</label><select class="form-select" id="newTaskTestHubLibrary"><option value="">不关联</option><option value="661e31a128d44167e325552c">消费类</option><option value="6214acdba2fa0b097f549d45">打印机</option><option value="6746eb4a87e7da0dbd43c027">PC</option></select></div>
           <div class="form-group"><label class="form-label" for="newTaskTestHubSearch">计划关键词</label><div style="display:flex;gap:6px;"><input class="dashboard-input" id="newTaskTestHubSearch" placeholder="可留空查看最近计划"><button class="btn-secondary" type="button" onclick="loadTestHubPlans(this)" style="white-space:nowrap;">查询缓存</button></div></div>
           <div class="form-group testhub-plan-section"><label class="form-label">TestHub 计划（可多选）</label><div class="testhub-plan-summary"><span id="testHubPlanSummary">未选择计划</span><button class="btn-secondary" type="button" onclick="clearTestHubPlanSelection()">清空选择</button></div><div class="assignee-allocation-note">关联计划后自动按 TestHub 已执行用例数 ÷ 总用例数计算；不关联时才使用手工填报。</div><div id="testHubPlanOptions" class="testhub-plan-grid"><span class="testhub-plan-empty">查询后选择 Android / iOS 计划</span></div><details style="margin-top:7px;"><summary style="color:var(--sub);font-size:10px;cursor:pointer;">高级：手动添加计划 ID</summary><div style="display:flex;gap:6px;margin-top:6px;"><input class="dashboard-input" id="manualTestHubPlanId" placeholder="缓存未同步时填写计划 ID"><button class="btn-secondary" type="button" onclick="addManualTestHubPlan()" style="white-space:nowrap;">添加 ID</button></div></details><div id="testHubPlanHint" style="color:var(--sub);font-size:10px;margin-top:4px;">请先运行本地同步工具，再查询缓存</div></div>
+          <div class="form-group testhub-plan-section"><label class="form-label" for="newTaskTestHubScopeMode">进度计算范围</label><select class="form-select" id="newTaskTestHubScopeMode" onchange="toggleTestHubScopeFields()"><option value="all">整个计划</option><option value="suite">指定模块 / 套件</option></select><div id="testHubSuiteScopeWrap" style="display:none;margin-top:9px;"><div class="testhub-plan-summary"><span id="testHubSuiteSummary">尚未选择模块</span><button class="btn-secondary" type="button" onclick="loadTestHubSuitesForSelection()">读取模块</button></div><div id="testHubSuiteOptions" class="testhub-plan-grid"><span class="testhub-plan-empty">选择计划后读取已同步模块</span></div><div class="assignee-allocation-note">只统计所选模块中的用例；模块来自本地 TestHub 同步缓存。</div></div></div>
         </div>
         <div class="dashboard-form-actions"><button class="btn-secondary" onclick="closeNewTaskModal()">取消</button><button class="btn-primary" id="saveTaskBtn" onclick="saveQaTask()"><i class="ti ti-check"></i><span id="saveTaskBtnText">保存修改</span></button></div>
       </div>
@@ -1069,7 +1071,7 @@ function progressModalHtml() {
           <button class="dashboard-modal-close" onclick="closeProgressModal()"><i class="ti ti-x"></i></button>
         </div>
         <div class="dashboard-form-grid">
-          <div class="form-group"><label class="form-label" for="progressWorkDate">工作日期</label><input class="dashboard-input" id="progressWorkDate" type="date" value="${dashboardTodayInputValue()}"></div>
+          <div class="form-group"><label class="form-label" for="progressWorkDate">工作日期</label><input class="dashboard-input" id="progressWorkDate" type="date" value="${dashboardTodayInputValue()}" onchange="updateProgressPointSuggestion()"></div>
           <div class="form-group"><label class="form-label" for="progressExecutor">实际执行人</label><select class="form-select" id="progressExecutor" onchange="updateProgressPointSuggestion()" ${userRole === 'admin' ? '' : 'disabled'}></select></div>
           <div class="form-group"><label class="form-label" for="progressPoints">线下实际完成点数</label><input class="dashboard-input" id="progressPoints" type="number" min="0.01" max="50" step="0.01"></div>
         </div>
@@ -1095,10 +1097,8 @@ function canCurrentUserEditTask(task) {
 
 function taskMemberDailyPlan(task, memberId, calendar = dashboardWorkCalendar) {
   const allocation = taskAssigneeList(task).find(item => item.member_id === memberId);
-  const days = task.allocation_start_date && task.allocation_end_date
-    ? resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar).length
-    : 0;
-  return allocation && days ? Number(allocation.allocated_effort) / days : 0;
+  const slots = resourceTaskWorkSlots(task, calendar);
+  return allocation && slots.length ? Number(allocation.allocated_effort) / (slots.length / 2) : 0;
 }
 
 function taskAllocationSnapshotForDate(task, dateKey) {
@@ -1113,10 +1113,19 @@ function taskAllocationSnapshotForDate(task, dateKey) {
 
 function taskMemberDailyPlanOnDate(task, memberId, dateKey, calendar = dashboardWorkCalendar) {
   const snapshot = taskAllocationSnapshotForDate(task, dateKey);
-  if (!snapshot) return taskMemberDailyPlan(task, memberId, calendar);
-  const assignment = (Array.isArray(snapshot.assignments) ? snapshot.assignments : []).find(item => item.member_id === memberId);
-  const workdays = resourceWorkDates(snapshot.allocation_start_date, snapshot.allocation_end_date, calendar).length;
-  return assignment && workdays ? Number(assignment.allocated_effort) / workdays : 0;
+  const source = snapshot || task;
+  const assignment = snapshot
+    ? (Array.isArray(snapshot.assignments) ? snapshot.assignments : []).find(item => item.member_id === memberId)
+    : taskAssigneeList(task).find(item => item.member_id === memberId);
+  const slots = resourceWorkSlots(
+    source.allocation_start_date,
+    source.allocation_end_date,
+    source.allocation_start_period || task.allocation_start_period || 'am',
+    source.allocation_end_period || task.allocation_end_period || 'pm',
+    calendar
+  );
+  const dateSlots = slots.filter(slot => slot.date === dateKey).length;
+  return assignment && slots.length ? Number(assignment.allocated_effort) * dateSlots / slots.length : 0;
 }
 
 function taskMemberTestHubPoints(task, memberId, dateKey, snapshot) {
@@ -1145,7 +1154,7 @@ function renderTaskMemberDailyDetail(task, names, snapshot) {
     if (!allAssignments.has(assignment.member_id)) allAssignments.set(assignment.member_id, assignment);
   }));
   const rows = [...allAssignments.values()].map(allocation => {
-    const planned = taskMemberDailyPlan(task, allocation.member_id);
+    const planned = taskMemberDailyPlanOnDate(task, allocation.member_id, dashboardTodayInputValue());
     const manualTotal = (taskUsesTestHubProgress(task) ? [] : logs).filter(log => log.executor_id === allocation.member_id && log.source === 'manual')
       .reduce((sum, log) => sum + Number(log.progress_points || 0), 0);
     const testHubTotal = taskMemberTestHubPoints(task, allocation.member_id, null, snapshot);
@@ -1180,7 +1189,8 @@ function renderTaskActivity(task, names) {
   const fieldLabels = {
     title:'标题', description:'说明', status:'状态', assignee_id:'主负责人', due_date:'截止日期',
     release_id:'所属版本', effort_person_days:'总人天', allocation_start_date:'开始日期',
-    allocation_end_date:'截止日期', testhub_plan_ids:'TestHub 计划', blocked_reason:'阻塞原因',
+    allocation_end_date:'截止日期', allocation_start_period:'开始时段', allocation_end_period:'截止时段',
+    testhub_plan_ids:'TestHub 计划', testhub_scope_mode:'TestHub 范围', testhub_scope_suite_ids:'TestHub 模块', blocked_reason:'阻塞原因',
     blocked_owner_id:'阻塞处理人', blocked_until:'预计解除日期', completion_note:'完成说明'
   };
   return `<details class="member-daily-details"><summary>查看变更记录（${items.length} 条）</summary>${items.slice(0, 10).map(item => {
@@ -1288,7 +1298,7 @@ function releaseStatusText(status) {
 }
 
 function releasePlatformText(platform) {
-  return ({ android:'APP', ios:'APP', both:'APP', app:'APP', pad:'Pad', mobile_all:'APP + Pad', app_pad:'APP + Pad' })[platform] || platform;
+  return ({ android:'APP', ios:'APP', both:'APP', app:'APP', pad:'Pad', pc:'PC', mobile_all:'APP + Pad', app_pad:'APP + Pad' })[platform] || platform;
 }
 
 function releasePlatformMatches(releasePlatform, selectedPlatform) {
@@ -1296,11 +1306,12 @@ function releasePlatformMatches(releasePlatform, selectedPlatform) {
   if (releasePlatform === selectedPlatform) return true;
   if (selectedPlatform === 'app') return ['android','ios','both','app','mobile_all','app_pad'].includes(releasePlatform);
   if (selectedPlatform === 'pad') return ['pad','mobile_all','app_pad'].includes(releasePlatform);
+  if (selectedPlatform === 'pc') return releasePlatform === 'pc';
   return false;
 }
 
 function releaseModalHtml() {
-  return `<div class="dashboard-modal" id="releaseEditorModal" onclick="closeReleaseEditor()"><div class="dashboard-modal-panel" style="width:min(620px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="releaseEditorTitle">新建版本</div><button class="dashboard-modal-close" onclick="closeReleaseEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">版本号</label><input class="dashboard-input" id="releaseVersion" maxlength="80" placeholder="例如 2.5.705"></div><div class="form-group"><label class="form-label">版本名称</label><input class="dashboard-input" id="releaseName" maxlength="160" placeholder="例如 证件照功能重构"></div><div class="form-group"><label class="form-label">平台</label><select class="form-select" id="releasePlatform"><option value="app_pad">APP + Pad</option><option value="app">APP</option><option value="pad">Pad</option></select></div><div class="form-group"><label class="form-label">计划发布日期</label><input class="dashboard-input" id="releaseDate" type="date"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="releaseNotes" rows="3" maxlength="1000" placeholder="填写版本范围、主要改动或发布说明"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeReleaseEditor()">取消</button><button class="btn-primary" id="saveReleaseBtn" onclick="saveRelease()">保存版本</button></div></div></div>`;
+  return `<div class="dashboard-modal" id="releaseEditorModal" onclick="closeReleaseEditor()"><div class="dashboard-modal-panel" style="width:min(620px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="releaseEditorTitle">新建版本</div><button class="dashboard-modal-close" onclick="closeReleaseEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">版本号</label><input class="dashboard-input" id="releaseVersion" maxlength="80" placeholder="例如 2.5.705"></div><div class="form-group"><label class="form-label">版本名称</label><input class="dashboard-input" id="releaseName" maxlength="160" placeholder="例如 证件照功能重构"></div><div class="form-group"><label class="form-label">产品端</label><select class="form-select" id="releasePlatform"><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option><option value="app_pad">APP + Pad</option></select><div class="assignee-allocation-note">APP、Pad、PC 可分别设置一个当前版本。</div></div><div class="form-group"><label class="form-label">计划发布日期</label><input class="dashboard-input" id="releaseDate" type="date"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="releaseNotes" rows="3" maxlength="1000" placeholder="填写版本范围、主要改动或发布说明"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeReleaseEditor()">取消</button><button class="btn-primary" id="saveReleaseBtn" onclick="saveRelease()">保存版本</button></div></div></div>`;
 }
 
 function openReleaseEditor(id = '') {
@@ -1309,7 +1320,7 @@ function openReleaseEditor(id = '') {
   document.getElementById('releaseVersion').value = release?.version || '';
   document.getElementById('releaseName').value = release?.name || '';
   const editablePlatform = ['android','ios','both'].includes(release?.platform) ? 'app' : (release?.platform === 'mobile_all' ? 'app_pad' : release?.platform);
-  document.getElementById('releasePlatform').value = editablePlatform || 'app_pad';
+  document.getElementById('releasePlatform').value = editablePlatform || 'app';
   document.getElementById('releaseDate').value = release?.planned_release_date || '';
   document.getElementById('releaseNotes').value = release?.notes || '';
   document.getElementById('releaseEditorModal').dataset.releaseId = id;
@@ -1326,7 +1337,7 @@ async function saveRelease() {
   const id = modal?.dataset.releaseId || '';
   const version = document.getElementById('releaseVersion')?.value.trim();
   const name = document.getElementById('releaseName')?.value.trim() || null;
-  const platform = document.getElementById('releasePlatform')?.value || 'both';
+  const platform = document.getElementById('releasePlatform')?.value || 'app';
   const plannedReleaseDate = document.getElementById('releaseDate')?.value || null;
   const notes = document.getElementById('releaseNotes')?.value.trim() || null;
   if (!version) { showToast('请填写版本号', 'error'); return; }
@@ -1892,11 +1903,11 @@ async function renderQualityReport() {
   try {
     const [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult] = await Promise.all([
       sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
-      sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,due_date,created_at,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days'),
+      sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,due_date,created_at,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids'),
       sb.from('profiles').select('id,name').order('name'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id'),
-      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),
+      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('release_checks').select('release_id,status,severity'),
       sb.from('quality_defects').select('id,title,qa_task_id,prd_id,requirement_id,release_id,exposed_stage,severity,status,executor_id,found_at,root_cause_category,review_status,reopen_count,is_change_induced,is_missed_test,impact,escape_reason,corrective_action,prevention_action'),
       sb.from('prds').select('id,title')
@@ -1915,7 +1926,7 @@ async function renderQualityReport() {
     taskProgressByTask = progressMap;
     taskTestHubProgressByTask = snapshotMap;
     qualityReportRaw = { releases:releasesResult.data || [], tasks:tasksResult.data || [], members:membersResult.data || [], checks:checksResult.data || [], defects:defectsResult.data || [], releaseMap, memberMap, prdMap, qaTaskMap, assigneeMap, progressMap, snapshotMap };
-    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">📊 质量报表</span><div class="release-meta">汇总工作事项、团队投入、TestHub 执行进度、发布检查与暴露 BUG 复盘</div></div><div style="display:flex;gap:7px;"><button class="btn-secondary" onclick="copyQualityReportSummary()">复制摘要</button><button class="btn-secondary" onclick="downloadQualityReportCsv()">导出 CSV</button><span class="card-tag" id="qualityResultCount"></span></div></div><div class="team-task-filters"><select class="dashboard-filter" id="qualityReleaseFilter" onchange="renderQualityReportResults()"><option value="all">全部版本</option>${qualityReportRaw.releases.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}</select><select class="dashboard-filter" id="qualityPlatformFilter" onchange="renderQualityReportResults()"><option value="all">全部平台</option><option value="android">Android</option><option value="ios">iOS</option></select><select class="dashboard-filter" id="qualityMemberFilter" onchange="renderQualityReportResults()"><option value="all">全部成员</option>${qualityReportRaw.members.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || '未命名成员')}</option>`).join('')}</select><input class="dashboard-filter" id="qualityFromFilter" type="date" onchange="renderQualityReportResults()" title="统计开始日期"><input class="dashboard-filter" id="qualityToFilter" type="date" onchange="renderQualityReportResults()" title="统计结束日期"><button class="btn-secondary" onclick="clearQualityReportFilters()">清空筛选</button></div><div class="quality-metrics" id="qualityMetrics"></div><div class="quality-section-grid"><div class="history-card" style="margin:0;"><div class="card-title">工作事项明细</div><div style="overflow-x:auto;margin-top:10px;"><table class="history-table" style="min-width:780px;"><thead><tr><th>事项/版本</th><th>负责人</th><th>状态</th><th>计划/实际</th><th>TestHub</th><th>截止日期</th></tr></thead><tbody id="qualityTaskDetails"></tbody></table></div></div><div class="history-card" style="margin:0;"><div class="card-title">成员质量投入</div><div class="release-check-row" style="font-weight:600;"><span>成员</span><span>事项</span><span>完成</span><span>计划</span><span>实际</span></div><div id="qualityMemberStats"></div></div></div><div class="history-card" style="margin-top:14px;"><div class="card-hd"><span class="card-title">BUG 暴露与复盘</span><button class="btn-secondary" onclick="navTo('bugs')">进入 BUG 管理</button></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:850px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>级别</th><th>根因</th><th>复盘状态</th><th>操作</th></tr></thead><tbody id="qualityDefectDetails"></tbody></table></div></div></div>`;
+    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">📊 质量报表</span><div class="release-meta">汇总工作事项、团队投入、TestHub 执行进度、发布检查与暴露 BUG 复盘</div></div><div style="display:flex;gap:7px;"><button class="btn-secondary" onclick="copyQualityReportSummary()">复制摘要</button><button class="btn-secondary" onclick="downloadQualityReportCsv()">导出 CSV</button><span class="card-tag" id="qualityResultCount"></span></div></div><div class="team-task-filters"><select class="dashboard-filter" id="qualityReleaseFilter" onchange="renderQualityReportResults()"><option value="all">全部版本</option>${qualityReportRaw.releases.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}</select><select class="dashboard-filter" id="qualityPlatformFilter" onchange="renderQualityReportResults()"><option value="all">全部产品端</option><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option></select><select class="dashboard-filter" id="qualityMemberFilter" onchange="renderQualityReportResults()"><option value="all">全部成员</option>${qualityReportRaw.members.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || '未命名成员')}</option>`).join('')}</select><input class="dashboard-filter" id="qualityFromFilter" type="date" onchange="renderQualityReportResults()" title="统计开始日期"><input class="dashboard-filter" id="qualityToFilter" type="date" onchange="renderQualityReportResults()" title="统计结束日期"><button class="btn-secondary" onclick="clearQualityReportFilters()">清空筛选</button></div><div class="quality-metrics" id="qualityMetrics"></div><div class="quality-section-grid"><div class="history-card" style="margin:0;"><div class="card-title">工作事项明细</div><div style="overflow-x:auto;margin-top:10px;"><table class="history-table" style="min-width:780px;"><thead><tr><th>事项/版本</th><th>负责人</th><th>状态</th><th>计划/实际</th><th>TestHub</th><th>截止日期</th></tr></thead><tbody id="qualityTaskDetails"></tbody></table></div></div><div class="history-card" style="margin:0;"><div class="card-title">成员质量投入</div><div class="release-check-row" style="font-weight:600;"><span>成员</span><span>事项</span><span>完成</span><span>计划</span><span>实际</span></div><div id="qualityMemberStats"></div></div></div><div class="history-card" style="margin-top:14px;"><div class="card-hd"><span class="card-title">BUG 暴露与复盘</span><button class="btn-secondary" onclick="navTo('bugs')">进入 BUG 管理</button></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:850px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>级别</th><th>根因</th><th>复盘状态</th><th>操作</th></tr></thead><tbody id="qualityDefectDetails"></tbody></table></div></div></div>`;
     content.insertAdjacentHTML('beforeend', `<div class="history-card" style="margin-top:14px;"><div class="card-hd"><div><span class="card-title">📣 对外质量简报</span><div class="release-meta">按测试轮次汇总，不包含负责人姓名、内部原因描述和纠正措施</div></div><button class="btn-primary" onclick="copyExternalQualityBrief()">复制对外简报</button></div><div class="quality-metrics" id="qualityExternalMetrics"></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:760px;"><thead><tr><th>测试轮次</th><th>发现 BUG</th><th>重开 BUG</th><th>重开次数</th><th>改动引入</th><th>漏测</th><th>已关闭</th></tr></thead><tbody id="qualityExternalRoundRows"></tbody></table></div></div>`);
     content.insertAdjacentHTML('beforeend', `<div class="history-card" style="margin-top:14px;"><div class="card-hd"><div><span class="card-title">📝 BUG 复盘报告</span><div class="release-meta">跟随上方版本、平台、成员和日期筛选条件</div></div><button class="btn-secondary" onclick="copyRetrospectiveReport()">复制复盘报告</button></div><div class="retro-grid"><div class="retro-panel"><h4>根因分布</h4><div id="qualityRootCauseStats"></div></div><div class="retro-panel"><h4>执行负责人维度</h4><div id="qualityDefectOwnerStats"></div></div><div class="retro-panel"><h4>待复盘 / 待关闭措施</h4><div id="qualityRetrospectiveActions"></div></div></div></div>`);
     document.getElementById('qualityPlatformFilter').innerHTML='<option value="all">全部平台</option><option value="app">APP</option><option value="pad">Pad</option>';
@@ -2089,7 +2100,7 @@ async function renderVersionTestMap() {
       sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
       sb.from('prds').select('id,title,release_id,version,product,author,status').order('created_at',{ascending:false}),
       sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status,testhub_plan_id,testhub_plan_ids').neq('status','cancelled'),
-      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),
+      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('quality_defects').select('id,prd_id,qa_task_id,status,severity'),
       sb.from('version_test_assets').select('*').order('updated_at',{ascending:false})
     ]);
@@ -2333,14 +2344,14 @@ async function renderTaskRecords() {
 
   try {
     let query = sb.from('qa_tasks')
-      .select('id,title,description,priority,task_type,status,test_round,assignee_id,due_date,release_id,prd_id,requirement_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,related_id,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days')
+      .select('id,title,description,priority,task_type,status,test_round,assignee_id,due_date,release_id,prd_id,requirement_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,related_id,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids')
       .order('created_at', { ascending:false })
       .limit(200);
     const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, activityResult, requirementsResult, prdsResult] = await Promise.all([
       query,
       sb.from('profiles').select('id,name'),
       sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at').order('work_date', { ascending:false }),
-      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,sync_error,synced_at'),
+      sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,sync_error,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_testhub_daily_execution').select('task_id,work_date,executor_key,member_id,executor_name,executed_cases,synced_at'),
       sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false }),
@@ -2418,9 +2429,7 @@ async function renderTaskRecords() {
       done: visibleTasks.filter(task => task.status === 'done').length
     };
     const rows = visibleTasks.map(task => {
-      const range = task.allocation_start_date
-        ? `${task.allocation_start_date} → ${task.allocation_end_date}（含截止日）`
-        : '-';
+      const range = taskAllocationRangeText(task);
       const assignments = taskAssigneeList(task);
       const points = task.effort_person_days
         ? `${Number(task.effort_person_days).toFixed(2)} 人天 / ${assignments.length} 人 / 事件每日 ${resourceDailyPoints(task).toFixed(2)} 点`
@@ -2428,8 +2437,12 @@ async function renderTaskRecords() {
       const snapshot = taskTestHubProgressByTask.get(task.id);
       const actual = taskActualProgressPoints(task, taskProgressByTask.get(task.id) || [], snapshot);
       const testHubPlanCount = getTaskTestHubPlanIds(task).length;
+      const scopedSuiteNames = snapshot?.scope_suite_names || [];
+      const testHubScopeText = task.testhub_scope_mode === 'suite'
+        ? ` · 模块：${escapeDashboardHtml(scopedSuiteNames.length ? scopedSuiteNames.join('、') : `${Number(task.testhub_scope_suite_ids?.length || 0)} 个已选模块`)}`
+        : '';
       const testHubText = testHubPlanCount
-        ? ` · TestHub ${testHubPlanCount} 个计划 ${snapshot?.executed_cases || 0}/${snapshot?.total_cases || 0}`
+        ? ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} ${snapshot?.executed_cases || 0}/${snapshot?.total_cases || 0}`
         : '';
       const canEdit = canCurrentUserEditTask(task);
       const memberIds = assignments.map(item => item.member_id).join(',');
@@ -2452,7 +2465,7 @@ async function renderTaskRecords() {
       && task.allocation_start_date <= todayKey && task.allocation_end_date >= todayKey
       && isResourceWorkday(todayKey)
     );
-    const memberPlannedToday = memberActiveTasks.reduce((sum, task) => sum + taskMemberDailyPlan(task, currentUser.id), 0);
+    const memberPlannedToday = memberActiveTasks.reduce((sum, task) => sum + taskMemberDailyPlanOnDate(task, currentUser.id, todayKey), 0);
     const memberActualToday = memberActiveTasks.reduce((sum, task) => {
       if (taskUsesTestHubProgress(task)) return sum + taskMemberTestHubPoints(task, currentUser.id, todayKey, taskTestHubProgressByTask.get(task.id));
       return sum + (taskProgressByTask.get(task.id) || [])
@@ -2818,80 +2831,7 @@ function renderDashboard() {
     </div>
 
     ${resourceDetailModalHtml()}
-
-    <div class="dashboard-modal" id="newTaskModal">
-      <div class="dashboard-modal-panel task-editor-panel" onclick="event.stopPropagation()">
-        <div class="dashboard-modal-hd">
-          <div class="dashboard-modal-title" id="taskModalTitle">新建今日待办</div>
-          <button class="dashboard-modal-close" onclick="closeNewTaskModal()"><i class="ti ti-x"></i></button>
-        </div>
-        <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label" for="newTaskTemplate">常用任务模板（选填）</label>
-          <select class="form-select" id="newTaskTemplate" onchange="applyTaskTemplate(this.value)"><option value="">不使用模板</option><option value="prd_review">PRD 评审</option><option value="case_design">用例设计</option><option value="test_execution">测试执行</option><option value="bug_verify">BUG 回归</option><option value="copy_check">文案检查</option></select>
-        </div>
-        <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label" for="newTaskTitle">任务标题</label>
-          <input class="dashboard-input" id="newTaskTitle" maxlength="300" placeholder="例如：评审 Perilla 首页 PRD">
-        </div>
-        <div class="form-group" style="margin-bottom:12px;">
-          <label class="form-label" for="newTaskDescription">事项说明（选填）</label>
-          <textarea class="dashboard-input" id="newTaskDescription" rows="3" maxlength="2000" placeholder="填写范围、交付物或验收要求"></textarea>
-        </div>
-        <div class="dashboard-form-grid">
-          <div class="form-group">
-            <label class="form-label" for="newTaskType">任务类型</label>
-            <select class="form-select" id="newTaskType">
-              <option value="prd_review">PRD 评审</option>
-              <option value="case_design">用例设计</option>
-              <option value="test_execution">测试执行</option>
-              <option value="bug_verify">BUG 验证</option>
-              <option value="copy_check">文案检查</option>
-              <option value="automation">自动化</option>
-              <option value="other" selected>其他</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="newTaskStatus">状态</label>
-            <select class="form-select" id="newTaskStatus" onchange="toggleTaskWorkflowFields()">
-              <option value="todo" selected>待处理</option>
-              <option value="in_progress">进行中</option>
-              <option value="blocked">已阻塞</option>
-              <option value="done">已完成</option>
-              <option value="cancelled">已取消</option>
-            </select>
-          </div>
-          <div class="form-group assignee-section">
-            <label class="form-label" for="newTaskAssignee">负责人（点击姓名可多选）</label>
-            <select class="form-select" id="newTaskAssignee" multiple size="4" onmousedown="toggleAssigneeOption(event)" onchange="renderAssigneeAllocationInputs()" ${userRole === 'admin' ? '' : 'disabled'}>
-              <option value="${currentUser.id}" selected>分配给我</option>
-            </select>
-            <div id="assigneeAllocationPreview"></div>
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="newTaskEffort">事件总人天</label>
-            <input class="dashboard-input" id="newTaskEffort" type="number" min="0.25" max="365" step="0.25" value="1" onchange="distributeAssigneeEffortEvenly()">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="newTaskAllocationStart">资源开始日</label>
-            <input class="dashboard-input" id="newTaskAllocationStart" type="date" value="${dashboardDateInputValue(0)}">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="newTaskAllocationEnd">截止日期（包含当天）</label>
-            <input class="dashboard-input" id="newTaskAllocationEnd" type="date" value="${dashboardDateInputValue(0)}">
-          </div>
-        </div>
-        ${taskWorkflowFieldsHtml()}
-        <div class="dashboard-form-grid" style="margin-top:12px;">
-          <div class="form-group"><label class="form-label" for="newTaskTestHubLibrary">TestHub 用例库（选填）</label><select class="form-select" id="newTaskTestHubLibrary"><option value="">不关联</option><option value="661e31a128d44167e325552c">消费类</option><option value="6214acdba2fa0b097f549d45">打印机</option><option value="6746eb4a87e7da0dbd43c027">PC</option></select></div>
-          <div class="form-group"><label class="form-label" for="newTaskTestHubSearch">计划关键词</label><div style="display:flex;gap:6px;"><input class="dashboard-input" id="newTaskTestHubSearch" placeholder="可留空查看最近计划"><button class="btn-secondary" type="button" onclick="loadTestHubPlans(this)" style="white-space:nowrap;">查询缓存</button></div></div>
-          <div class="form-group testhub-plan-section"><label class="form-label">TestHub 计划（可多选）</label><div class="testhub-plan-summary"><span id="testHubPlanSummary">未选择计划</span><button class="btn-secondary" type="button" onclick="clearTestHubPlanSelection()">清空选择</button></div><div class="assignee-allocation-note">关联计划后自动按 TestHub 已执行用例数 ÷ 总用例数计算；不关联时才使用手工填报。</div><div id="testHubPlanOptions" class="testhub-plan-grid"><span class="testhub-plan-empty">查询后选择 Android / iOS 计划</span></div><details style="margin-top:7px;"><summary style="color:var(--sub);font-size:10px;cursor:pointer;">高级：手动添加计划 ID</summary><div style="display:flex;gap:6px;margin-top:6px;"><input class="dashboard-input" id="manualTestHubPlanId" placeholder="缓存未同步时填写计划 ID"><button class="btn-secondary" type="button" onclick="addManualTestHubPlan()" style="white-space:nowrap;">添加 ID</button></div></details><div id="testHubPlanHint" style="color:var(--sub);font-size:10px;margin-top:4px;">请先运行本地同步工具，再查询缓存</div></div>
-        </div>
-        <div class="dashboard-form-actions">
-          <button class="btn-secondary" onclick="closeNewTaskModal()">取消</button>
-          <button class="btn-primary" id="saveTaskBtn" onclick="saveQaTask()"><i class="ti ti-check"></i><span id="saveTaskBtnText">保存待办</span></button>
-        </div>
-      </div>
-    </div>`;
+    ${taskEditorModalHtml()}`;
 
   loadDashboardData(token);
   loadTaskAssignees();
@@ -2946,6 +2886,44 @@ function resourceWorkDates(startDate, endDate, calendar = dashboardWorkCalendar)
   return dates;
 }
 
+function resourceWorkSlots(startDate, endDate, startPeriod = 'am', endPeriod = 'pm', calendar = dashboardWorkCalendar) {
+  if (!startDate || !endDate || endDate < startDate) return [];
+  const slots = [];
+  for (const date of resourceWorkDates(startDate, endDate, calendar)) {
+    for (const period of ['am', 'pm']) {
+      if (date === startDate && startPeriod === 'pm' && period === 'am') continue;
+      if (date === endDate && endPeriod === 'am' && period === 'pm') continue;
+      slots.push({ date, period });
+    }
+  }
+  return slots;
+}
+
+function resourceTaskWorkSlots(task, calendar = dashboardWorkCalendar) {
+  return resourceWorkSlots(
+    task.allocation_start_date,
+    task.allocation_end_date,
+    task.allocation_start_period || 'am',
+    task.allocation_end_period || 'pm',
+    calendar
+  );
+}
+
+function taskAllocationPeriodText(period) {
+  return period === 'pm' ? '下午' : '上午';
+}
+
+function taskAllocationRangeText(task) {
+  if (!task.allocation_start_date || !task.allocation_end_date) return '-';
+  return `${task.allocation_start_date} ${taskAllocationPeriodText(task.allocation_start_period)} → ${task.allocation_end_date} ${taskAllocationPeriodText(task.allocation_end_period)}（含截止时段）`;
+}
+
+function resourceSlotClosed(slot, todayKey, now = new Date()) {
+  if (slot.date < todayKey) return true;
+  if (slot.date > todayKey) return false;
+  return slot.period === 'am' ? now.getHours() >= 13 : now.getHours() >= DAILY_PROGRESS_CUTOFF_HOUR;
+}
+
 function futureResourceWorkDates(count, calendar = dashboardWorkCalendar) {
   const dates = [];
   let date = dashboardTodayInputValue();
@@ -2958,17 +2936,15 @@ function futureResourceWorkDates(count, calendar = dashboardWorkCalendar) {
 
 function resourceDailyPoints(task, calendar = dashboardWorkCalendar) {
   if (!task.allocation_start_date || !task.allocation_end_date || !task.effort_person_days) return 0;
-  const dayCount = resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar).length;
-  return dayCount > 0 ? Number(task.effort_person_days) / dayCount : 0;
+  const slots = resourceTaskWorkSlots(task, calendar);
+  return slots.length ? Number(task.effort_person_days) / (slots.length / 2) : 0;
 }
 
 function taskOfflineDailyPoints(task, calendar = dashboardWorkCalendar) {
   const totalEffort = Number(task.effort_person_days) || 0;
   const onlineEffort = Math.min(Number(task.testhub_effort_person_days) || 0, totalEffort);
-  const workdayCount = task.allocation_start_date && task.allocation_end_date
-    ? resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar).length
-    : 0;
-  return workdayCount ? Math.max(totalEffort - onlineEffort, 0) / workdayCount : 0;
+  const slots = resourceTaskWorkSlots(task, calendar);
+  return slots.length ? Math.max(totalEffort - onlineEffort, 0) / (slots.length / 2) : 0;
 }
 
 function taskActualProgressPoints(task, progressLogs = [], testHubSnapshot = null) {
@@ -2992,7 +2968,7 @@ function taskActualProgressPoints(task, progressLogs = [], testHubSnapshot = nul
 function resourcePointsOnDate(tasks, memberId, dateKey, calendar = dashboardWorkCalendar) {
   if (!isResourceWorkday(dateKey, calendar)) return 0;
   return resourceTasksOnDate(tasks, memberId, dateKey, calendar)
-    .reduce((total, task) => total + taskMemberDailyPlan(task, memberId, calendar), 0);
+    .reduce((total, task) => total + taskMemberDailyPlanOnDate(task, memberId, dateKey, calendar), 0);
 }
 
 function resourceTasksOnDate(tasks, memberId, dateKey, calendar = dashboardWorkCalendar) {
@@ -3008,9 +2984,16 @@ function buildResourceCapacity(members, tasks, calendar = dashboardWorkCalendar)
     const capacity = Number(member.daily_capacity) || 1;
     const cells = dates.map(date => {
       const linkedTasks = resourceTasksOnDate(tasks, member.id, date, calendar);
-      const points = linkedTasks.reduce((total, task) => total + taskMemberDailyPlan(task, member.id, calendar), 0);
-      const level = points > capacity + 0.001 ? 'over' : points < capacity - 0.001 ? 'under' : 'normal';
-      return { date, points, capacity, level, tasks:linkedTasks };
+       const points = linkedTasks.reduce((total, task) => total + taskMemberDailyPlanOnDate(task, member.id, date, calendar), 0);
+       const periodPoints = Object.fromEntries(['am', 'pm'].map(period => [period, linkedTasks.reduce((total, task) => {
+         const slots = resourceTaskWorkSlots(task, calendar);
+         const slotCount = slots.filter(slot => slot.date === date && slot.period === period).length;
+         const allocation = taskAssigneeList(task).find(item => item.member_id === member.id);
+         return total + (allocation && slots.length ? Number(allocation.allocated_effort) * slotCount / slots.length : 0);
+       }, 0)]));
+       const level = points > capacity + 0.001 || periodPoints.am > capacity / 2 + 0.001 || periodPoints.pm > capacity / 2 + 0.001
+         ? 'over' : points < capacity - 0.001 ? 'under' : 'normal';
+       return { date, points, periodPoints, capacity, level, tasks:linkedTasks };
     });
     return { member, cells };
   });
@@ -3054,7 +3037,7 @@ function resourceCapacityTableHtml(resource, rows = resource.rows) {
         const detailKey = `${row.member.id}|${cell.date}`;
         resourceCellDetailCache.set(detailKey, { member:row.member, cell });
         const taskNames = cell.tasks.map(task => task.title).join('、');
-        return `<td class="resource-cell resource-${cell.level} clickable" role="button" tabindex="0" title="${escapeDashboardHtml(taskNames || '当日无工作事项')}" onclick="openResourceCellDetails('${row.member.id}','${cell.date}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openResourceCellDetails('${row.member.id}','${cell.date}');}">${cell.points.toFixed(2)}<small style="display:block;font:9px 'Noto Sans SC';opacity:.72;">${cell.tasks.length} 项</small></td>`;
+        return `<td class="resource-cell resource-${cell.level} clickable" role="button" tabindex="0" title="${escapeDashboardHtml(taskNames || '当日无工作事项')}" onclick="openResourceCellDetails('${row.member.id}','${cell.date}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openResourceCellDetails('${row.member.id}','${cell.date}');}">${cell.points.toFixed(2)}<small style="display:block;font:9px 'Noto Sans SC';opacity:.72;">上 ${cell.periodPoints.am.toFixed(2)} · 下 ${cell.periodPoints.pm.toFixed(2)}</small></td>`;
       }).join('')}
     </tr>`).join('');
   return `<table class="resource-table"><thead><tr><th>成员</th>${header}</tr></thead><tbody>${body}</tbody></table>`;
@@ -3076,8 +3059,8 @@ function openResourceCellDetails(memberId, dateKey) {
   if (!detail || !modal || !title || !body) return;
   title.textContent = `${detail.member.name || '未命名成员'} · ${dateKey} 工作负载`;
   body.innerHTML = detail.cell.tasks.length ? `<div class="resource-detail-list">${detail.cell.tasks.map(task => {
-    const daily = taskMemberDailyPlan(task, memberId, dashboardWorkCalendar);
-    return `<div class="resource-detail-item"><strong>${escapeDashboardHtml(task.title)}</strong><span>${escapeDashboardHtml(taskStatusText(task.status))} · 当日 ${daily.toFixed(2)} 点 · ${escapeDashboardHtml(task.allocation_start_date)} 至 ${escapeDashboardHtml(task.allocation_end_date)}（含截止日）</span><button class="risk-action" style="margin-top:7px;" onclick="locateTaskFromResource('${task.id}')">定位事项</button></div>`;
+    const daily = taskMemberDailyPlanOnDate(task, memberId, dateKey, dashboardWorkCalendar);
+    return `<div class="resource-detail-item"><strong>${escapeDashboardHtml(task.title)}</strong><span>${escapeDashboardHtml(taskStatusText(task.status))} · 当日 ${daily.toFixed(2)} 点 · ${escapeDashboardHtml(taskAllocationRangeText(task))}</span><button class="risk-action" style="margin-top:7px;" onclick="locateTaskFromResource('${task.id}')">定位事项</button></div>`;
   }).join('')}</div><div style="margin-top:12px;color:var(--sub);font-size:11px;">合计 ${detail.cell.points.toFixed(2)} 点，共 ${detail.cell.tasks.length} 项</div>` : '<div class="dashboard-empty">当日没有关联工作事项</div>';
   modal.classList.add('open');
 }
@@ -3116,7 +3099,6 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
   const memberMap = new Map(members.map(member => [member.id, member]));
   const snapshotMap = new Map(testHubSnapshots.map(snapshot => [snapshot.task_id, snapshot]));
   const todayKey = dashboardLocalDateKey(now);
-  const todayClosed = now.getHours() >= DAILY_PROGRESS_CUTOFF_HOUR;
   const risks = [];
 
   tasks.forEach(task => {
@@ -3150,8 +3132,8 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
       return;
     }
 
-    const startReached = task.allocation_start_date
-      && (task.allocation_start_date < todayKey || (task.allocation_start_date === todayKey && todayClosed));
+    const taskSlots = resourceTaskWorkSlots(task, calendar);
+    const startReached = taskSlots.length && resourceSlotClosed(taskSlots[0], todayKey, now);
     const notStarted = task.status === 'todo'
       && actualCumulative <= 0.001
       && startReached;
@@ -3159,20 +3141,16 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
       risks.push({
         level: 'medium',
         title: `${label} 到计划开始日仍未开始`,
-        meta: `计划 ${task.allocation_start_date} 开始，实际累计仍为 0 点`,
+        meta: `计划 ${task.allocation_start_date} ${taskAllocationPeriodText(task.allocation_start_period)}开始，实际累计仍为 0 点`,
         action: 'task', actionLabel: '开始处理', taskId: task.id
       });
       return;
     }
 
-    const workDates = task.allocation_start_date && task.allocation_end_date
-      ? resourceWorkDates(task.allocation_start_date, task.allocation_end_date, calendar)
-      : [];
-    const elapsedWorkDates = workDates.filter(date => date < todayKey || (date === todayKey && todayClosed));
-    const plannedCumulative = elapsedWorkDates.reduce(
-      (sum, date) => sum + taskMemberDailyPlanOnDate(task, assignment.member_id, date, calendar),
-      0
-    );
+    const closedSlots = taskSlots.filter(slot => resourceSlotClosed(slot, todayKey, now)).length;
+    const plannedCumulative = taskSlots.length
+      ? Number(assignment.allocated_effort) * closedSlots / taskSlots.length
+      : 0;
     const progressGap = plannedCumulative - actualCumulative;
 
     if (plannedCumulative > 0 && progressGap > 0.01) {
@@ -3329,7 +3307,7 @@ function renderDashboardTasks(tasks, upcomingTasks, failed, todayStart, todayEnd
         <div class="task-title" title="${escapeDashboardHtml(task.title)}">
           ${escapeDashboardHtml(task.title)}
         </div>
-        <div class="task-meta">${formatDashboardDue(task.due_date, todayStart, todayEnd)} · ${escapeDashboardHtml(taskStatusText(task.status))}${task.effort_person_days ? ` · 我的每日 ${taskMemberDailyPlan(task, currentUser.id).toFixed(2)} 点` : ''} · ${taskUsesTestHubProgress(task) ? 'TestHub 自动' : '手工填报'}</div>
+        <div class="task-meta">${formatDashboardDue(task.due_date, todayStart, todayEnd)} · ${escapeDashboardHtml(taskStatusText(task.status))}${task.effort_person_days ? ` · 我的今日 ${taskMemberDailyPlanOnDate(task, currentUser.id, dashboardTodayInputValue()).toFixed(2)} 点` : ''} · ${taskUsesTestHubProgress(task) ? 'TestHub 自动' : '手工填报'}</div>
       </div>
       ${canCurrentUserEditTask(task) ? `<button class="task-done" title="标记完成" onclick="completeQaTask('${task.id}', this)"><i class="ti ti-check"></i></button>` : ''}
     </div>`;
@@ -3454,8 +3432,8 @@ async function loadDashboardData(token) {
   const since24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
 
   const results = await Promise.allSettled([
-    sb.from('releases').select('id,version,name,platform,planned_release_date,status').eq('status','active').limit(1).maybeSingle(),
-    sb.from('qa_tasks').select('id,title,task_type,priority,status,due_date,release_id,source,external_id,external_url,assignee_id,created_by,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,blocked_reason,blocked_owner_id,blocked_until,completion_note').in('status',['todo','in_progress','blocked']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
+    sb.from('releases').select('id,version,name,platform,planned_release_date,status').eq('status','active').order('platform'),
+    sb.from('qa_tasks').select('id,title,task_type,priority,status,due_date,release_id,source,external_id,external_url,assignee_id,created_by,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until,completion_note').in('status',['todo','in_progress','blocked']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
     sb.from('run_tasks').select('id,status,task_type,platform,created_at,started_at').gte('created_at', since24Hours),
     sb.from('device_configs').select('id,model_name,platform,is_online'),
     sb.from('consumables').select('id,name,brand,quantity,threshold,unit'),
@@ -3464,11 +3442,11 @@ async function loadDashboardData(token) {
       ? sb.from('profiles').select('id,name,daily_capacity').order('name')
       : sb.from('profiles').select('id,name,daily_capacity').eq('id', currentUser.id),
     userRole === 'admin'
-      ? sb.from('qa_tasks').select('id,title,priority,assignee_id,status,due_date,effort_person_days,allocation_start_date,allocation_end_date,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,blocked_reason,blocked_owner_id,blocked_until').in('status',['todo','in_progress','blocked'])
+      ? sb.from('qa_tasks').select('id,title,priority,assignee_id,status,due_date,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until').in('status',['todo','in_progress','blocked'])
       : Promise.resolve({ data: [], error: null }),
     sb.from('work_calendar').select('work_date,is_workday,name'),
     sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id').lte('work_date', dashboardTodayInputValue()).limit(2000),
-    sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at'),
+    sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
     userRole === 'admin'
       ? sb.from('testhub_sync_status').select('sync_name,status,last_started_at,last_success_at,last_failure_at,next_expected_at,error_message,cached_plan_count,progress_success,progress_failed,execution_record_count,mapped_executor_count,unmapped_executor_count,updated_at').eq('sync_name','testhub_local').maybeSingle()
       : Promise.resolve({ data:null, error:null }),
@@ -3485,7 +3463,7 @@ async function loadDashboardData(token) {
 
   if (token !== dashboardLoadToken || currentPage !== 'dashboard') return;
 
-  const releaseResult = dashboardQueryResult(results[0], null);
+  const releaseResult = dashboardQueryResult(results[0], []);
   const tasksResult = dashboardQueryResult(results[1], []);
   const runsResult = dashboardQueryResult(results[2], []);
   const devicesResult = dashboardQueryResult(results[3], []);
@@ -3520,7 +3498,8 @@ async function loadDashboardData(token) {
     list.push(item);
     taskAllocationHistoryByTask.set(item.task_id, list);
   });
-  const activeRelease = releaseResult.data;
+  const activeReleases = releaseResult.data || [];
+  const activeRelease = activeReleases[0] || null;
   if (!workCalendarResult.failed) {
     dashboardWorkCalendar = new Map(workCalendarResult.data.map(day => [day.work_date, day]));
   }
@@ -3559,9 +3538,8 @@ async function loadDashboardData(token) {
   const staleRuns = runsResult.data.filter(run => run.status === 'running' && run.started_at && new Date(run.started_at).getTime() < staleBefore);
   const offlineDevices = devicesResult.data.filter(device => device.is_online === false);
   const lowStock = consumablesResult.data.filter(item => Number(item.quantity) <= Number(item.threshold));
-  const releaseChecks = activeRelease
-    ? checksResult.data.filter(check => check.release_id === activeRelease.id)
-    : [];
+  const activeReleaseIds = new Set(activeReleases.map(release => release.id));
+  const releaseChecks = checksResult.data.filter(check => activeReleaseIds.has(check.release_id));
   const resource = userRole === 'admin'
     ? buildResourceCapacity(resourceMembersResult.data, resourceTasksResult.data, dashboardWorkCalendar)
     : { dates: [], rows: [], risks: [] };
@@ -3601,7 +3579,7 @@ async function loadDashboardData(token) {
     meta: check.status === 'failed' ? '版本检查未通过' : '版本检查数据暂不可用',
     action: 'prd', actionLabel: '查看版本'
   }));
-  if (userRole === 'admin' && !activeRelease && !releaseResult.failed) risks.push({ level:'low', title:'当前活动版本未设置', meta:'由管理员创建并激活测试版本', action:'prd', actionLabel:'去设置' });
+  if (userRole === 'admin' && !activeReleases.length && !releaseResult.failed) risks.push({ level:'low', title:'当前活动版本未设置', meta:'可分别设置 APP、Pad、PC 当前版本', action:'prd', actionLabel:'去设置' });
   if (userRole === 'admin' && !syncHealthResult.failed) {
     const syncHealth = getTestHubSyncHealth(syncHealthResult.data, false, now);
     if (syncHealthResult.data?.status === 'failed') {
@@ -3668,18 +3646,19 @@ async function loadDashboardData(token) {
   const releaseText = document.getElementById('dashboardReleaseText');
   const statusBadge = document.getElementById('dashboardStatusBadge');
   const versionTag = document.getElementById('versionTag');
+  const activeReleaseText = activeReleases.map(release => `${releasePlatformText(release.platform)} ${release.name || release.version}`).join(' · ');
   if (releaseText) {
-    releaseText.textContent = activeRelease
-      ? `当前版本：${activeRelease.name || activeRelease.version}${activeRelease.planned_release_date ? ` · 计划 ${activeRelease.planned_release_date} 发布` : ''}`
+    releaseText.textContent = activeReleases.length
+      ? `当前版本：${activeReleaseText}`
       : releaseResult.failed ? '当前版本加载失败' : '当前版本：暂未设置';
   }
-  if (versionTag) versionTag.textContent = releaseResult.failed ? '加载失败' : activeRelease?.version || '暂未设置';
+  if (versionTag) versionTag.textContent = releaseResult.failed ? '加载失败' : activeReleases.length > 1 ? `${activeReleases.length} 个当前版本` : activeRelease?.version || '暂未设置';
   if (statusBadge) {
     const actionableRiskCount = risks.filter(risk => risk.level !== 'low').length;
     statusBadge.textContent = riskDataFailed ? '部分数据加载失败' : actionableRiskCount ? `${actionableRiskCount} 项风险待处理` : risks.length ? `${risks.length} 项提醒` : '今日状态良好';
   }
 
-  dashboardSnapshot = { activeRelease, todayTasks, upcomingTasks, risks, resource, loadedAt: now };
+  dashboardSnapshot = { activeRelease, activeReleases, todayTasks, upcomingTasks, risks, resource, loadedAt: now };
 }
 
 async function openNewTaskModal() {
@@ -3713,7 +3692,13 @@ async function openNewTaskModal() {
   document.getElementById('newTaskEffort').value = '1';
   document.getElementById('newTaskAllocationStart').value = dashboardTodayInputValue();
   document.getElementById('newTaskAllocationEnd').value = dashboardTodayInputValue();
+  document.getElementById('newTaskAllocationStartPeriod').value = 'am';
+  document.getElementById('newTaskAllocationEndPeriod').value = 'pm';
   document.getElementById('newTaskTestHubLibrary').value = '';
+  document.getElementById('newTaskTestHubScopeMode').value = 'all';
+  testHubSuiteChoiceCache = new Map();
+  renderTestHubSuiteChoices([], []);
+  toggleTestHubScopeFields();
   await loadTaskAssignees([currentUser.id], [{ member_id:currentUser.id, allocated_effort:1 }]);
   await loadTaskReleases();
   document.getElementById('newTaskBlockedOwner').value = '';
@@ -3761,6 +3746,8 @@ async function openEditQaTask(id, readOnly = false) {
   renderAssigneeAllocationInputs(new Map(assignments.map(item => [item.member_id, Number(item.allocated_effort)])));
   document.getElementById('newTaskAllocationStart').value = task.allocation_start_date || '';
   document.getElementById('newTaskAllocationEnd').value = task.allocation_end_date || '';
+  document.getElementById('newTaskAllocationStartPeriod').value = task.allocation_start_period || 'am';
+  document.getElementById('newTaskAllocationEndPeriod').value = task.allocation_end_period || 'pm';
   await loadTaskReleases(task.release_id || '');
   document.getElementById('newTaskBlockedOwner').value = task.blocked_owner_id || '';
   document.getElementById('newTaskBlockedUntil').value = task.blocked_until || '';
@@ -3772,6 +3759,9 @@ async function openEditQaTask(id, readOnly = false) {
   const selectedPlanIds = getTaskTestHubPlanIds(task);
   testHubPlanChoiceCache = new Map();
   renderTestHubPlanChoices([], selectedPlanIds);
+  document.getElementById('newTaskTestHubScopeMode').value = task.testhub_scope_mode || 'all';
+  toggleTestHubScopeFields();
+  await loadTestHubSuitesForSelection(task.testhub_scope_suite_ids || [], false);
   document.getElementById('testHubPlanHint').textContent = selectedPlanIds.length
     ? `当前已关联 ${selectedPlanIds.length} 个计划，可重新拉取后调整`
     : '请先运行本地同步工具，再查询缓存';
@@ -3803,6 +3793,8 @@ async function duplicateQaTask(id) {
   document.getElementById('newTaskEffort').value = task.effort_person_days || 1;
   document.getElementById('newTaskAllocationStart').value = task.allocation_start_date || dashboardTodayInputValue();
   document.getElementById('newTaskAllocationEnd').value = task.allocation_end_date || dashboardTodayInputValue();
+  document.getElementById('newTaskAllocationStartPeriod').value = task.allocation_start_period || 'am';
+  document.getElementById('newTaskAllocationEndPeriod').value = task.allocation_end_period || 'pm';
   await loadTaskAssignees(assignments.map(item => item.member_id), assignments);
   await loadTaskReleases(task.release_id || '');
   renderAssigneeAllocationInputs(new Map(assignments.map(item => [item.member_id, item.allocated_effort])));
@@ -3827,7 +3819,7 @@ function openProgressModal(id) {
   document.getElementById('progressModalTitle').textContent = `填报进度 · ${task.title}`;
   dateInput.value = dashboardTodayInputValue();
   dateInput.max = dashboardTodayInputValue();
-  pointsInput.value = taskMemberDailyPlan(task, executorSelect?.value || currentUser.id).toFixed(2);
+  pointsInput.value = taskMemberDailyPlanOnDate(task, executorSelect?.value || currentUser.id, dateInput.value).toFixed(2);
   document.getElementById('progressNote').value = '';
   modal.classList.add('open');
   setTimeout(() => pointsInput.focus(), 0);
@@ -3837,7 +3829,8 @@ function updateProgressPointSuggestion() {
   const task = taskRecordCache.get(progressQaTaskId);
   const executorId = document.getElementById('progressExecutor')?.value;
   const pointsInput = document.getElementById('progressPoints');
-  if (task && executorId && pointsInput) pointsInput.value = taskMemberDailyPlan(task, executorId).toFixed(2);
+  const dateKey = document.getElementById('progressWorkDate')?.value || dashboardTodayInputValue();
+  if (task && executorId && pointsInput) pointsInput.value = taskMemberDailyPlanOnDate(task, executorId, dateKey).toFixed(2);
 }
 
 function closeProgressModal() {
@@ -3931,9 +3924,85 @@ function updateTestHubPlanSummary() {
   summary.textContent = count ? `已选择 ${count} 个计划` : '未选择计划';
 }
 
+function getSelectedTestHubSuiteIds() {
+  return [...document.querySelectorAll('#testHubSuiteOptions input[type="checkbox"]:checked')]
+    .map(input => input.value)
+    .filter(Boolean);
+}
+
+function updateTestHubSuiteSummary() {
+  const summary = document.getElementById('testHubSuiteSummary');
+  if (!summary) return;
+  const count = getSelectedTestHubSuiteIds().length;
+  summary.textContent = count ? `已选择 ${count} 个模块` : '尚未选择模块';
+}
+
+function toggleTestHubScopeFields() {
+  const mode = document.getElementById('newTaskTestHubScopeMode')?.value || 'all';
+  const wrap = document.getElementById('testHubSuiteScopeWrap');
+  if (wrap) wrap.style.display = mode === 'suite' ? '' : 'none';
+}
+
+function renderTestHubSuiteChoices(suites, selectedIds = []) {
+  const container = document.getElementById('testHubSuiteOptions');
+  if (!container) return;
+  const selected = new Set((selectedIds || []).map(String));
+  for (const suite of suites || []) {
+    if (suite?.suite_id) testHubSuiteChoiceCache.set(String(suite.suite_id), suite);
+  }
+  for (const id of selected) {
+    if (!testHubSuiteChoiceCache.has(id)) {
+      testHubSuiteChoiceCache.set(id, { suite_id:id, suite_name:`已保存模块 · ${id.slice(-8)}`, case_count:0 });
+    }
+  }
+  container.innerHTML = [...testHubSuiteChoiceCache.values()]
+    .sort((a, b) => String(a.suite_name || '').localeCompare(String(b.suite_name || ''), 'zh-CN'))
+    .map(suite => {
+      const id = String(suite.suite_id || '');
+      return `<label class="testhub-plan-card ${selected.has(id) ? 'selected' : ''}"><input type="checkbox" value="${escapeDashboardHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="this.closest('.testhub-plan-card')?.classList.toggle('selected',this.checked);updateTestHubSuiteSummary()"><div class="testhub-plan-title">${escapeDashboardHtml(suite.suite_name || '未命名模块')}</div><div class="testhub-plan-meta"><span class="testhub-plan-badge">${Number(suite.case_count || 0)} 条用例</span></div></label>`;
+    }).join('') || '<span class="testhub-plan-empty">尚无模块缓存；保存任务并运行一次本地 TestHub 同步后再选择</span>';
+  updateTestHubSuiteSummary();
+}
+
+async function loadTestHubSuitesForSelection(selectedIds = null, notify = true) {
+  const libraryId = document.getElementById('newTaskTestHubLibrary')?.value || '';
+  const planIds = getSelectedTestHubPlanIds();
+  const preserved = selectedIds === null ? getSelectedTestHubSuiteIds() : selectedIds;
+  if (!libraryId || !planIds.length) {
+    testHubSuiteChoiceCache = new Map();
+    renderTestHubSuiteChoices([], preserved || []);
+    if (notify) showToast('请先选择 TestHub 用例库和计划', 'error');
+    return;
+  }
+  try {
+    const { data, error } = await sb.from('testhub_plan_suite_cache')
+      .select('suite_id,suite_name,case_count,plan_id,synced_at')
+      .eq('library_id', libraryId)
+      .in('plan_id', planIds)
+      .order('suite_name');
+    if (error) throw error;
+    const merged = new Map();
+    for (const suite of data || []) {
+      const id = String(suite.suite_id || '');
+      if (!id) continue;
+      const current = merged.get(id) || { ...suite, case_count:0 };
+      current.case_count += Number(suite.case_count || 0);
+      merged.set(id, current);
+    }
+    testHubSuiteChoiceCache = new Map();
+    renderTestHubSuiteChoices([...merged.values()], preserved || []);
+    if (notify) showToast(merged.size ? `已读取 ${merged.size} 个 TestHub 模块` : '尚无模块缓存，请先运行本地同步', merged.size ? 'success' : 'error');
+  } catch (error) {
+    console.error('[testhub] suite cache load failed:', error);
+    renderTestHubSuiteChoices([], preserved || []);
+    if (notify) showToast('模块缓存读取失败，请先执行新迁移', 'error');
+  }
+}
+
 function handleTestHubPlanSelectionChange(input) {
   input.closest('.testhub-plan-card')?.classList.toggle('selected', input.checked);
   updateTestHubPlanSummary();
+  if (document.getElementById('newTaskTestHubScopeMode')?.value === 'suite') void loadTestHubSuitesForSelection(null, false);
 }
 
 function clearTestHubPlanSelection() {
@@ -3942,6 +4011,8 @@ function clearTestHubPlanSelection() {
     input.closest('.testhub-plan-card')?.classList.remove('selected');
   });
   updateTestHubPlanSummary();
+  testHubSuiteChoiceCache = new Map();
+  renderTestHubSuiteChoices([], []);
 }
 
 function renderTestHubPlanChoices(plans, selectedIds = []) {
@@ -4215,9 +4286,13 @@ async function saveQaTask() {
   const effort = Number(document.getElementById('newTaskEffort')?.value);
   const allocationStart = document.getElementById('newTaskAllocationStart')?.value;
   const allocationEnd = document.getElementById('newTaskAllocationEnd')?.value;
+  const allocationStartPeriod = document.getElementById('newTaskAllocationStartPeriod')?.value || 'am';
+  const allocationEndPeriod = document.getElementById('newTaskAllocationEndPeriod')?.value || 'pm';
   const dueDate = allocationEnd;
   const testHubLibraryId = document.getElementById('newTaskTestHubLibrary')?.value.trim() || '';
   const testHubPlanIds = getSelectedTestHubPlanIds();
+  const testHubScopeMode = document.getElementById('newTaskTestHubScopeMode')?.value || 'all';
+  const testHubScopeSuiteIds = testHubScopeMode === 'suite' ? getSelectedTestHubSuiteIds() : [];
   const testHubEffort = testHubPlanIds.length ? effort : null;
   const button = document.getElementById('saveTaskBtn');
   if (!title) { showToast('请填写任务标题', 'error'); return; }
@@ -4240,13 +4315,19 @@ async function saveQaTask() {
   if (!resourceWorkDates(allocationStart, allocationEnd).length) {
     showToast('所选资源区间没有可用工作日', 'error'); return;
   }
+  if (!resourceWorkSlots(allocationStart, allocationEnd, allocationStartPeriod, allocationEndPeriod).length) {
+    showToast('开始和截止时段顺序不正确', 'error'); return;
+  }
   if ((testHubLibraryId || testHubPlanIds.length) && (!testHubLibraryId || !testHubPlanIds.length)) {
     showToast('关联 TestHub 时需要同时选择用例库和至少一个计划', 'error'); return;
+  }
+  if (testHubPlanIds.length && testHubScopeMode === 'suite' && !testHubScopeSuiteIds.length) {
+    showToast('按模块计算时请至少选择一个 TestHub 模块', 'error'); return;
   }
 
   button.disabled = true;
   try {
-    const due = new Date(`${dueDate}T23:59:59`);
+    const due = new Date(`${dueDate}T${allocationEndPeriod === 'am' ? '12:00:00' : '18:00:00'}`);
     const payload = {
       title,
       description,
@@ -4272,10 +4353,14 @@ async function saveQaTask() {
       effort_person_days: effort,
       allocation_start_date: allocationStart,
       allocation_end_date: allocationEnd,
+      allocation_start_period: allocationStartPeriod,
+      allocation_end_period: allocationEndPeriod,
       testhub_library_id: testHubLibraryId || null,
       testhub_plan_id: testHubPlanIds[0] || null,
       testhub_plan_ids: testHubPlanIds,
-      testhub_effort_person_days: testHubEffort
+      testhub_effort_person_days: testHubEffort,
+      testhub_scope_mode: testHubPlanIds.length ? testHubScopeMode : 'all',
+      testhub_scope_suite_ids: testHubPlanIds.length ? testHubScopeSuiteIds : []
     };
     const { data, error } = await sb.rpc('save_qa_task_workflow', {
       task_payload: { ...payload, id:editingQaTaskId || null },
@@ -4323,10 +4408,10 @@ async function completeQaTask(id, button) {
 
 async function copyTodaySummary() {
   if (!dashboardSnapshot) { showToast('数据仍在加载，请稍后重试', 'error'); return; }
-  const { activeRelease, todayTasks, risks } = dashboardSnapshot;
+  const { activeRelease, activeReleases = activeRelease ? [activeRelease] : [], todayTasks, risks } = dashboardSnapshot;
   const lines = [
     `Liene QA 今日摘要 · ${new Date().toLocaleDateString('zh-CN')}`,
-    `当前版本：${activeRelease?.name || activeRelease?.version || '暂未设置'}`,
+    `当前版本：${activeReleases.length ? activeReleases.map(release => `${releasePlatformText(release.platform)} ${release.name || release.version}`).join(' · ') : '暂未设置'}`,
     `今日待办：${todayTasks.length} 项`,
     ...todayTasks.slice(0, 5).map(task => `- [${task.priority}] ${task.title}`),
     `风险提醒：${risks.length} 项`,
