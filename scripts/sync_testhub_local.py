@@ -44,6 +44,11 @@ RUN_PAGE_SIZE = 5
 UNTESTED_STATUSES = {
     "", "未测试", "untested", "not_tested", "not tested", "not_run", "not run", "pending"
 }
+EXECUTED_STATUSES = {
+    "通过", "失败", "跳过", "不适用", "条件通过", "阻塞",
+    "pass", "passed", "failure", "failed", "skip", "skipped", "block", "blocked",
+    "not_applicable", "not applicable", "conditional_pass", "condition_pass",
+}
 SYNC_LOCK_MAX_AGE_SECONDS = 2 * 60 * 60
 
 
@@ -399,7 +404,7 @@ def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
     for run in runs:
         status = str(((run.get("latest_executed_status") or {}).get("name") or run.get("status") or "")).strip()
         counts[status or "未测试"] = counts.get(status or "未测试", 0) + 1
-        if status.casefold() not in UNTESTED_STATUSES:
+        if status.casefold() in EXECUTED_STATUSES:
             executed += 1
     total = len(runs)
     return {"total": total, "executed": executed, "ratio": executed / total if total else 0, "counts": counts}
@@ -500,6 +505,76 @@ def run_executor_and_date(run: dict[str, Any]) -> tuple[str, str, str, str]:
     return executor_key, executor_id, executor_name, work_date
 
 
+def normalize_person_name(value: Any) -> str:
+    return "".join(str(value or "").split()).casefold()
+
+
+def upsert_pingcode_user_directory(
+    runs: list[dict[str, Any]], access_token: str
+) -> int:
+    discovered: dict[str, dict[str, Any]] = {}
+    seen_at = datetime.now(timezone.utc).isoformat()
+    for run in runs:
+        _, executor_id, executor_name, _ = run_executor_and_date(run)
+        if not executor_id:
+            continue
+        discovered[executor_id] = {
+            "pingcode_user_id": executor_id,
+            "display_name": executor_name,
+            "source": "testhub",
+            "last_seen_at": seen_at,
+        }
+    if discovered:
+        request_json(
+            f"{SUPABASE_URL}/rest/v1/pingcode_user_directory?on_conflict=pingcode_user_id",
+            method="POST",
+            headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
+            body=list(discovered.values()),
+            retries=2,
+        )
+    return len(discovered)
+
+
+def auto_map_pingcode_profiles(access_token: str) -> int:
+    profiles = request_json(
+        f"{SUPABASE_URL}/rest/v1/profiles?select=id,name,pingcode_user_id",
+        headers=supabase_headers(access_token),
+        retries=2,
+    ) or []
+    directory = request_json(
+        f"{SUPABASE_URL}/rest/v1/pingcode_user_directory?select=pingcode_user_id,display_name",
+        headers=supabase_headers(access_token),
+        retries=2,
+    ) or []
+    candidates: dict[str, list[dict[str, Any]]] = {}
+    for user in directory:
+        normalized = normalize_person_name(user.get("display_name"))
+        if normalized:
+            candidates.setdefault(normalized, []).append(user)
+    mapped = 0
+    for profile in profiles:
+        if profile.get("pingcode_user_id"):
+            continue
+        matches = candidates.get(normalize_person_name(profile.get("name")), [])
+        unique_ids = {str(item.get("pingcode_user_id") or "") for item in matches if item.get("pingcode_user_id")}
+        if len(unique_ids) != 1:
+            continue
+        candidate = next(item for item in matches if str(item.get("pingcode_user_id") or "") in unique_ids)
+        profile_id = urllib.parse.quote(str(profile.get("id") or ""), safe="")
+        request_json(
+            f"{SUPABASE_URL}/rest/v1/profiles?id=eq.{profile_id}",
+            method="PATCH",
+            headers=supabase_headers(access_token, prefer="return=minimal"),
+            body={
+                "pingcode_user_id": candidate["pingcode_user_id"],
+                "pingcode_display_name": candidate.get("display_name") or profile.get("name") or "",
+            },
+            retries=2,
+        )
+        mapped += 1
+    return mapped
+
+
 def replace_daily_execution(
     task_id: str,
     runs: list[dict[str, Any]],
@@ -509,7 +584,7 @@ def replace_daily_execution(
     grouped: dict[tuple[str, str], dict[str, Any]] = {}
     for run in runs:
         status = str(((run.get("latest_executed_status") or {}).get("name") or run.get("status") or "")).strip()
-        if status.casefold() in UNTESTED_STATUSES:
+        if status.casefold() not in EXECUTED_STATUSES:
             continue
         executor_key, pingcode_user_id, executor_name, work_date = run_executor_and_date(run)
         profile = profile_directory.get(pingcode_user_id)
@@ -550,6 +625,7 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
     execution_records = 0
     mapped_executors: set[str] = set()
     unmapped_executors: set[str] = set()
+    auto_mapped_profiles = 0
     upsert_url = f"{SUPABASE_URL}/rest/v1/task_testhub_progress?on_conflict=task_id"
     upsert_headers = supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal")
     profile_directory = fetch_profile_directory(access_token)
@@ -572,6 +648,11 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 scope_suite_names.update(name for _, name in map(run_suite, scoped_runs) if name)
                 summaries.append(summarize_runs(scoped_runs))
                 all_runs.extend(scoped_runs)
+            upsert_pingcode_user_directory(all_runs, access_token)
+            newly_mapped = auto_map_pingcode_profiles(access_token)
+            if newly_mapped:
+                auto_mapped_profiles += newly_mapped
+                profile_directory = fetch_profile_directory(access_token)
             total = sum(item["total"] for item in summaries)
             executed = sum(item["executed"] for item in summaries)
             counts: dict[str, int] = {}
@@ -613,6 +694,7 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
         "execution_records": execution_records,
         "mapped_executors": len(mapped_executors),
         "unmapped_executors": len(unmapped_executors),
+        "auto_mapped_profiles": auto_mapped_profiles,
     }
 
 
@@ -678,7 +760,7 @@ def main() -> None:
     library_ids = list(dict.fromkeys(args.library_ids or [DEFAULT_LIBRARY_ID]))
     total_cached = 0
     progress_success = progress_failed = 0
-    execution_record_count = mapped_executor_count = unmapped_executor_count = 0
+    execution_record_count = mapped_executor_count = unmapped_executor_count = auto_mapped_profile_count = 0
 
     try:
         if not args.progress_only:
@@ -698,6 +780,7 @@ def main() -> None:
             execution_record_count = progress_metrics["execution_records"]
             mapped_executor_count = progress_metrics["mapped_executors"]
             unmapped_executor_count = progress_metrics["unmapped_executors"]
+            auto_mapped_profile_count = progress_metrics["auto_mapped_profiles"]
 
         print("\n同步完成")
         print(f"  用例库：{', '.join(library_ids)}")
@@ -705,6 +788,8 @@ def main() -> None:
         if not args.skip_progress:
             print(f"  任务进度：成功 {progress_success}，失败 {progress_failed}")
             print(f"  执行记录：{execution_record_count} 条；已映射执行人 {mapped_executor_count}，未映射 {unmapped_executor_count}")
+            if auto_mapped_profile_count:
+                print(f"  自动绑定成员：{auto_mapped_profile_count} 人")
         if progress_failed:
             update_sync_health(
                 access_token,

@@ -117,6 +117,8 @@ def main() -> None:
         "testhub_scope_suite_ids",
         "activeReleases",
         "<option value=\"pc\">PC</option>",
+        "cachedScopedTotal",
+        "已执行 ${executedCases} / 总 Case ${displayedTotalCases}",
     ], "main.html")
     require(migration, [
         "create table if not exists public.qa_task_allocation_history",
@@ -252,6 +254,10 @@ def main() -> None:
         "def cache_plan_suites",
         "def filter_runs_for_task_scope",
         "testhub_plan_suite_cache",
+        "EXECUTED_STATUSES",
+        "def upsert_pingcode_user_directory",
+        "def auto_map_pingcode_profiles",
+        "auto_mapped_profiles",
     ], "TestHub sync")
 
     if html.count('id="newTaskModal"') != 1:
