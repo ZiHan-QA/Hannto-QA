@@ -118,6 +118,10 @@ def main() -> None:
         "activeReleases",
         "<option value=\"pc\">PC</option>",
         "cachedScopedTotal",
+        "function autoBindPingCodeMembers",
+        "function clearPingCodeMapping",
+        "task_testhub_daily_execution').select('executor_key,executor_name,synced_at')",
+        "discoveredDirectoryRows",
         "已执行 ${executedCases} / 总 Case ${displayedTotalCases}",
     ], "main.html")
     require(migration, [

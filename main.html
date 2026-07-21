@@ -928,6 +928,36 @@ async function loadTaskReleases(selectedId = '') {
   }
 }
 
+async function autoBindPingCodeMembers(profiles, directory) {
+  const byId = new Map((directory || []).map(user => [String(user.pingcode_user_id || ''), user]));
+  const byName = new Map();
+  for (const user of directory || []) {
+    const key = normalizePersonName(user.display_name);
+    if (!key || !user.pingcode_user_id) continue;
+    const matches = byName.get(key) || [];
+    matches.push(user);
+    byName.set(key, matches);
+  }
+  let boundCount = 0;
+  for (const profile of profiles || []) {
+    let candidate = profile.pingcode_user_id ? byId.get(String(profile.pingcode_user_id)) : null;
+    if (!profile.pingcode_user_id) {
+      const matches = byName.get(normalizePersonName(profile.name)) || [];
+      if (matches.length === 1) candidate = matches[0];
+    }
+    if (!candidate || (profile.pingcode_user_id && profile.pingcode_display_name)) continue;
+    const update = {
+      pingcode_user_id: String(candidate.pingcode_user_id),
+      pingcode_display_name: candidate.display_name || profile.name || ''
+    };
+    const { error } = await sb.from('profiles').update(update).eq('id', profile.id);
+    if (error) throw error;
+    Object.assign(profile, update);
+    boundCount += 1;
+  }
+  return boundCount;
+}
+
 async function renderMemberMappings() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
@@ -938,18 +968,47 @@ async function renderMemberMappings() {
   content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载成员映射…</div></div>';
 
   try {
-    const [profilesResult, directoryResult, tasksResult, assigneesResult, calendarResult] = await Promise.all([
+    const [profilesResult, directoryResult, executionUsersResult, tasksResult, assigneesResult, calendarResult] = await Promise.all([
       sb.from('profiles').select('id,name,role,daily_capacity,pingcode_user_id,pingcode_display_name').order('name'),
       sb.from('pingcode_user_directory').select('pingcode_user_id,display_name,last_seen_at').order('display_name'),
+      sb.from('task_testhub_daily_execution').select('executor_key,executor_name,synced_at').order('synced_at',{ascending:false}).limit(5000),
       sb.from('qa_tasks').select('id,title,status,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').in('status',['todo','in_progress','blocked']),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('work_calendar').select('work_date,is_workday,name')
     ]);
     if (profilesResult.error) throw profilesResult.error;
     if (directoryResult.error) throw directoryResult.error;
+    if (executionUsersResult.error) throw executionUsersResult.error;
     if (tasksResult.error) throw tasksResult.error;
     if (assigneesResult.error) throw assigneesResult.error;
     if (calendarResult.error) throw calendarResult.error;
+    const profiles = profilesResult.data || [];
+    const directoryMap = new Map((directoryResult.data || []).map(user => [String(user.pingcode_user_id || ''), user]));
+    for (const record of executionUsersResult.data || []) {
+      const userId = String(record.executor_key || '');
+      if (!userId || userId.startsWith('unmapped:') || directoryMap.has(userId)) continue;
+      directoryMap.set(userId, {
+        pingcode_user_id:userId,
+        display_name:record.executor_name || '未命名',
+        last_seen_at:record.synced_at,
+        source:'testhub'
+      });
+    }
+    const directory = [...directoryMap.values()].filter(user => user.pingcode_user_id);
+    const discoveredDirectoryRows = directory.filter(user => user.source === 'testhub' && !(directoryResult.data || []).some(existing => existing.pingcode_user_id === user.pingcode_user_id));
+    if (discoveredDirectoryRows.length) {
+      const { error } = await sb.from('pingcode_user_directory').upsert(
+        discoveredDirectoryRows.map(user => ({
+          pingcode_user_id:user.pingcode_user_id,
+          display_name:user.display_name,
+          source:'testhub',
+          last_seen_at:user.last_seen_at || new Date().toISOString()
+        })),
+        { onConflict:'pingcode_user_id' }
+      );
+      if (error) throw error;
+    }
+    const autoBoundCount = await autoBindPingCodeMembers(profiles, directory);
     taskAssigneesByTask = new Map();
     (assigneesResult.data || []).forEach(item => {
       const assignments = taskAssigneesByTask.get(item.task_id) || [];
@@ -957,27 +1016,37 @@ async function renderMemberMappings() {
       taskAssigneesByTask.set(item.task_id, assignments);
     });
     dashboardWorkCalendar = new Map((calendarResult.data || []).map(day => [day.work_date, day]));
-    const memberResource = buildResourceCapacity(profilesResult.data || [], tasksResult.data || [], dashboardWorkCalendar);
-    pingCodeDirectoryCache = new Map((directoryResult.data || []).map(user => [user.pingcode_user_id, user]));
-    const options = (directoryResult.data || []).map(user =>
+    const memberResource = buildResourceCapacity(profiles, tasksResult.data || [], dashboardWorkCalendar);
+    pingCodeDirectoryCache = new Map(directory.map(user => [user.pingcode_user_id, user]));
+    const options = directory.map(user =>
       `<option value="${escapeDashboardHtml(user.pingcode_user_id)}">${escapeDashboardHtml(user.display_name || '未命名')} · ${escapeDashboardHtml(user.pingcode_user_id.slice(-6))}</option>`
     ).join('');
-    const rows = (profilesResult.data || []).map(profile => {
-      const suggestions = (directoryResult.data || []).filter(user =>
+    const rows = profiles.map(profile => {
+      const suggestions = directory.filter(user =>
         normalizePersonName(user.display_name) === normalizePersonName(profile.name));
+      const boundCandidate = profile.pingcode_user_id ? pingCodeDirectoryCache.get(profile.pingcode_user_id) : null;
+      const boundDisplayName = profile.pingcode_display_name || boundCandidate?.display_name || (profile.pingcode_user_id ? '已绑定' : '未绑定');
       const suggestion = suggestions.length === 1
         ? `同名建议：${suggestions[0].display_name} · ${suggestions[0].pingcode_user_id.slice(-6)}`
         : suggestions.length > 1 ? `发现 ${suggestions.length} 个同名账号，请按 ID 确认` : '暂无同名候选';
+      if (profile.pingcode_user_id) {
+        return `<tr>
+          <td><strong>${escapeDashboardHtml(profile.name || '未命名成员')}</strong><br><span style="color:var(--sub);font-size:10px;">${profile.role === 'admin' ? '管理员' : '成员'}</span></td>
+          <td><code>${escapeDashboardHtml(profile.pingcode_user_id)}</code><br><span style="color:#0F6E56;font-size:10px;">已绑定，不再需要手工输入</span></td>
+          <td><strong>${escapeDashboardHtml(boundDisplayName)}</strong></td>
+          <td><button class="btn-secondary" onclick="clearPingCodeMapping('${profile.id}')">解除绑定</button></td>
+        </tr>`;
+      }
       return `<tr>
         <td><input class="dashboard-input" id="profileName-${profile.id}" value="${escapeDashboardHtml(profile.name || '')}" maxlength="50" placeholder="成员名称"><br><span style="color:var(--sub);font-size:10px;">${profile.role === 'admin' ? '管理员' : '成员'}</span></td>
         <td><input class="dashboard-input" id="pingcodeMap-${profile.id}" list="pingcodeUserOptions" value="${escapeDashboardHtml(profile.pingcode_user_id || '')}" placeholder="选择候选或粘贴 PingCode 用户 ID"><br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(suggestion)}</span></td>
-        <td>${escapeDashboardHtml(profile.pingcode_display_name || '未绑定')}</td>
+        <td>${escapeDashboardHtml(boundDisplayName)}</td>
         <td><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button></td>
       </tr>`;
     }).join('');
     content.innerHTML = `
       <div class="history-card">
-        <div class="card-hd" style="margin-bottom:12px;"><span class="card-title">👥 成员与 PingCode 账号映射</span><span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${(directoryResult.data || []).length} 个候选</span></div>
+        <div class="card-hd" style="margin-bottom:12px;"><span class="card-title">👥 成员与 PingCode 账号映射</span><span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${directory.length} 个候选</span></div>
         <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">姓名只用于建议；保存时以 PingCode 用户 ID 为唯一依据。候选来自 TestHub 最近执行人。</div>
         <datalist id="pingcodeUserOptions">${options}</datalist>
         <div style="overflow-x:auto;"><table class="history-table"><thead><tr><th>平台成员</th><th>PingCode 用户 ID</th><th>当前显示名</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="4">暂无成员</td></tr>'}</tbody></table></div>
@@ -987,6 +1056,7 @@ async function renderMemberMappings() {
         <div style="color:var(--sub);font-size:11px;margin-bottom:10px;">只读数据；根据工作事项的负责人、人天、资源开始日和截止日期自动汇总。鼠标停留在点数上可查看关联事项。</div>
         <div class="resource-table-wrap">${resourceCapacityTableHtml(memberResource)}</div>
       </div>${resourceDetailModalHtml()}`;
+    if (autoBoundCount) showToast(`已自动绑定 ${autoBoundCount} 位同名成员`);
   } catch (error) {
     console.error('[members] load failed:', error);
     content.innerHTML = `<div class="history-card"><div class="dashboard-empty">成员映射加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
@@ -1017,6 +1087,21 @@ async function savePingCodeMapping(profileId) {
   } catch (error) {
     console.error('[members] mapping failed:', error);
     showToast('映射保存失败：该 PingCode 账号可能已绑定其他成员', 'error');
+  }
+}
+
+async function clearPingCodeMapping(profileId) {
+  if (!window.confirm('确认解除该成员与 PingCode 账号的绑定吗？')) return;
+  try {
+    const { error } = await sb.from('profiles').update({
+      pingcode_user_id: null,
+      pingcode_display_name: null
+    }).eq('id', profileId);
+    if (error) throw error;
+    showToast('PingCode 账号绑定已解除');
+    await renderMemberMappings();
+  } catch (error) {
+    showToast('解除绑定失败：' + error.message, 'error');
   }
 }
 
