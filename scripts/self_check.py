@@ -31,6 +31,8 @@ def main() -> None:
     pad_platform_migration = (ROOT / "supabase/migrations/20260721_pad_platform_support.sql").read_text(encoding="utf-8")
     feature_batch_migration = (ROOT / "supabase/migrations/20260721_feature_batch_management.sql").read_text(encoding="utf-8")
     prd_triage_migration = (ROOT / "supabase/migrations/20260721_prd_feature_triage.sql").read_text(encoding="utf-8")
+    task_scope_migration = (ROOT / "supabase/migrations/20260721_task_scope_and_half_day.sql").read_text(encoding="utf-8")
+    release_currents_migration = (ROOT / "supabase/migrations/20260721_release_platform_currents.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
 
     require(html, [
@@ -108,6 +110,12 @@ def main() -> None:
         "function createFeatureFromPrd",
         "prd_feature_triage",
         "全功能测试地图",
+        "function resourceWorkSlots",
+        "newTaskAllocationStartPeriod",
+        "function loadTestHubSuitesForSelection",
+        "testhub_scope_suite_ids",
+        "activeReleases",
+        "<option value=\"pc\">PC</option>",
     ], "main.html")
     require(migration, [
         "create table if not exists public.qa_task_allocation_history",
@@ -190,6 +198,22 @@ def main() -> None:
         "prd_feature_triage_write_admin",
         "grant select, insert, update, delete",
     ], "PRD feature triage migration")
+    require(task_scope_migration, [
+        "allocation_start_period",
+        "allocation_end_period",
+        "testhub_scope_mode",
+        "testhub_scope_suite_ids",
+        "create table if not exists public.testhub_plan_suite_cache",
+        "create or replace function public.save_qa_task_workflow",
+    ], "task scope and half-day migration")
+    require(release_currents_migration, [
+        "'pc'",
+        "target_platform",
+        "platform in ('android','ios','both','app','mobile_all','app_pad')",
+        "platform in ('pad','mobile_all','app_pad')",
+        "platform = 'pc'",
+        "independent current releases for APP, Pad and PC",
+    ], "release platform currents migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
@@ -215,7 +239,13 @@ def main() -> None:
         "unmapped_executor_count",
         "task_testhub_daily_execution",
         "def acquire_sync_lock",
+        "def cache_plan_suites",
+        "def filter_runs_for_task_scope",
+        "testhub_plan_suite_cache",
     ], "TestHub sync")
+
+    if html.count('id="newTaskModal"') != 1:
+        raise AssertionError("main.html must keep a single shared task editor modal template")
 
     javascript = html[html.index("<script>", html.index("<body>")) + 8 : html.rindex("</script>")]
     subprocess.run(

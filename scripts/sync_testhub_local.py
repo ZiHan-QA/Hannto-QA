@@ -349,7 +349,7 @@ def update_sync_health(
 
 def fetch_open_tasks(access_token: str) -> list[dict[str, Any]]:
     query = urllib.parse.urlencode({
-        "select": "id,title,testhub_library_id,testhub_plan_id,testhub_plan_ids",
+        "select": "id,title,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_scope_mode,testhub_scope_suite_ids",
         "status": "in.(todo,in_progress)",
         "testhub_library_id": "not.is.null",
     }, safe="(),.*")
@@ -403,6 +403,57 @@ def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
             executed += 1
     total = len(runs)
     return {"total": total, "executed": executed, "ratio": executed / total if total else 0, "counts": counts}
+
+
+def run_suite(run: dict[str, Any]) -> tuple[str, str]:
+    suite = run.get("suite") or (run.get("case") or {}).get("suite") or {}
+    if not isinstance(suite, dict):
+        return "", ""
+    return str(suite.get("id") or "").strip(), str(suite.get("name") or "未命名模块").strip()
+
+
+def cache_plan_suites(
+    library_id: str,
+    plan_id: str,
+    runs: list[dict[str, Any]],
+    access_token: str,
+) -> None:
+    suites: dict[str, dict[str, Any]] = {}
+    for run in runs:
+        suite_id, suite_name = run_suite(run)
+        if not suite_id:
+            continue
+        row = suites.setdefault(suite_id, {
+            "library_id": library_id,
+            "plan_id": plan_id,
+            "suite_id": suite_id,
+            "suite_name": suite_name,
+            "case_count": 0,
+            "synced_at": datetime.now(timezone.utc).isoformat(),
+        })
+        row["case_count"] += 1
+    delete_query = urllib.parse.urlencode({"library_id": f"eq.{library_id}", "plan_id": f"eq.{plan_id}"})
+    request_json(
+        f"{SUPABASE_URL}/rest/v1/testhub_plan_suite_cache?{delete_query}",
+        method="DELETE",
+        headers=supabase_headers(access_token, prefer="return=minimal"),
+        retries=2,
+    )
+    if suites:
+        request_json(
+            f"{SUPABASE_URL}/rest/v1/testhub_plan_suite_cache?on_conflict=library_id,plan_id,suite_id",
+            method="POST",
+            headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
+            body=list(suites.values()),
+            retries=2,
+        )
+
+
+def filter_runs_for_task_scope(task: dict[str, Any], runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    if str(task.get("testhub_scope_mode") or "all") != "suite":
+        return runs
+    selected = {str(value) for value in (task.get("testhub_scope_suite_ids") or []) if value}
+    return [run for run in runs if run_suite(run)[0] in selected]
 
 
 def parse_run_datetime(value: Any) -> datetime | None:
@@ -513,10 +564,14 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
         try:
             summaries: list[dict[str, Any]] = []
             all_runs: list[dict[str, Any]] = []
+            scope_suite_names: set[str] = set()
             for plan_id in plan_ids:
                 plan_runs = fetch_plan_runs(library_id, plan_id, pingcode_token)
-                summaries.append(summarize_runs(plan_runs))
-                all_runs.extend(plan_runs)
+                cache_plan_suites(library_id, plan_id, plan_runs, access_token)
+                scoped_runs = filter_runs_for_task_scope(task, plan_runs)
+                scope_suite_names.update(name for _, name in map(run_suite, scoped_runs) if name)
+                summaries.append(summarize_runs(scoped_runs))
+                all_runs.extend(scoped_runs)
             total = sum(item["total"] for item in summaries)
             executed = sum(item["executed"] for item in summaries)
             counts: dict[str, int] = {}
@@ -532,6 +587,9 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 "executed_cases": executed,
                 "progress_ratio": executed / total if total else 0,
                 "status_counts": counts,
+                "scope_mode": str(task.get("testhub_scope_mode") or "all"),
+                "scope_suite_ids": [str(value) for value in (task.get("testhub_scope_suite_ids") or []) if value],
+                "scope_suite_names": sorted(scope_suite_names) if task.get("testhub_scope_mode") == "suite" else [],
                 "sync_status": "synced",
                 "sync_error": None,
                 "synced_at": datetime.now(timezone.utc).isoformat(),
@@ -544,7 +602,8 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
             mapped_executors.update(task_mapped)
             unmapped_executors.update(task_unmapped)
             success += 1
-            print(f"  ✓ {task.get('title') or task['id']}：{executed}/{total}")
+            scope_text = "指定模块" if task.get("testhub_scope_mode") == "suite" else "整个计划"
+            print(f"  ✓ {task.get('title') or task['id']}：{executed}/{total}（{scope_text}）")
         except Exception as error:
             failed += 1
             print(f"  ✗ {task.get('title') or task['id']}：{error}", file=sys.stderr)
