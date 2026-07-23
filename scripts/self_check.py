@@ -35,21 +35,29 @@ def main() -> None:
     release_currents_migration = (ROOT / "supabase/migrations/20260721_release_platform_currents.sql").read_text(encoding="utf-8")
     release_indexes_fix_migration = (ROOT / "supabase/migrations/20260721_release_active_indexes_fix.sql").read_text(encoding="utf-8")
     assignee_status_migration = (ROOT / "supabase/migrations/20260721_assignee_task_status.sql").read_text(encoding="utf-8")
+    case_trace_migration = (ROOT / "supabase/migrations/20260723_testhub_case_trace.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
 
     require(html, [
         "function taskUsesTestHubProgress",
         "function renderTaskMemberDailyDetail",
+        "function renderTaskMemberProgressSummary",
+        "function taskMemberExecutedCases",
+        "function taskMemberTargetCases",
         "function taskMemberDailyPlanOnDate",
         "save_qa_task_workflow",
         "admin_risk_actions",
         "TestHub 自动",
         "手工填报",
         "function filterTeamTaskRows",
+        "function restoreTeamTaskViewState",
+        "function rememberTaskExpansion",
+        "function renderTaskDataWarnings",
         "function setResourceCapacityFilters",
         "function refreshDashboardSyncStatus",
         "function applyTaskTemplate",
         "function resourceCapacityTableHtml",
+        "function changeResourceMetricMode",
         "Capacity color is based on the whole workday",
         "function rebuildTaskSchedule",
         "function taskMemberPeriodPlanOnDate",
@@ -57,7 +65,13 @@ def main() -> None:
         "const endPeriodCompare = (a.allocation_end_period",
         "const completedCompare = (a.status === 'done'",
         "if (!taskScheduledPoints.has(dayKey))",
-        "task.status !== 'done' ||",
+        "task.status !== 'cancelled'",
+        "function syncProgressPercentToPoints",
+        "事项累计完成度（选填）",
+        "function focusTeamTaskAfterRefresh",
+        "function renderQualityWeeklyBrief",
+        "function copyMemberWeeklyBrief",
+        "function changeResourceStartDate",
         "function openResourceCellDetails",
         "testHubSyncDiagnostics",
         "function duplicateQaTask",
@@ -132,6 +146,10 @@ def main() -> None:
         "function canCurrentUserUpdateTaskStatus",
         "function testHubSnapshotMatchesTask",
         "function testHubPlanProgressItems",
+        "function taskCaseReconciliationStats",
+        "function renderTaskCaseReconciliation",
+        "function renderTaskPlanSyncStatus",
+        "function openMemberCaseTrace",
         "function loadSavedTestHubPlans",
         "update_qa_task_status",
         "taskEditorStatusOnly",
@@ -252,6 +270,10 @@ def main() -> None:
         "blocked_reason",
         "completion_note",
     ], "assignee task status migration")
+    require(case_trace_migration, [
+        "add column if not exists plan_id",
+        "primary key (task_id, work_date, executor_key, plan_id)",
+    ], "TestHub case trace migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
@@ -289,7 +311,10 @@ def main() -> None:
         "def auto_map_pingcode_profiles",
         "auto_mapped_profiles",
         "def sync_task_status_from_testhub",
-        '"status": "in.(todo,in_progress,done)"',
+        '"status": "in.(todo,in_progress,blocked)"',
+        '"--plan-limit"',
+        '"_liene_plan_id"',
+        "on_conflict=task_id,work_date,executor_key,plan_id",
     ], "TestHub sync")
 
     if html.count('id="newTaskModal"') != 1:

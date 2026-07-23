@@ -5,8 +5,13 @@ $logDirectory = Join-Path $projectDirectory 'logs'
 $logPath = Join-Path $logDirectory 'testhub-sync.log'
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 
-Add-Content -LiteralPath $logPath -Value ("`r`n[{0}] Scheduled progress sync started" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')) -Encoding UTF8
-& python (Join-Path $scriptDirectory 'sync_testhub_local.py') --stored-credentials --progress-only *>> $logPath
+Add-Content -LiteralPath $logPath -Value ("`r`n[{0}] Scheduled catalog and progress sync started" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')) -Encoding UTF8
+& python (Join-Path $scriptDirectory 'sync_testhub_local.py') `
+    --stored-credentials `
+    --plan-limit 50 `
+    --library-id '661e31a128d44167e325552c' `
+    --library-id '6214acdba2fa0b097f549d45' `
+    --library-id '6746eb4a87e7da0dbd43c027' *>> $logPath
 $exitCode = $LASTEXITCODE
 Add-Content -LiteralPath $logPath -Value ("[{0}] Scheduled progress sync finished with exit code {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $exitCode) -Encoding UTF8
 

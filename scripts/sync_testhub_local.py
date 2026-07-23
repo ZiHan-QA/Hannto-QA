@@ -45,7 +45,7 @@ UNTESTED_STATUSES = {
     "", "未测试", "untested", "not_tested", "not tested", "not_run", "not run", "pending"
 }
 EXECUTED_STATUSES = {
-    "通过", "失败", "跳过", "不适用", "条件通过", "阻塞",
+    "通过", "失败", "跳过", "不适用", "条件通过", "阻塞", "受阻",
     "pass", "passed", "failure", "failed", "skip", "skipped", "block", "blocked",
     "not_applicable", "not applicable", "conditional_pass", "condition_pass",
 }
@@ -236,10 +236,11 @@ def validate_pingcode_token(token: str) -> None:
     )
 
 
-def fetch_all_plans(library_id: str, token: str) -> list[dict[str, Any]]:
+def fetch_all_plans(library_id: str, token: str, limit: int | None = None) -> list[dict[str, Any]]:
     plans: dict[str, dict[str, Any]] = {}
+    page_size = min(PLAN_PAGE_SIZE, limit) if limit else PLAN_PAGE_SIZE
     for page in range(1, 1001):
-        query = urllib.parse.urlencode({"page_size": PLAN_PAGE_SIZE, "page_index": page})
+        query = urllib.parse.urlencode({"page_size": page_size, "page_index": page})
         url = f"{PINGCODE_BASE_URL}/v1/testhub/libraries/{library_id}/plans?{query}"
         data = request_json(url, headers=pingcode_headers(token))
         values = (data or {}).get("values") or []
@@ -248,7 +249,9 @@ def fetch_all_plans(library_id: str, token: str) -> list[dict[str, Any]]:
             if plan_id:
                 plans[plan_id] = plan
         print(f"  计划第 {page} 页：{len(values)} 条，累计去重 {len(plans)} 条")
-        if len(values) < PLAN_PAGE_SIZE:
+        if limit and len(plans) >= limit:
+            return list(plans.values())[:limit]
+        if len(values) < page_size:
             return list(plans.values())
     raise RuntimeError("计划分页达到安全上限，未写入不完整结果")
 
@@ -355,7 +358,7 @@ def update_sync_health(
 def fetch_open_tasks(access_token: str) -> list[dict[str, Any]]:
     query = urllib.parse.urlencode({
         "select": "id,title,status,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_scope_mode,testhub_scope_suite_ids",
-        "status": "in.(todo,in_progress,done)",
+        "status": "in.(todo,in_progress,blocked)",
         "testhub_library_id": "not.is.null",
     }, safe="(),.*")
     url = f"{SUPABASE_URL}/rest/v1/qa_tasks?{query}"
@@ -636,18 +639,20 @@ def replace_daily_execution(
     profile_directory: dict[str, dict[str, str]],
     access_token: str,
 ) -> tuple[int, set[str], set[str]]:
-    grouped: dict[tuple[str, str], dict[str, Any]] = {}
+    grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
     for run in runs:
         status = str(((run.get("latest_executed_status") or {}).get("name") or run.get("status") or "")).strip()
         if status.casefold() not in EXECUTED_STATUSES:
             continue
         executor_key, pingcode_user_id, executor_name, work_date = run_executor_and_date(run)
         profile = profile_directory.get(pingcode_user_id)
-        key = (work_date, executor_key)
+        plan_id = str(run.get("_liene_plan_id") or "")
+        key = (work_date, executor_key, plan_id)
         row = grouped.setdefault(key, {
             "task_id": task_id,
             "work_date": work_date,
             "executor_key": executor_key,
+            "plan_id": plan_id,
             "member_id": profile["member_id"] if profile else None,
             "executor_name": profile["name"] if profile else executor_name,
             "executed_cases": 0,
@@ -662,13 +667,38 @@ def replace_daily_execution(
         retries=2,
     )
     if grouped:
-        request_json(
-            f"{SUPABASE_URL}/rest/v1/task_testhub_daily_execution?on_conflict=task_id,work_date,executor_key",
-            method="POST",
-            headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
-            body=list(grouped.values()),
-            retries=2,
-        )
+        try:
+            request_json(
+                f"{SUPABASE_URL}/rest/v1/task_testhub_daily_execution?on_conflict=task_id,work_date,executor_key,plan_id",
+                method="POST",
+                headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
+                body=list(grouped.values()),
+                retries=2,
+            )
+        except HttpStatusError as error:
+            if error.status != 400:
+                raise
+            # Backward-compatible fallback before the plan-trace migration is
+            # applied: keep the legacy member/day aggregate without plan_id.
+            legacy: dict[tuple[str, str], dict[str, Any]] = {}
+            for row in grouped.values():
+                key = (row["work_date"], row["executor_key"])
+                if key not in legacy:
+                    legacy[key] = {
+                        name:value for name, value in row.items() if name != "plan_id"
+                    }
+                else:
+                    legacy[key]["executed_cases"] = (
+                        int(legacy[key].get("executed_cases") or 0)
+                        + int(row.get("executed_cases") or 0)
+                    )
+            request_json(
+                f"{SUPABASE_URL}/rest/v1/task_testhub_daily_execution?on_conflict=task_id,work_date,executor_key",
+                method="POST",
+                headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
+                body=list(legacy.values()),
+                retries=2,
+            )
     mapped = {row["executor_key"] for row in grouped.values() if row.get("member_id")}
     unmapped = {row["executor_key"] for row in grouped.values() if not row.get("member_id")}
     return sum(int(row["executed_cases"]) for row in grouped.values()), mapped, unmapped
@@ -708,7 +738,7 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 summary = summarize_runs(scoped_runs)
                 summary["plan_id"] = plan_id
                 summaries.append(summary)
-                all_runs.extend(scoped_runs)
+                all_runs.extend({**run, "_liene_plan_id": plan_id} for run in scoped_runs)
             upsert_pingcode_user_directory(all_runs, access_token)
             newly_mapped = auto_map_pingcode_profiles(access_token)
             if newly_mapped:
@@ -782,12 +812,15 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
 def main() -> None:
     parser = argparse.ArgumentParser(description="本地拉取 TestHub，并安全写入 Liene QA Supabase 缓存")
     parser.add_argument("--library-id", action="append", dest="library_ids", help="可重复指定；默认消费类用例库")
+    parser.add_argument("--plan-limit", type=int, help="每个用例库仅刷新最近 N 个计划；省略时刷新完整目录")
     mode_group = parser.add_mutually_exclusive_group()
     mode_group.add_argument("--skip-progress", action="store_true", help="只同步计划目录，不同步已关联任务进度")
     mode_group.add_argument("--progress-only", action="store_true", help="只同步已关联任务进度，不重复拉取计划目录")
     parser.add_argument("--stored-credentials", action="store_true", help="从当前 Windows 用户的凭据管理器读取授权")
     parser.add_argument("--task-keyword", help="Only sync linked tasks whose title contains this keyword")
     args = parser.parse_args()
+    if args.plan_limit is not None and args.plan_limit < 1:
+        parser.error("--plan-limit 必须大于 0")
     acquire_sync_lock()
 
     stored_email = stored_password = ""
@@ -848,7 +881,7 @@ def main() -> None:
         if not args.progress_only:
             for library_id in library_ids:
                 print(f"正在拉取 TestHub 计划：{library_id}")
-                plans = fetch_all_plans(library_id, pingcode_token)
+                plans = fetch_all_plans(library_id, pingcode_token, limit=args.plan_limit)
                 rows = plan_cache_rows(library_id, plans, user_id, synced_at)
                 upsert_plan_cache(rows, access_token)
                 total_cached += len(rows)
