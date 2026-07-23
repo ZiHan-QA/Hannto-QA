@@ -37,6 +37,7 @@ def main() -> None:
     assignee_status_migration = (ROOT / "supabase/migrations/20260721_assignee_task_status.sql").read_text(encoding="utf-8")
     case_trace_migration = (ROOT / "supabase/migrations/20260723_testhub_case_trace.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
+    scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
     require(html, [
         "function taskUsesTestHubProgress",
@@ -295,6 +296,7 @@ def main() -> None:
     ], "prd.html")
     require(sync_script, [
         "RUN_PAGE_SIZE = 5",
+        "def plan_recency_key",
         "mapped_executor_count",
         "unmapped_executor_count",
         "task_testhub_daily_execution",
@@ -316,6 +318,14 @@ def main() -> None:
         '"_liene_plan_id"',
         "on_conflict=task_id,work_date,executor_key,plan_id",
     ], "TestHub sync")
+    require(scheduled_sync_script, [
+        "--plan-limit 50",
+        "--library-id '661e31a128d44167e325552c'",
+    ], "scheduled TestHub sync")
+    if "6214acdba2fa0b097f549d45" in scheduled_sync_script:
+        raise AssertionError("scheduled TestHub sync must not pull the printer plan catalog")
+    if "6746eb4a87e7da0dbd43c027" in scheduled_sync_script:
+        raise AssertionError("scheduled TestHub sync must not pull the PC plan catalog")
 
     if html.count('id="newTaskModal"') != 1:
         raise AssertionError("main.html must keep a single shared task editor modal template")

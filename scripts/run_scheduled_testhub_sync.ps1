@@ -9,9 +9,7 @@ Add-Content -LiteralPath $logPath -Value ("`r`n[{0}] Scheduled catalog and progr
 & python (Join-Path $scriptDirectory 'sync_testhub_local.py') `
     --stored-credentials `
     --plan-limit 50 `
-    --library-id '661e31a128d44167e325552c' `
-    --library-id '6214acdba2fa0b097f549d45' `
-    --library-id '6746eb4a87e7da0dbd43c027' *>> $logPath
+    --library-id '661e31a128d44167e325552c' *>> $logPath
 $exitCode = $LASTEXITCODE
 Add-Content -LiteralPath $logPath -Value ("[{0}] Scheduled progress sync finished with exit code {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $exitCode) -Encoding UTF8
 
