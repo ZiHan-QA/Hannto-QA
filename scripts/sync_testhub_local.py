@@ -236,9 +236,64 @@ def validate_pingcode_token(token: str) -> None:
     )
 
 
+def plan_recency_key(plan: dict[str, Any]) -> tuple[float, float, float, str]:
+    """Sort plans by creation time, with stable fallbacks."""
+
+    def timestamp(value: Any) -> float:
+        if value in (None, ""):
+            return 0.0
+        if isinstance(value, (int, float)):
+            number = float(value)
+            return number / 1000 if number > 10_000_000_000 else number
+        text = str(value).strip()
+        try:
+            number = float(text)
+            return number / 1000 if number > 10_000_000_000 else number
+        except ValueError:
+            pass
+        try:
+            return datetime.fromisoformat(text.replace("Z", "+00:00")).timestamp()
+        except ValueError:
+            return 0.0
+
+    plan_id = str(plan.get("id") or "")
+    try:
+        object_id_created = float(int(plan_id[:8], 16))
+    except (TypeError, ValueError):
+        object_id_created = 0.0
+    created = timestamp(plan.get("created_at")) or object_id_created
+    changed = max(timestamp(plan.get("updated_at")), timestamp(plan.get("created_at")))
+    scheduled = max(timestamp(plan.get("end_at")), timestamp(plan.get("start_at")))
+    return created, changed, scheduled, plan_id
+
+
 def fetch_all_plans(library_id: str, token: str, limit: int | None = None) -> list[dict[str, Any]]:
     plans: dict[str, dict[str, Any]] = {}
-    page_size = min(PLAN_PAGE_SIZE, limit) if limit else PLAN_PAGE_SIZE
+    if limit:
+        probe_query = urllib.parse.urlencode({"page_size": 1, "page_index": 1})
+        probe_url = f"{PINGCODE_BASE_URL}/v1/testhub/libraries/{library_id}/plans?{probe_query}"
+        probe = request_json(probe_url, headers=pingcode_headers(token))
+        total = max(0, int((probe or {}).get("total") or 0))
+        if not total:
+            return []
+        page_size = min(PLAN_PAGE_SIZE, max(1, limit))
+        page = max(0, (total - 1) // page_size)
+        while page >= 0 and len(plans) < limit:
+            query = urllib.parse.urlencode({"page_size": page_size, "page_index": page})
+            url = f"{PINGCODE_BASE_URL}/v1/testhub/libraries/{library_id}/plans?{query}"
+            data = request_json(url, headers=pingcode_headers(token))
+            values = (data or {}).get("values") or []
+            for plan in values:
+                plan_id = str(plan.get("id") or "")
+                if plan_id:
+                    plans[plan_id] = plan
+            print(f"  计划倒序定位第 {page} 页：{len(values)} 条，累计去重 {len(plans)} 条")
+            page -= 1
+        ordered = sorted(plans.values(), key=plan_recency_key, reverse=True)
+        print(f"  计划总数 {total} 条，快速保留最新创建的 {min(limit, len(ordered))} 条")
+        return ordered[:limit]
+
+    page_size = PLAN_PAGE_SIZE
     for page in range(1, 1001):
         query = urllib.parse.urlencode({"page_size": page_size, "page_index": page})
         url = f"{PINGCODE_BASE_URL}/v1/testhub/libraries/{library_id}/plans?{query}"
@@ -249,10 +304,9 @@ def fetch_all_plans(library_id: str, token: str, limit: int | None = None) -> li
             if plan_id:
                 plans[plan_id] = plan
         print(f"  计划第 {page} 页：{len(values)} 条，累计去重 {len(plans)} 条")
-        if limit and len(plans) >= limit:
-            return list(plans.values())[:limit]
         if len(values) < page_size:
-            return list(plans.values())
+            ordered = sorted(plans.values(), key=plan_recency_key, reverse=True)
+            return ordered
     raise RuntimeError("计划分页达到安全上限，未写入不完整结果")
 
 
