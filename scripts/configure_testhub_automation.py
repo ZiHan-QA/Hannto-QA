@@ -11,6 +11,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 
 import sync_testhub_local as sync
+from register_testhub_protocol import register_protocol
 from windows_credentials import write_credential
 
 
@@ -101,6 +102,7 @@ def main() -> None:
             write_credential(PINGCODE_CREDENTIAL, "hanntonb", api_key)
             write_credential(SUPABASE_CREDENTIAL, email, password)
             register_task()
+            register_protocol()
             run_task_now()
             root.after(0, finish_success)
         except Exception as error:
