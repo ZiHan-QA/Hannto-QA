@@ -36,6 +36,7 @@ def main() -> None:
     release_indexes_fix_migration = (ROOT / "supabase/migrations/20260721_release_active_indexes_fix.sql").read_text(encoding="utf-8")
     assignee_status_migration = (ROOT / "supabase/migrations/20260721_assignee_task_status.sql").read_text(encoding="utf-8")
     case_trace_migration = (ROOT / "supabase/migrations/20260723_testhub_case_trace.sql").read_text(encoding="utf-8")
+    atomic_progress_migration = (ROOT / "supabase/migrations/20260724_atomic_task_progress.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
@@ -68,8 +69,18 @@ def main() -> None:
         "if (!taskScheduledPoints.has(dayKey))",
         "task.status !== 'cancelled'",
         "function syncProgressPercentToPoints",
+        "function renderProgressBatchInputs",
+        "function loadProgressBatchEntries",
+        "function progressSavePreview",
+        "function resolveProgressSavePreview",
+        "function progressCompletionSnapshot",
+        "save_qa_task_progress",
+        "function openTaskDetailDrawer",
+        "function closeTaskDetailDrawer",
+        "function taskDetailDrawerHtml",
         "事项累计完成度（选填）",
         "function focusTeamTaskAfterRefresh",
+        "function resetTeamTaskFiltersForFocus",
         "function renderQualityWeeklyBrief",
         "function copyMemberWeeklyBrief",
         "function changeResourceStartDate",
@@ -275,6 +286,13 @@ def main() -> None:
         "add column if not exists plan_id",
         "primary key (task_id, work_date, executor_key, plan_id)",
     ], "TestHub case trace migration")
+    require(atomic_progress_migration, [
+        "create or replace function public.save_qa_task_progress",
+        "for update",
+        "delete from public.task_progress_logs",
+        "insert into public.task_progress_logs",
+        "update public.qa_tasks",
+    ], "atomic task progress migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
