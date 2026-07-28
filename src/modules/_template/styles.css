@@ -1,0 +1,4 @@
+/* 模块样式必须限制在模块根节点下，避免污染其他页面。 */
+.module-replace-me {
+  display: block;
+}

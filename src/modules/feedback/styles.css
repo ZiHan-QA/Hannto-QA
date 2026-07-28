@@ -1,0 +1,86 @@
+.feedback-module {
+  display: grid;
+  gap: 16px;
+}
+
+.feedback-module-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.feedback-module-card {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+  padding: 15px;
+}
+
+.feedback-module-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.feedback-module-description {
+  margin-top: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.feedback-module-reply {
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 10px;
+  background: #faf6f2;
+  overflow-wrap: anywhere;
+}
+
+.feedback-module-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.feedback-module-status {
+  display: inline-flex;
+  flex: none;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.feedback-module-status.submitted {
+  background: #fff3cc;
+  color: #8a5a00;
+}
+
+.feedback-module-status.reviewing {
+  background: #e7f0ff;
+  color: #225ea8;
+}
+
+.feedback-module-status.planned {
+  background: #eee8ff;
+  color: #5b21b6;
+}
+
+.feedback-module-status.resolved {
+  background: #ddf7ee;
+  color: #0f6e56;
+}
+
+.feedback-module-status.closed {
+  background: #eee;
+  color: #666;
+}
+
+@media (max-width: 720px) {
+  .feedback-module-card-head {
+    flex-direction: column;
+  }
+}
+
