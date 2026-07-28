@@ -515,6 +515,7 @@
         <div class="card-hd" style="margin-bottom:12px;">
           <span class="card-title">📋 ${canViewTeam ? '团队工作事项' : '我的工作事项'}</span>
           <div class="tasks-module-toolbar">
+            <button class="btn-primary" type="button" onclick="openNewTaskModal()"><i class="ti ti-plus"></i> 创建工作项</button>
             ${adminActions}
             <span class="card-tag" id="teamTaskVisibleCount">${state.viewModel.visibleTasks.length} 项</span>
           </div>

@@ -5071,13 +5071,66 @@ function scrollToDashboardRisks() {
   document.getElementById('dashboardRiskList')?.closest('.card')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
+async function resolveTaskBusinessUnit(taskId) {
+  const dashboardTasks = [
+    ...(dashboardSnapshot?.todayTasks || []),
+    ...(dashboardSnapshot?.upcomingTasks || []),
+  ];
+  let task = taskRecordCache.get(taskId)
+    || dashboardTasks.find(item => item.id === taskId)
+    || null;
+  if (!task) {
+    const { data, error } = await sb.from('qa_tasks')
+      .select('id,project_id,portfolio_plan_id')
+      .eq('id', taskId)
+      .maybeSingle();
+    if (error) throw error;
+    task = data;
+  }
+  if (!task) return '';
+
+  let projectId = task.project_id || '';
+  if (!projectId && task.portfolio_plan_id) {
+    const { data, error } = await sb.from('project_monthly_plans')
+      .select('project_id')
+      .eq('id', task.portfolio_plan_id)
+      .maybeSingle();
+    if (error) throw error;
+    projectId = data?.project_id || '';
+  }
+  if (!projectId) return 'unassigned';
+
+  const { data, error } = await sb.from('qa_projects')
+    .select('business_unit')
+    .eq('id', projectId)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.business_unit || 'unassigned';
+}
+
 async function openTaskFromDashboard(taskId, mode = 'edit') {
+  try {
+    const taskBusinessUnit = await resolveTaskBusinessUnit(taskId);
+    if (['xiaomi','consumer','other','unassigned'].includes(taskBusinessUnit)) {
+      projectHubUnit = taskBusinessUnit;
+      try { localStorage.setItem('hanntoQaProjectBusinessUnit', taskBusinessUnit); } catch {}
+    }
+  } catch (error) {
+    console.error('[dashboard] resolve task business unit failed:', error);
+  }
   const item = document.querySelector(`.sb-item[onclick*="'tasks'"]`);
   document.querySelectorAll('.sb-item').forEach(element => element.classList.remove('active'));
   item?.classList.add('active');
+  expandSidebarGroupForItem(item);
   document.getElementById('pageTitle').textContent = pageTitles.tasks;
   currentPage = 'tasks';
+  updateProjectBusinessTabs(currentPage);
   await refreshTaskRecords();
+  if (!taskRecordCache.has(taskId)) {
+    showToast('该工作事项当前不可见，请确认事项归属项目及负责人', 'error');
+    return;
+  }
+  resetTeamTaskFiltersForFocus(taskId);
   if (mode === 'progress' || mode === 'status') openProgressModal(taskId);
   else {
     const task = taskRecordCache.get(taskId);
