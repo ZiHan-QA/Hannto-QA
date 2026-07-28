@@ -13,10 +13,9 @@ module-name/
 
 推荐迁移顺序：
 
-1. feedback
-2. projects
+1. ~~feedback~~（已完成）
+2. ~~projects~~（已完成）
 3. releases
 4. reports
 5. tasks
 6. portfolio
-

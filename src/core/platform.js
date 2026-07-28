@@ -29,6 +29,7 @@
     'portfolio',
     'releases',
     'report',
+    'bugs',
   ]);
 
   const projectUnits = Object.freeze({
@@ -88,4 +89,3 @@
     listModules,
   });
 })(window);
-

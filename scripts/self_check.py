@@ -23,6 +23,8 @@ def main() -> None:
     platform_js = (ROOT / "src/core/platform.js").read_text(encoding="utf-8")
     feedback_js = (ROOT / "src/modules/feedback/index.js").read_text(encoding="utf-8")
     feedback_css = (ROOT / "src/modules/feedback/styles.css").read_text(encoding="utf-8")
+    projects_js = (ROOT / "src/modules/projects/index.js").read_text(encoding="utf-8")
+    projects_css = (ROOT / "src/modules/projects/styles.css").read_text(encoding="utf-8")
     module_guide = (ROOT / "docs/module-development-guide.md").read_text(encoding="utf-8")
     migration = (ROOT / "supabase/migrations/20260717_task_workflow_hardening.sql").read_text(encoding="utf-8")
     closure_migration = (ROOT / "supabase/migrations/20260720_task_management_closure.sql").read_text(encoding="utf-8")
@@ -45,6 +47,7 @@ def main() -> None:
     portfolio_planning_migration = (ROOT / "supabase/migrations/20260728_project_monthly_planning.sql").read_text(encoding="utf-8")
     duty_permissions_migration = (ROOT / "supabase/migrations/20260728_three_duty_permissions.sql").read_text(encoding="utf-8")
     projects_feedback_migration = (ROOT / "supabase/migrations/20260728_projects_and_feedback.sql").read_text(encoding="utf-8")
+    project_data_hub_migration = (ROOT / "supabase/migrations/20260728_project_data_hub.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
@@ -52,6 +55,8 @@ def main() -> None:
         '<script src="src/core/platform.js"></script>',
         '<script src="src/modules/feedback/index.js"></script>',
         '<link rel="stylesheet" href="src/modules/feedback/styles.css">',
+        '<script src="src/modules/projects/index.js"></script>',
+        '<link rel="stylesheet" href="src/modules/projects/styles.css">',
         "window.HanntoQA.pageTitles",
         "window.HanntoQA.projectBusinessPages",
         "window.HanntoQA.projectUnitText",
@@ -59,6 +64,7 @@ def main() -> None:
         "function destroyActiveRegisteredModule",
         "function renderRegisteredModule",
         "renderRegisteredModule('feedback')",
+        "renderRegisteredModule('projects')",
         "function taskUsesTestHubProgress",
         "function renderTaskMemberDailyDetail",
         "function renderTaskMemberProgressSummary",
@@ -118,18 +124,9 @@ def main() -> None:
         "function switchProjectBusinessUnit",
         "data-business-unit=\"xiaomi\"",
         "hanntoQaProjectBusinessUnit",
-        "function renderProjectHub",
-        "function renderQaProjectDetailPage",
-        "function qaProjectMonthDays",
-        "function qaProjectTaskSlotLabel",
-        "function shiftQaProjectDetailMonth",
-        "function backToQaProjectList",
         "function openQaProjectFromPortfolio",
         "打开项目逐日甘特图",
         "project-gantt-grid",
-        "返回项目列表",
-        "function openQaProjectEditor",
-        "function saveQaProject",
         "小米",
         "消费",
         "Other",
@@ -250,10 +247,45 @@ def main() -> None:
         "discoveredDirectoryRows",
         "已执行 ${executedCases} / 总 Case ${displayedTotalCases}",
     ], "main.html")
+    require(projects_js, [
+        "registerProjectsModule",
+        "id: 'projects'",
+        "async function render",
+        "function renderDetail",
+        "function monthDays",
+        "function taskSlotLabel",
+        "function openEditor",
+        "async function saveProject",
+        "function openProject",
+        "qa_project_data_health",
+        "showArchived",
+        "TestHub 执行率",
+        "延期 / 阻塞",
+        "BUG / 漏测",
+        "data-project-open",
+        "data-project-month",
+        "data-project-save",
+        "返回项目列表",
+    ], "projects module")
+    require(projects_css, [
+        ".projects-module",
+        ".projects-module-editor",
+        ".project-state.active",
+        ".projects-module-member",
+    ], "projects module styles")
+    for legacy_project_function in [
+        "function renderProjectHub",
+        "function renderQaProjectDetailPage",
+        "function openQaProjectEditor",
+        "function saveQaProject",
+    ]:
+        if legacy_project_function in html:
+            raise AssertionError(f"main.html still contains legacy project implementation: {legacy_project_function}")
     require(platform_js, [
         "initializeHanntoQAPlatform",
         "const pageTitles",
         "const projectBusinessPages",
+        "'bugs'",
         "const projectUnits",
         "function projectUnitText",
         "function registerModule",
@@ -460,6 +492,20 @@ def main() -> None:
         "('Other', 'other'",
         "notify pgrst, 'reload schema'",
     ], "projects and feedback migration")
+    require(project_data_hub_migration, [
+        "qa_projects_status_check",
+        "'planned', 'active', 'paused', 'closed', 'archived'",
+        "add column if not exists project_id uuid",
+        "create or replace function public.validate_qa_task_project_chain()",
+        "qa_tasks_validate_project_chain",
+        "create policy qa_tasks_select_by_duty",
+        "using (public.can_view_qa_task(id))",
+        "create or replace function public.can_view_qa_project",
+        "create policy releases_read_by_project",
+        "create or replace view public.qa_project_data_health",
+        "unassigned_bugs",
+        "notify pgrst, 'reload schema'",
+    ], "project data hub migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
@@ -533,6 +579,12 @@ def main() -> None:
     )
     subprocess.run(
         ["node", "--check", str(ROOT / "src/modules/feedback/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/modules/projects/index.js")],
         cwd=ROOT,
         check=True,
         stdout=subprocess.DEVNULL,
