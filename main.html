@@ -3,10 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Liene QA · 工作台</title>
+<title>Hannto QA 管理平台 · 工作台</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<link rel="stylesheet" href="src/modules/feedback/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="src/core/platform.js"></script>
+<script src="src/modules/feedback/index.js"></script>
 <style>
 :root {
   --pink:   #FF6B9D;
@@ -19,7 +22,7 @@
   --dark2:  #231448;
   --text:   #3d1a00;
   --sub:    #9a6a40;
-  --sb-w:   220px;
+  --sb-w:   250px;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); display: flex; height: 100vh; overflow: hidden; }
@@ -32,35 +35,42 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   position: relative; z-index: 100;
 }
 .sb-logo {
-  padding: 18px 16px 14px;
+  padding: 20px 18px 17px;
   border-bottom: 0.5px solid rgba(255,255,255,0.07);
   display: flex; align-items: center; gap: 10px;
   flex-shrink: 0;
 }
 .sb-logo-icon {
-  width: 36px; height: 36px; min-width: 36px; min-height: 36px;
+  width: 40px; height: 40px; min-width: 40px; min-height: 40px;
   border-radius: 10px;
   background: var(--pink); display: flex; align-items: center;
   justify-content: center; flex-shrink: 0;
   box-shadow: 0 4px 12px rgba(255,107,157,0.35);
 }
-.sb-logo-icon i { font-size: 18px; color: #fff; line-height: 1; }
-.sb-logo-title { font-family: 'Syne', sans-serif; font-size: 14px; font-weight: 700; color: #fff; white-space: nowrap; }
-.sb-logo-sub   { font-size: 10px; color: rgba(255,255,255,0.35); margin-top: 1px; }
+.sb-logo-icon i { font-size: 20px; color: #fff; line-height: 1; }
+.sb-logo-title { font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 700; color: #fff; white-space: nowrap; }
+.sb-logo-sub   { font-size: 11px; color: rgba(255,255,255,0.42); margin-top: 2px; }
 
-.sb-section { font-size: 10px; color: rgba(255,255,255,0.25); padding: 14px 16px 5px; letter-spacing: 0.8px; text-transform: uppercase; }
+.sb-section { font-size: 12px; font-weight:500; color: rgba(255,255,255,0.48); padding: 15px 18px 9px; letter-spacing: 0.45px; text-transform: uppercase; min-height:42px; }
+.sb-section-toggle { width:100%; border:0; background:none; display:flex; align-items:center; justify-content:space-between; cursor:pointer; font-family:inherit; }
+.sb-section-label { display:flex; align-items:center; gap:9px; }
+.sb-section-label > i { font-size:16px; color:rgba(255,255,255,.55); transform:none !important; }
+.sb-section-toggle i { font-size:15px; transition:transform .18s ease; }
+.sb-group.collapsed .sb-group-body { display:none; }
+.sb-group.collapsed .sb-section-toggle i { transform:rotate(-90deg); }
 
 .sb-item {
-  display: flex; align-items: center; gap: 9px;
-  padding: 8px 16px; color: rgba(255,255,255,0.5);
-  font-size: 12px; cursor: pointer;
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 18px; color: rgba(255,255,255,0.58);
+  font-size: 13px; cursor: pointer;
+  min-height: 40px;
   border-left: 2.5px solid transparent;
   transition: all 0.15s; text-decoration: none;
   position: relative;
 }
 .sb-item:hover  { background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.85); }
 .sb-item.active { background: rgba(255,107,157,0.14); color: var(--pink); border-left-color: var(--pink); font-weight: 500; }
-.sb-item i { font-size: 16px; flex-shrink: 0; }
+.sb-item i { font-size: 18px; flex-shrink: 0; }
 .sb-item .badge {
   margin-left: auto; font-size: 10px; min-width: 18px; height: 18px;
   border-radius: 9px; padding: 0 5px;
@@ -71,30 +81,30 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .sb-item .badge.yellow { background: var(--yellow); color: #6b4a00; }
 .sb-item .badge.teal   { background: var(--teal); color: #004a4a; }
 
-.sb-divider { border: none; border-top: 0.5px solid rgba(255,255,255,0.06); margin: 6px 0; }
+.sb-divider { border: none; border-top: 0.5px solid rgba(255,255,255,0.08); margin: 7px 0; }
 
 .sb-mascot {
-  margin: 10px 12px;
+  margin: 10px 14px;
   background: rgba(255,107,157,0.1);
-  border-radius: 10px; padding: 10px 12px; text-align: center;
+  border-radius: 12px; padding: 10px 12px; text-align: center;
 }
-.sb-mascot-face { font-size: 24px; margin-bottom: 4px; }
-.sb-mascot-text { font-size: 10px; color: rgba(255,255,255,0.4); line-height: 1.5; }
+.sb-mascot-face { font-size: 22px; margin-bottom: 2px; }
+.sb-mascot-text { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.55; }
 .sb-mascot-text strong { color: var(--pink); }
 
 .sb-user {
-  margin-top: auto; padding: 12px 16px;
+  margin-top: auto; padding: 14px 18px;
   border-top: 0.5px solid rgba(255,255,255,0.07);
   display: flex; align-items: center; gap: 8px; flex-shrink: 0;
 }
 .sb-avatar {
-  width: 28px; height: 28px; border-radius: 50%;
+  width: 32px; height: 32px; border-radius: 50%;
   background: var(--pink); display: flex; align-items: center;
-  justify-content: center; font-size: 11px; font-weight: 500;
+  justify-content: center; font-size: 12px; font-weight: 500;
   color: #fff; flex-shrink: 0;
 }
-.sb-uname { font-size: 12px; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.sb-urole { font-size: 10px; color: rgba(255,255,255,0.35); }
+.sb-uname { font-size: 13px; color: #fff; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-urole { font-size: 11px; color: rgba(255,255,255,0.4); }
 .sb-logout {
   margin-left: auto; background: none; border: none;
   color: rgba(255,255,255,0.3); cursor: pointer; font-size: 15px;
@@ -114,6 +124,12 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .topbar-title { font-size: 15px; font-weight: 500; color: var(--text); font-family: 'Syne', sans-serif; }
 .topbar-sub   { font-size: 11px; color: var(--sub); }
 .topbar-right { display: flex; align-items: center; gap: 8px; }
+.project-business-tabs { display:none; align-items:center; gap:9px; padding:11px 24px; background:#fffaf4; border-bottom:1px solid rgba(61,26,0,.08); flex-shrink:0; overflow-x:auto; }
+.project-business-tabs.visible { display:flex; }
+.project-business-label { font-size:11px; color:var(--sub); margin-right:2px; white-space:nowrap; }
+.project-business-tab { min-width:72px; border:1px solid #eadfd9; background:#fff; color:var(--sub); border-radius:999px; padding:8px 18px; font-size:12px; font-weight:600; cursor:pointer; transition:.15s; }
+.project-business-tab:hover { border-color:#8b5cf6; color:var(--purple); }
+.project-business-tab.active { background:var(--purple); border-color:var(--purple); color:#fff; box-shadow:0 4px 12px rgba(95,39,205,.2); }
 .tb-btn {
   width: 32px; height: 32px; border-radius: 9px;
   background: rgba(255,107,157,0.08); border: none; cursor: pointer;
@@ -570,6 +586,8 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 @media (max-width: 720px) { .testhub-plan-grid { grid-template-columns: 1fr; } .member-work-summary { grid-template-columns: repeat(2, 1fr); } .task-drawer-panel { width:100%; } .task-list-progress { min-width:120px; } }
 .feature-map-board{display:flex;flex-direction:column;gap:16px;margin-top:14px}.feature-map-alert{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;border-radius:14px;background:linear-gradient(135deg,#fff3cc,#ffe8f2);border:1px solid #ffd6a3}.feature-module-section{border:1px solid #f0ded8;border-radius:16px;background:#fff;padding:14px}.feature-module-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px}.feature-module-title{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700}.feature-module-summary{font-size:11px;color:var(--sub)}.feature-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:11px}.feature-visual-card{position:relative;border:1px solid #eee3df;border-left:5px solid #23b89a;border-radius:14px;padding:13px;background:#fffdfb;box-shadow:0 5px 15px rgba(76,38,24,.04)}.feature-visual-card.pending{border-left-color:#ef4444;background:#fffafa}.feature-visual-card.missing{border-left-color:#f59e0b;background:#fffdf6}.feature-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:9px}.feature-card-name{font-weight:700;font-size:14px;line-height:1.35}.feature-card-meta{font-size:10px;color:var(--sub);margin-top:4px}.feature-state-chip{flex:none;border-radius:999px;padding:4px 8px;font-size:10px;font-weight:700;background:#ddf7ee;color:#0f6e56}.feature-state-chip.pending{background:#fee2e2;color:#b91c1c}.feature-state-chip.missing{background:#fff3cc;color:#8a5a00}.feature-change-alert{margin-top:10px;padding:9px 10px;border-radius:10px;background:#feecec;color:#8f1d1d;font-size:11px}.feature-asset-list{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}.feature-asset-pill{display:inline-flex;align-items:center;gap:4px;border:0;border-radius:999px;padding:5px 8px;background:#eee8ff;color:#5b21b6;font-size:10px;cursor:pointer}.feature-progress-wrap{margin-top:11px}.feature-progress-head{display:flex;justify-content:space-between;font-size:10px;color:var(--sub);margin-bottom:5px}.feature-progress-track{height:7px;border-radius:999px;background:#eee9e5;overflow:hidden}.feature-progress-fill{height:100%;border-radius:inherit;background:linear-gradient(90deg,#20c5b5,#6c36e8)}.feature-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:11px}.feature-mini-stat{border-radius:9px;background:#faf6f2;padding:7px;text-align:center}.feature-mini-stat strong{display:block;font-size:13px}.feature-mini-stat span{font-size:9px;color:var(--sub)}.feature-card-actions{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.feature-card-actions button{padding:5px 8px;font-size:10px}@media(max-width:760px){.feature-card-grid{grid-template-columns:1fr}.feature-map-alert{align-items:flex-start;flex-direction:column}}
 .feature-visual-card.selected{outline:3px solid rgba(108,54,232,.22);border-color:#8b5cf6}.feature-select-toggle{position:absolute;right:10px;top:44px;width:25px;height:25px;border-radius:8px;border:1px solid #d9cdc7;background:#fff;color:#6c36e8;display:grid;place-items:center;cursor:pointer}.feature-batch-toolbar{position:sticky;top:8px;z-index:4;padding:12px;border:1px solid #d8c9ff;border-radius:14px;background:rgba(250,248,255,.96);box-shadow:0 8px 24px rgba(82,45,145,.1)}.feature-batch-row{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.feature-batch-row .dashboard-filter{min-width:150px;flex:1}
+.project-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0}.project-tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 18px;cursor:pointer;color:var(--sub);font-weight:600}.project-tab.active{background:var(--purple);border-color:var(--purple);color:#fff}.project-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}.project-card{border:1px solid #eadfd9;border-radius:16px;background:#fff;padding:18px;cursor:pointer;transition:.18s;box-shadow:0 6px 18px rgba(57,34,25,.04)}.project-card:hover{transform:translateY(-2px);border-color:#c9b5ff;box-shadow:0 10px 28px rgba(82,45,145,.1)}.project-card.selected{outline:3px solid rgba(108,54,232,.18);border-color:#8b5cf6}.project-card-title{font-size:17px;font-weight:700}.project-card-meta{font-size:11px;color:var(--sub);margin-top:6px}.project-card-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:16px}.project-card-stat{background:#faf6f2;border-radius:10px;text-align:center;padding:9px 5px}.project-card-stat strong{display:block;font-size:16px}.project-card-stat span{font-size:9px;color:var(--sub)}.feedback-card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:15px}.feedback-status{display:inline-flex;border-radius:999px;padding:4px 9px;font-size:10px;font-weight:700}.feedback-status.submitted{background:#fff3cc;color:#8a5a00}.feedback-status.reviewing{background:#e7f0ff;color:#225ea8}.feedback-status.planned{background:#eee8ff;color:#5b21b6}.feedback-status.resolved{background:#ddf7ee;color:#0f6e56}.feedback-status.closed{background:#eee;color:#666}
+.project-gantt-wrap{overflow:auto;border:1px solid var(--line);border-radius:14px;margin-top:14px;background:#fff}.project-gantt-grid{display:grid;min-width:max-content}.project-gantt-cell{min-height:50px;border-right:1px solid #f0e6e1;border-bottom:1px solid #f0e6e1;padding:6px;display:flex;align-items:center;justify-content:center;font-size:10px}.project-gantt-task{position:sticky;left:0;z-index:2;width:270px;justify-content:flex-start;background:#fffdfb;padding:9px 12px}.project-gantt-head{position:sticky;top:0;z-index:3;background:#faf6f2;font-weight:700;line-height:1.35;text-align:center}.project-gantt-head.project-gantt-task{z-index:4}.project-gantt-day.weekend{background:#f3f1ef;color:#aaa}.project-gantt-slot{width:45px;background:#fff}.project-gantt-slot.weekend{background:#f7f5f3}.project-gantt-bar{width:100%;height:30px;border-radius:7px;background:#d9cdfd;color:#4b1fb8;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700}.project-gantt-bar.completed{background:#c9f2e9;color:#08745f}.project-gantt-bar.blocked{background:#ffd5d7;color:#a21d2a}.project-gantt-bar.todo{background:#ffeab5;color:#8a5a00}.project-gantt-today{box-shadow:inset 0 0 0 2px #ff6b9d}.project-detail-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.project-detail-legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--sub)}.project-detail-legend span:before{content:'';display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;background:#d9cdfd}.project-detail-legend span.done:before{background:#c9f2e9}.project-detail-legend span.todo:before{background:#ffeab5}.project-detail-legend span.off:before{background:#f3f1ef}
 </style>
 </head>
 <body>
@@ -580,80 +598,50 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   <div class="sb-logo">
     <div class="sb-logo-icon"><i class="ti ti-wand" style="font-size:18px;color:#fff;"></i></div>
     <div>
-      <div class="sb-logo-title">Liene QA</div>
-      <div class="sb-logo-sub">Liene 测试管理平台</div>
+      <div class="sb-logo-title">Hannto QA</div>
+      <div class="sb-logo-sub">Hannto QA 管理平台</div>
     </div>
   </div>
 
-  <div class="sb-section">概览</div>
-  <a class="sb-item active" onclick="nav(this,'dashboard')">
-    <i class="ti ti-layout-dashboard"></i>工作台
-  </a>
-  <a class="sb-item" onclick="nav(this,'tasks')">
-    <i class="ti ti-clipboard-list"></i>工作事项
-  </a>
-  <a class="sb-item" onclick="nav(this,'portfolio')" id="portfolioMenu" style="display:none">
-    <i class="ti ti-timeline"></i>项目总排期
-  </a>
-  <a class="sb-item" onclick="nav(this,'releases')">
-    <i class="ti ti-rocket"></i>版本发布
-  </a>
-  <a class="sb-item" onclick="nav(this,'report')">
-    <i class="ti ti-chart-bar"></i>质量报表
-  </a>
+  <div class="sb-group" data-sidebar-group="overview"><button class="sb-section sb-section-toggle" onclick="toggleSidebarGroup(this,'overview')"><span class="sb-section-label"><i class="ti ti-layout-dashboard"></i>概览</span><i class="ti ti-chevron-down"></i></button><div class="sb-group-body">
+    <a class="sb-item active" onclick="nav(this,'dashboard')"><i class="ti ti-layout-dashboard"></i>工作台</a>
+  </div></div>
   <hr class="sb-divider">
-  <div class="sb-section">测试资产</div>
-  <a class="sb-item" onclick="nav(this,'prd')">
-    <i class="ti ti-file-description"></i>PRD 管理
-  </a>
-  <a class="sb-item" onclick="nav(this,'testmap')">
-    <i class="ti ti-map-2"></i>全功能测试地图
-  </a>
-  <a class="sb-item" onclick="nav(this,'assets')">
-    <i class="ti ti-device-mobile"></i>资产管理
-  </a>
-  <a class="sb-item" onclick="nav(this,'copy')">
-    <i class="ti ti-language"></i>文案管理
-  </a>
-
-  <a class="sb-item" onclick="nav(this,'ai')">
-    <i class="ti ti-robot"></i>AI 写用例
-  </a>
-
+  <div class="sb-group" data-sidebar-group="projects"><button class="sb-section sb-section-toggle" onclick="toggleSidebarGroup(this,'projects')"><span class="sb-section-label"><i class="ti ti-folders"></i>项目管理</span><i class="ti ti-chevron-down"></i></button><div class="sb-group-body">
+    <a class="sb-item" onclick="nav(this,'tasks')"><i class="ti ti-clipboard-list"></i>工作事项</a>
+    <a class="sb-item" onclick="nav(this,'projects')"><i class="ti ti-folders"></i>项目中心</a>
+    <a class="sb-item" onclick="nav(this,'portfolio')" id="portfolioMenu" style="display:none"><i class="ti ti-timeline"></i>项目总排期</a>
+    <a class="sb-item" onclick="nav(this,'releases')"><i class="ti ti-rocket"></i>版本发布</a>
+    <a class="sb-item" onclick="nav(this,'report')"><i class="ti ti-chart-bar"></i>质量报表</a>
+  </div></div>
   <hr class="sb-divider">
-  <div class="sb-section">自动化</div>
-  <a class="sb-item" onclick="nav(this,'automation')">
-    <i class="ti ti-player-play"></i>自动化测试
-    <span class="badge teal" id="autoBadge" style="display:none">运行中</span>
-  </a>
-
+  <div class="sb-group" data-sidebar-group="assets"><button class="sb-section sb-section-toggle" onclick="toggleSidebarGroup(this,'assets')"><span class="sb-section-label"><i class="ti ti-package"></i>测试资产</span><i class="ti ti-chevron-down"></i></button><div class="sb-group-body">
+    <a class="sb-item" onclick="nav(this,'prd')"><i class="ti ti-file-description"></i>PRD 管理</a>
+    <a class="sb-item" onclick="nav(this,'testmap')"><i class="ti ti-map-2"></i>全功能测试地图</a>
+    <a class="sb-item" onclick="nav(this,'assets')"><i class="ti ti-device-mobile"></i>资产管理</a>
+    <a class="sb-item" onclick="nav(this,'copy')"><i class="ti ti-language"></i>文案管理</a>
+    <a class="sb-item" onclick="nav(this,'ai')"><i class="ti ti-robot"></i>AI 写用例</a>
+  </div></div>
   <hr class="sb-divider">
-  <div class="sb-section">团队资源</div>
-  <a class="sb-item" onclick="nav(this,'onboarding')">
-    <i class="ti ti-book"></i>团队知识库
-  </a>
-
+  <div class="sb-group" data-sidebar-group="automation"><button class="sb-section sb-section-toggle" onclick="toggleSidebarGroup(this,'automation')"><span class="sb-section-label"><i class="ti ti-player-play"></i>自动化</span><i class="ti ti-chevron-down"></i></button><div class="sb-group-body">
+    <a class="sb-item" onclick="nav(this,'automation')"><i class="ti ti-player-play"></i>自动化测试<span class="badge teal" id="autoBadge" style="display:none">运行中</span></a>
+  </div></div>
   <hr class="sb-divider">
-  <div class="sb-section">PingCode 数据</div>
-  <a class="sb-item" onclick="nav(this,'cases')">
-    <i class="ti ti-list-check"></i>用例库
-  </a>
-  <a class="sb-item" onclick="nav(this,'plan')">
-    <i class="ti ti-calendar-stats"></i>测试计划
-  </a>
-  <a class="sb-item" onclick="nav(this,'bugs')">
-    <i class="ti ti-bug"></i>BUG 管理
-    <span class="badge pink" id="bugBadge" style="display:none"></span>
-  </a>
-
+  <div class="sb-group" data-sidebar-group="team"><button class="sb-section sb-section-toggle" onclick="toggleSidebarGroup(this,'team')"><span class="sb-section-label"><i class="ti ti-users-group"></i>团队资源</span><i class="ti ti-chevron-down"></i></button><div class="sb-group-body">
+    <a class="sb-item" onclick="nav(this,'onboarding')"><i class="ti ti-book"></i>团队知识库</a>
+  </div></div>
   <hr class="sb-divider">
-  <div class="sb-section">系统</div>
-  <a class="sb-item" onclick="nav(this,'members')" id="membersMenu" style="display:none">
-    <i class="ti ti-users"></i>成员管理
-  </a>
-  <a class="sb-item" onclick="nav(this,'settings')">
-    <i class="ti ti-settings"></i>系统设置
-  </a>
+  <div class="sb-group" data-sidebar-group="pingcode"><button class="sb-section sb-section-toggle" onclick="toggleSidebarGroup(this,'pingcode')"><span class="sb-section-label"><i class="ti ti-database"></i>PingCode 数据</span><i class="ti ti-chevron-down"></i></button><div class="sb-group-body">
+    <a class="sb-item" onclick="nav(this,'cases')"><i class="ti ti-list-check"></i>用例库</a>
+    <a class="sb-item" onclick="nav(this,'plan')"><i class="ti ti-calendar-stats"></i>测试计划</a>
+    <a class="sb-item" onclick="nav(this,'bugs')"><i class="ti ti-bug"></i>BUG 管理<span class="badge pink" id="bugBadge" style="display:none"></span></a>
+  </div></div>
+  <hr class="sb-divider">
+  <div class="sb-group" data-sidebar-group="system"><button class="sb-section sb-section-toggle" onclick="toggleSidebarGroup(this,'system')"><span class="sb-section-label"><i class="ti ti-settings"></i>系统</span><i class="ti ti-chevron-down"></i></button><div class="sb-group-body">
+    <a class="sb-item" onclick="nav(this,'feedback')"><i class="ti ti-message-report"></i>意见反馈</a>
+    <a class="sb-item" onclick="nav(this,'members')" id="membersMenu" style="display:none"><i class="ti ti-users"></i>成员管理</a>
+    <a class="sb-item" onclick="nav(this,'settings')"><i class="ti ti-settings"></i>系统设置</a>
+  </div></div>
 
   <div class="sb-mascot">
     <div class="sb-mascot-face">🤖</div>
@@ -684,6 +672,12 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
     </div>
   </div>
 
+  <nav class="project-business-tabs" id="projectBusinessTabs" aria-label="项目分类">
+    <button class="project-business-tab" data-business-unit="xiaomi" onclick="switchProjectBusinessUnit('xiaomi')">小米</button>
+    <button class="project-business-tab" data-business-unit="consumer" onclick="switchProjectBusinessUnit('consumer')">消费</button>
+    <button class="project-business-tab" data-business-unit="other" onclick="switchProjectBusinessUnit('other')">Other</button>
+  </nav>
+
   <div class="content" id="content"></div>
 </div>
 
@@ -704,7 +698,9 @@ const TASK_TEMPLATES = {
 
 let currentUser = null;
 let userRole = 'member';
+let currentDuty = 'tester';
 let currentUserResourceParticipant = true;
+let activeRegisteredModuleId = null;
 let currentPage = 'dashboard';
 let autoRealtimeSub = null;
 let dashboardRealtimeSub = null;
@@ -747,60 +743,143 @@ let taskExpandedIds = new Set();
 let resourceCellDetailCache = new Map();
 let memberPasswordProfileCache = new Map();
 let memberPasswordTarget = null;
+let projectHubUnit = (() => {
+  try {
+    const saved = localStorage.getItem('hanntoQaProjectBusinessUnit');
+    return ['xiaomi','consumer','other'].includes(saved) ? saved : 'xiaomi';
+  } catch { return 'xiaomi'; }
+})();
+let selectedQaProjectId = null;
+let qaProjectCache = new Map();
+let qaProjectMemberCache = [];
+let qaProjectProfileCache = new Map();
+let editingQaProjectId = null;
+let qaProjectDetailMonth = '';
 
 function isResourceParticipant(profile) {
   return profile?.resource_participant !== false;
 }
 
-function memberTypeText(profile) {
-  if (profile?.role === 'admin') return '管理员';
-  return isResourceParticipant(profile) ? '成员' : '观察者 · 只读不计资源';
+function normalizeDuty(role) {
+  if (role === 'admin' || role === 'qa_lead') return role;
+  return 'tester';
 }
 
-function isCurrentUserObserver() {
-  return userRole !== 'admin' && currentUserResourceParticipant === false;
+function isSystemAdmin() {
+  return currentDuty === 'admin';
+}
+
+function canManageQa() {
+  return currentDuty === 'admin' || currentDuty === 'qa_lead';
+}
+
+function dutyText(role) {
+  return ({ admin:'系统管理员', qa_lead:'QA 负责人/项目负责人', tester:'测试工程师', member:'测试工程师' })[role] || '测试工程师';
+}
+
+function memberTypeText(profile) {
+  return `${dutyText(profile?.role)} · ${isResourceParticipant(profile) ? '计入资源' : '不计入资源'}`;
+}
+
+function memberDutySelectHtml(profile) {
+  const duty = normalizeDuty(profile?.role);
+  const selfAdmin = profile?.id === currentUser?.id && duty === 'admin';
+  return `<select class="dashboard-filter" style="min-width:170px;margin-top:6px;" onchange="updateMemberDuty('${profile.id}',this.value)" ${selfAdmin ? 'disabled title="当前系统管理员不能降级自己的职责"' : ''}>
+    <option value="admin" ${duty === 'admin' ? 'selected' : ''}>系统管理员</option>
+    <option value="qa_lead" ${duty === 'qa_lead' ? 'selected' : ''}>QA 负责人/项目负责人</option>
+    <option value="tester" ${duty === 'tester' ? 'selected' : ''}>测试工程师</option>
+  </select>`;
 }
 
 function canViewTeamTasks() {
-  return userRole === 'admin' || isCurrentUserObserver();
+  return canManageQa();
 }
 let localTestHubSyncMonitorToken = 0;
 let pendingTestHubFocusTaskId = null;
 let pendingTestHubSyncButton = null;
 
-const pageTitles = {
-  dashboard: '工作台', tasks: '工作事项', releases: '版本发布', report: '质量报表',
-  prd: 'PRD 管理', testmap: '全功能测试地图', assets: '资产管理', ai: 'AI 写用例',
-  automation: '自动化测试',
-  copy: '文案管理',
-  onboarding: '团队知识库',
-  cases: '用例库', plan: '测试计划', bugs: 'BUG 管理',
-  members: '成员管理', settings: '系统设置',
-  portfolio: '项目总排期',
-};
+const pageTitles = window.HanntoQA.pageTitles;
+const PROJECT_BUSINESS_PAGES = new Set(window.HanntoQA.projectBusinessPages);
+const projectUnitText = window.HanntoQA.projectUnitText;
+
+function toggleSidebarGroup(button, key) {
+  const group = button.closest('.sb-group');
+  if (!group) return;
+  group.classList.toggle('collapsed');
+  try {
+    const state = JSON.parse(localStorage.getItem('hanntoQaSidebarGroups') || '{}');
+    state[key] = group.classList.contains('collapsed');
+    localStorage.setItem('hanntoQaSidebarGroups', JSON.stringify(state));
+  } catch {}
+}
+
+function restoreSidebarGroups() {
+  try {
+    const state = JSON.parse(localStorage.getItem('hanntoQaSidebarGroups') || '{}');
+    document.querySelectorAll('.sb-group').forEach(group => {
+      const key = group.dataset.sidebarGroup;
+      const collapsed = Object.prototype.hasOwnProperty.call(state, key) ? state[key] === true : key !== 'overview';
+      group.classList.toggle('collapsed', collapsed);
+    });
+  } catch {}
+}
+
+function expandSidebarGroupForItem(item) {
+  const group = item?.closest('.sb-group');
+  if (!group || !group.classList.contains('collapsed')) return;
+  group.classList.remove('collapsed');
+  try {
+    const state = JSON.parse(localStorage.getItem('hanntoQaSidebarGroups') || '{}');
+    state[group.dataset.sidebarGroup] = false;
+    localStorage.setItem('hanntoQaSidebarGroups', JSON.stringify(state));
+  } catch {}
+}
+
+function updateProjectBusinessTabs(page) {
+  const businessTabs = document.getElementById('projectBusinessTabs');
+  if (!businessTabs) return;
+  const visible = PROJECT_BUSINESS_PAGES.has(page);
+  businessTabs?.classList.toggle('visible', visible);
+  businessTabs?.querySelectorAll('.project-business-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.businessUnit === projectHubUnit);
+  });
+}
+
+function switchProjectBusinessUnit(unit) {
+  if (!['xiaomi','consumer','other'].includes(unit)) return;
+  projectHubUnit = unit;
+  try { localStorage.setItem('hanntoQaProjectBusinessUnit', unit); } catch {}
+  updateProjectBusinessTabs(currentPage);
+  if (currentPage === 'projects') {
+    selectedQaProjectId = null;
+    renderProjectHub();
+  }
+}
 
 async function init() {
   const { data: { session } } = await sb.auth.getSession();
   if (!session) { window.location.href = 'index.html'; return; }
   currentUser = session.user;
+  restoreSidebarGroups();
 
   try {
     const { data } = await sb.from('profiles').select('role,name,resource_participant').eq('id', currentUser.id).single();
     if (data) {
-      userRole = data.role || 'member';
+      currentDuty = normalizeDuty(data.role);
+      userRole = canManageQa() ? 'admin' : 'member';
       currentUserResourceParticipant = data.resource_participant !== false;
-      setUserInfo(data.name || currentUser.email, userRole);
+      setUserInfo(data.name || currentUser.email, currentDuty);
     } else {
-      setUserInfo(currentUser.email, 'member');
+      setUserInfo(currentUser.email, 'tester');
     }
   } catch {
-    setUserInfo(currentUser.email, 'member');
+    setUserInfo(currentUser.email, 'tester');
   }
 
-  if (userRole === 'admin') {
+  if (isSystemAdmin()) {
     document.getElementById('membersMenu').style.display = 'flex';
   }
-  if (userRole === 'admin' || isCurrentUserObserver()) {
+  if (canManageQa()) {
     document.getElementById('portfolioMenu').style.display = 'flex';
   }
 
@@ -822,7 +901,7 @@ async function init() {
 function setUserInfo(name, role) {
   const displayName = name !== currentUser.email ? name : currentUser.email.split('@')[0];
   document.getElementById('userName').textContent = displayName;
-  document.getElementById('userRole').textContent = role === 'admin' ? '管理员' : isCurrentUserObserver() ? '观察者' : '成员';
+  document.getElementById('userRole').textContent = dutyText(role);
   document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
 }
 
@@ -941,6 +1020,7 @@ function watchDashboardData() {
 function nav(el, page) {
   document.querySelectorAll('.sb-item').forEach(i => i.classList.remove('active'));
   el.classList.add('active');
+  expandSidebarGroupForItem(el);
   document.getElementById('pageTitle').textContent = pageTitles[page] || page;
   currentPage = page;
   renderPage(page);
@@ -948,9 +1028,48 @@ function nav(el, page) {
 
 function refreshPage() { renderPage(currentPage); }
 
+function createModuleContext() {
+  return Object.freeze({
+    sb,
+    currentUser,
+    currentDuty,
+    content: document.getElementById('content'),
+    businessUnit: projectHubUnit,
+    isSystemAdmin,
+    canManageQa,
+    escapeHtml: escapeDashboardHtml,
+    showToast,
+    projectUnitText,
+  });
+}
+
+function destroyActiveRegisteredModule() {
+  if (!activeRegisteredModuleId) return;
+  const activeModule = window.HanntoQA.getModule(activeRegisteredModuleId);
+  try { activeModule?.destroy?.(); } catch (error) { console.warn('[module] destroy failed', error); }
+  activeRegisteredModuleId = null;
+}
+
+function renderRegisteredModule(id) {
+  const module = window.HanntoQA.getModule(id);
+  if (!module) {
+    document.getElementById('content').innerHTML = `<div class="page-card"><div class="empty">模块未注册：${escapeDashboardHtml(id)}</div></div>`;
+    return;
+  }
+  if (activeRegisteredModuleId && activeRegisteredModuleId !== id) destroyActiveRegisteredModule();
+  activeRegisteredModuleId = id;
+  Promise.resolve(module.render(createModuleContext())).catch(error => {
+    document.getElementById('content').innerHTML = `<div class="page-card"><div class="empty">模块加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
+  });
+}
+
 function renderPage(page) {
   const content = document.getElementById('content');
+  updateProjectBusinessTabs(page);
+  if (page === 'feedback') { renderRegisteredModule('feedback'); return; }
+  destroyActiveRegisteredModule();
   if (page === 'dashboard') { renderDashboard(); return; }
+  if (page === 'projects') { renderProjectHub(); return; }
   if (page === 'tasks') { renderTaskRecords(); return; }
   if (page === 'portfolio') { renderPortfolioPlanning(); return; }
   if (page === 'releases') { renderReleaseManagement(); return; }
@@ -994,6 +1113,274 @@ function renderPage(page) {
 }
 
 // ── 自动化模块 ────────────────────────────────────────────────
+// ── 项目中心与意见反馈 ────────────────────────────────────────
+function projectStatusText(status) {
+  return status === 'archived' ? '已归档' : '进行中';
+}
+
+function projectEditorModalHtml() {
+  return `<div class="dashboard-modal" id="qaProjectModal" onclick="closeQaProjectEditor()">
+    <div class="dashboard-modal-panel" style="width:min(700px,100%);" onclick="event.stopPropagation()">
+      <div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="qaProjectModalTitle">新增项目</div><button class="dashboard-modal-close" onclick="closeQaProjectEditor()"><i class="ti ti-x"></i></button></div>
+      <div class="dashboard-form-grid">
+        <div class="form-group"><label class="form-label">项目名称 *</label><input class="dashboard-input" id="qaProjectName" maxlength="120" placeholder="例如：米家照片打印"></div>
+        <div class="form-group"><label class="form-label">所属分类 *</label><select class="form-select" id="qaProjectUnit"><option value="xiaomi">小米</option><option value="consumer">消费</option><option value="other">Other</option></select></div>
+        <div class="form-group"><label class="form-label">状态</label><select class="form-select" id="qaProjectStatus"><option value="active">进行中</option><option value="archived">已归档</option></select></div>
+        <div class="form-group"><label class="form-label">项目负责人</label><select class="form-select" id="qaProjectOwner"><option value="">暂不指定</option></select></div>
+      </div>
+      <div class="form-group" style="margin-top:12px;"><label class="form-label">项目成员（决定测试工程师可见范围）</label><div id="qaProjectMemberChoices" class="feature-card-grid"></div></div>
+      <div class="form-group" style="margin-top:12px;"><label class="form-label">项目说明</label><textarea class="dashboard-input" id="qaProjectDescription" rows="3" maxlength="1000"></textarea></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeQaProjectEditor()">取消</button><button class="btn-primary" id="saveQaProjectBtn" onclick="saveQaProject()">保存项目</button></div>
+    </div>
+  </div>`;
+}
+
+async function renderProjectHub() {
+  updateProjectBusinessTabs('projects');
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  content.innerHTML = `<div class="page-card"><div class="empty"><div class="spinner"></div><div>正在加载项目…</div></div></div>`;
+  try {
+    const [projectsRes, membersRes, profilesRes, plansRes, tasksRes, assigneesRes, calendarRes] = await Promise.all([
+      sb.from('qa_projects').select('*').order('status').order('name'),
+      sb.from('qa_project_members').select('*'),
+      sb.from('profiles').select('id,name,role,resource_participant').order('name'),
+      sb.from('project_monthly_plans').select('id,project_id,project_name,plan_month,end_month,status'),
+      sb.from('qa_tasks').select('id,title,portfolio_plan_id,status,test_round,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').neq('status','cancelled'),
+      sb.from('qa_task_assignees').select('task_id,member_id'),
+      sb.from('work_calendar').select('work_date,is_workday,name'),
+    ]);
+    for (const result of [projectsRes, membersRes, profilesRes, plansRes, tasksRes, assigneesRes, calendarRes]) if (result.error) throw result.error;
+    qaProjectCache = new Map((projectsRes.data || []).map(item => [item.id, item]));
+    qaProjectMemberCache = membersRes.data || [];
+    qaProjectProfileCache = new Map((profilesRes.data || []).map(item => [item.id, item]));
+    const plans = plansRes.data || [];
+    const tasks = tasksRes.data || [];
+    const visible = [...qaProjectCache.values()].filter(item => item.business_unit === projectHubUnit);
+    if (selectedQaProjectId && !qaProjectCache.has(selectedQaProjectId)) selectedQaProjectId = null;
+    const cards = visible.length ? visible.map(project => {
+      const memberships = qaProjectMemberCache.filter(item => item.project_id === project.id);
+      const owners = memberships.filter(item => item.is_owner).map(item => qaProjectProfileCache.get(item.member_id)?.name).filter(Boolean);
+      const projectPlans = plans.filter(item => item.project_id === project.id);
+      const planIds = new Set(projectPlans.map(item => item.id));
+      const projectTasks = tasks.filter(item => planIds.has(item.portfolio_plan_id));
+      const done = projectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
+      return `<article class="project-card ${selectedQaProjectId === project.id ? 'selected' : ''}" onclick="openQaProject('${project.id}')">
+        <div style="display:flex;justify-content:space-between;gap:10px;"><div><div class="project-card-title">${escapeDashboardHtml(project.name)}</div><div class="project-card-meta">${escapeDashboardHtml(owners.join('、') || '待指定负责人')} · ${projectStatusText(project.status)}</div></div><span class="feedback-status ${project.status === 'archived' ? 'closed' : 'resolved'}">${projectStatusText(project.status)}</span></div>
+        <div class="project-card-stats"><div class="project-card-stat"><strong>${memberships.length}</strong><span>成员</span></div><div class="project-card-stat"><strong>${projectPlans.length}</strong><span>排期</span></div><div class="project-card-stat"><strong>${done}/${projectTasks.length}</strong><span>事项完成</span></div></div>
+        <div class="project-card-meta" style="margin-top:12px;">${escapeDashboardHtml(project.description || '暂无项目说明')}</div>
+      </article>`;
+    }).join('') : `<div class="empty" style="grid-column:1/-1;">当前分类暂无可见项目</div>`;
+    const selectedProject = selectedQaProjectId ? qaProjectCache.get(selectedQaProjectId) : null;
+    if (selectedProject) {
+      content.innerHTML = renderQaProjectDetailPage(selectedProject, plans, tasks, assigneesRes.data || [], calendarRes.data || []) + projectEditorModalHtml();
+      return;
+    }
+    content.innerHTML = `<div class="page-card">
+      <div class="card-hd"><div><div class="card-title">🗂️ 项目中心</div><div class="card-sub">测试工程师仅看到自己参与的项目；QA 负责人可维护全部项目和成员。</div></div>${canManageQa() ? `<button class="btn-primary" onclick="openQaProjectEditor()"><i class="ti ti-plus"></i> 新增项目</button>` : ''}</div>
+      <div class="project-card-grid">${cards}</div>
+    </div>${projectEditorModalHtml()}`;
+  } catch (error) {
+    content.innerHTML = `<div class="page-card"><div class="empty">项目加载失败：${escapeDashboardHtml(error.message)}<br><small>请先执行项目中心数据库迁移</small></div></div>`;
+  }
+}
+
+function qaProjectMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}`;
+}
+
+function qaProjectShiftMonth(month, offset) {
+  const [year, monthNumber] = String(month || qaProjectMonthKey()).split('-').map(Number);
+  const date = new Date(year, monthNumber - 1 + offset, 1);
+  return qaProjectMonthKey(date);
+}
+
+function qaProjectMonthDays(month, calendarRows) {
+  const [year, monthNumber] = String(month).split('-').map(Number);
+  const calendar = new Map(calendarRows.map(item => [item.work_date, item]));
+  const count = new Date(year, monthNumber, 0).getDate();
+  return Array.from({ length:count }, (_, index) => {
+    const day = index + 1;
+    const date = new Date(year, monthNumber - 1, day);
+    const key = `${year}-${String(monthNumber).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    const override = calendar.get(key);
+    const weekend = date.getDay() === 0 || date.getDay() === 6;
+    return { key, day, weekday:['日','一','二','三','四','五','六'][date.getDay()], isWorkday:override ? override.is_workday : !weekend, name:override?.name || '' };
+  });
+}
+
+function qaProjectTaskSlotLabel(task, dateKey) {
+  if (!task.allocation_start_date || !task.allocation_end_date || dateKey < task.allocation_start_date || dateKey > task.allocation_end_date) return '';
+  const startPm = task.allocation_start_period === 'pm';
+  const endAm = task.allocation_end_period === 'am';
+  if (task.allocation_start_date === task.allocation_end_date) {
+    if (startPm) return '下午';
+    if (endAm) return '上午';
+    return '全天';
+  }
+  if (dateKey === task.allocation_start_date && startPm) return '下午';
+  if (dateKey === task.allocation_end_date && endAm) return '上午';
+  return '全天';
+}
+
+function qaProjectTaskBarClass(status) {
+  if (status === 'done' || status === 'completed') return 'completed';
+  if (status === 'blocked') return 'blocked';
+  if (status === 'todo') return 'todo';
+  return '';
+}
+
+function renderQaProjectDetailPage(project, plans, tasks, assignees, calendarRows) {
+  qaProjectDetailMonth ||= qaProjectMonthKey();
+  const memberships = qaProjectMemberCache.filter(item => item.project_id === project.id);
+  const memberNames = memberships.map(item => `${escapeDashboardHtml(qaProjectProfileCache.get(item.member_id)?.name || '未命名成员')}${item.is_owner ? '（负责人）' : ''}`);
+  const projectPlans = plans.filter(item => item.project_id === project.id);
+  const planIds = new Set(projectPlans.map(item => item.id));
+  const monthDays = qaProjectMonthDays(qaProjectDetailMonth, calendarRows);
+  const monthStart = monthDays[0]?.key || `${qaProjectDetailMonth}-01`;
+  const monthEnd = monthDays.at(-1)?.key || monthStart;
+  const projectTasks = tasks.filter(item =>
+    planIds.has(item.portfolio_plan_id)
+    && item.allocation_start_date
+    && item.allocation_end_date
+    && item.allocation_start_date <= monthEnd
+    && item.allocation_end_date >= monthStart
+  ).sort((a,b) => String(a.allocation_start_date || '').localeCompare(String(b.allocation_start_date || '')) || String(a.title || '').localeCompare(String(b.title || '')));
+  const assigneesByTask = new Map();
+  assignees.forEach(item => {
+    const values = assigneesByTask.get(item.task_id) || [];
+    if (!values.includes(item.member_id)) values.push(item.member_id);
+    assigneesByTask.set(item.task_id, values);
+  });
+  const days = monthDays;
+  const today = dashboardLocalDateKey(new Date());
+  const template = `270px repeat(${days.length},45px)`;
+  const header = `<div class="project-gantt-cell project-gantt-task project-gantt-head">工作事项 / 负责人 / 排期</div>${days.map(day => `<div class="project-gantt-cell project-gantt-head project-gantt-day ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" title="${escapeDashboardHtml(day.name || (day.isWorkday ? '工作日' : '非工作日'))}">${String(day.day).padStart(2,'0')}<br>周${day.weekday}</div>`).join('')}`;
+  const rows = projectTasks.length ? projectTasks.map(task => {
+    const ids = assigneesByTask.get(task.id) || (task.assignee_id ? [task.assignee_id] : []);
+    const names = ids.map(id => qaProjectProfileCache.get(id)?.name).filter(Boolean).join('、') || '未指定负责人';
+    const slots = days.map(day => {
+      const label = day.isWorkday ? qaProjectTaskSlotLabel(task, day.key) : '';
+      return `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}">${label ? `<div class="project-gantt-bar ${qaProjectTaskBarClass(task.status)}" title="${escapeDashboardHtml(`${task.title} · ${day.key} ${label}`)}">${label}</div>` : ''}</div>`;
+    }).join('');
+    return `<div class="project-gantt-cell project-gantt-task"><div><strong>${escapeDashboardHtml(task.title || '未命名事项')}</strong><div class="project-card-meta">${escapeDashboardHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${taskStatusText(task.status)}</div><div class="project-card-meta">${escapeDashboardHtml(task.allocation_start_date || '未排期')} ${taskAllocationPeriodText(task.allocation_start_period)} → ${escapeDashboardHtml(task.allocation_end_date || '未排期')} ${taskAllocationPeriodText(task.allocation_end_period)}</div></div></div>${slots}`;
+  }).join('') : `<div class="project-gantt-cell project-gantt-task">本月暂无工作事项</div><div class="project-gantt-cell" style="grid-column:span ${days.length};">可先在工作事项中关联该项目排期</div>`;
+  const completed = projectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
+  return `<div class="page-card">
+    <div class="card-hd"><div><button class="btn-secondary" onclick="backToQaProjectList()" style="margin-bottom:10px;"><i class="ti ti-arrow-left"></i> 返回项目列表</button><div class="card-title">${escapeDashboardHtml(project.name)}</div><div class="card-sub">${projectUnitText(project.business_unit)} · ${memberNames.join('、') || '尚未分配成员'}</div></div>${canManageQa() ? `<button class="btn-secondary" onclick="openQaProjectEditor('${project.id}')"><i class="ti ti-edit"></i> 编辑项目</button>` : ''}</div>
+    <div class="summary-grid" style="margin-top:14px;"><div class="summary-item"><div class="summary-label">关联排期</div><div class="summary-value">${projectPlans.length}</div></div><div class="summary-item"><div class="summary-label">本月事项</div><div class="summary-value">${projectTasks.length}</div></div><div class="summary-item"><div class="summary-label">已完成</div><div class="summary-value">${completed}</div></div></div>
+    <div class="project-detail-toolbar" style="margin-top:16px;"><button class="btn-secondary" onclick="shiftQaProjectDetailMonth(-1)">上个月</button><input class="dashboard-filter" type="month" value="${qaProjectDetailMonth}" onchange="changeQaProjectDetailMonth(this.value)"><button class="btn-secondary" onclick="changeQaProjectDetailMonth(qaProjectMonthKey())">本月</button><button class="btn-secondary" onclick="shiftQaProjectDetailMonth(1)">下个月</button><div class="project-detail-legend"><span>进行中</span><span class="todo">待处理</span><span class="done">已完成</span><span class="off">周末/节假日</span></div></div>
+    <div class="project-gantt-wrap"><div class="project-gantt-grid" style="grid-template-columns:${template};">${header}${rows}</div></div>
+  </div>`;
+}
+
+function switchProjectUnit(unit) {
+  switchProjectBusinessUnit(unit);
+}
+
+function openQaProject(id) {
+  selectedQaProjectId = id;
+  qaProjectDetailMonth = qaProjectMonthKey();
+  renderProjectHub();
+}
+
+function backToQaProjectList() {
+  selectedQaProjectId = null;
+  renderProjectHub();
+}
+
+function changeQaProjectDetailMonth(month) {
+  qaProjectDetailMonth = month || qaProjectMonthKey();
+  renderProjectHub();
+}
+
+function shiftQaProjectDetailMonth(offset) {
+  qaProjectDetailMonth = qaProjectShiftMonth(qaProjectDetailMonth || qaProjectMonthKey(), offset);
+  renderProjectHub();
+}
+
+async function openQaProjectFromPortfolio(planId) {
+  const plan = portfolioPlanCache.get(planId);
+  if (!plan) { showToast('未找到项目排期，请刷新后重试', 'error'); return; }
+  let projectId = plan.project_id || '';
+  if (!projectId) {
+    const { data } = await sb.from('qa_projects').select('id,business_unit').eq('name', plan.project_name).limit(1).maybeSingle();
+    projectId = data?.id || '';
+    if (data?.business_unit) projectHubUnit = data.business_unit;
+  }
+  if (!projectId) {
+    showToast('该排期尚未关联项目中心，请先点击“编辑月度人力”选择项目', 'error');
+    return;
+  }
+  selectedQaProjectId = projectId;
+  qaProjectDetailMonth = String(portfolioSelectedMonth || plan.plan_month || qaProjectMonthKey()).slice(0,7);
+  currentPage = 'projects';
+  document.getElementById('pageTitle').textContent = pageTitles.projects;
+  let projectMenuItem = null;
+  document.querySelectorAll('.sb-item').forEach(item => {
+    const active = item.getAttribute('onclick')?.includes("'projects'");
+    item.classList.toggle('active', active);
+    if (active) projectMenuItem = item;
+  });
+  expandSidebarGroupForItem(projectMenuItem);
+  await renderProjectHub();
+}
+
+function openQaProjectEditor(id = '') {
+  editingQaProjectId = id;
+  const modal = document.getElementById('qaProjectModal');
+  if (!modal) return;
+  const project = id ? qaProjectCache.get(id) : null;
+  document.getElementById('qaProjectModalTitle').textContent = project ? '编辑项目' : '新增项目';
+  document.getElementById('qaProjectName').value = project?.name || '';
+  document.getElementById('qaProjectUnit').value = project?.business_unit || projectHubUnit;
+  document.getElementById('qaProjectStatus').value = project?.status || 'active';
+  document.getElementById('qaProjectDescription').value = project?.description || '';
+  const selected = new Set(qaProjectMemberCache.filter(item => item.project_id === id).map(item => item.member_id));
+  const owner = qaProjectMemberCache.find(item => item.project_id === id && item.is_owner)?.member_id || '';
+  const profiles = [...qaProjectProfileCache.values()];
+  document.getElementById('qaProjectOwner').innerHTML = `<option value="">暂不指定</option>${profiles.map(item => `<option value="${item.id}" ${owner === item.id ? 'selected' : ''}>${escapeDashboardHtml(item.name || item.id)}</option>`).join('')}`;
+  document.getElementById('qaProjectMemberChoices').innerHTML = profiles.map(item => `<label class="feature-mini-stat" style="text-align:left;display:flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" name="qaProjectMember" value="${item.id}" ${selected.has(item.id) ? 'checked' : ''}><span><strong style="font-size:12px;">${escapeDashboardHtml(item.name || '未命名成员')}</strong><small style="display:block;">${dutyText(item.role)}${isResourceParticipant(item) ? ' · 计入资源' : ''}</small></span></label>`).join('');
+  modal.classList.add('open');
+}
+
+function closeQaProjectEditor() {
+  document.getElementById('qaProjectModal')?.classList.remove('open');
+  editingQaProjectId = null;
+}
+
+async function saveQaProject() {
+  const name = document.getElementById('qaProjectName').value.trim();
+  if (!name) { showToast('请填写项目名称', 'error'); return; }
+  const button = document.getElementById('saveQaProjectBtn');
+  button.disabled = true;
+  try {
+    const payload = { name, business_unit:document.getElementById('qaProjectUnit').value, status:document.getElementById('qaProjectStatus').value, description:document.getElementById('qaProjectDescription').value.trim() || null };
+    const result = editingQaProjectId
+      ? await sb.from('qa_projects').update(payload).eq('id', editingQaProjectId).select().single()
+      : await sb.from('qa_projects').insert({ ...payload, created_by:currentUser.id }).select().single();
+    if (result.error) throw result.error;
+    const projectId = result.data.id;
+    const ownerId = document.getElementById('qaProjectOwner').value;
+    const selected = [...document.querySelectorAll('input[name="qaProjectMember"]:checked')].map(item => item.value);
+    if (ownerId && !selected.includes(ownerId)) selected.push(ownerId);
+    const remove = await sb.from('qa_project_members').delete().eq('project_id', projectId);
+    if (remove.error) throw remove.error;
+    if (selected.length) {
+      const add = await sb.from('qa_project_members').insert(selected.map(memberId => ({ project_id:projectId, member_id:memberId, is_owner:memberId === ownerId, added_by:currentUser.id })));
+      if (add.error) throw add.error;
+    }
+    projectHubUnit = payload.business_unit;
+    selectedQaProjectId = projectId;
+    showToast('项目已保存');
+    await renderProjectHub();
+  } catch (error) {
+    showToast(`保存失败：${error.message}`, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
 function normalizePersonName(value) {
   return String(value || '').trim().toLocaleLowerCase().replace(/\s+/g, '');
 }
@@ -1112,8 +1499,8 @@ async function autoBindPingCodeMembers(profiles, directory) {
 async function renderMemberMappings() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
-  if (userRole !== 'admin') {
-    content.innerHTML = '<div class="history-card"><div class="dashboard-empty">仅管理员可以管理成员映射</div></div>';
+  if (!isSystemAdmin()) {
+    content.innerHTML = '<div class="history-card"><div class="dashboard-empty">仅系统管理员可以管理成员、职责和账号</div></div>';
     return;
   }
   content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载成员映射…</div></div>';
@@ -1198,23 +1585,23 @@ async function renderMemberMappings() {
         : suggestions.length > 1 ? `发现 ${suggestions.length} 个同名账号，请按 ID 确认` : '暂无同名候选';
       if (profile.pingcode_user_id) {
         return `<tr>
-          <td><strong>${escapeDashboardHtml(profile.name || '未命名成员')}</strong><br><span style="color:var(--sub);font-size:10px;">${memberTypeText(profile)}</span></td>
+          <td><strong>${escapeDashboardHtml(profile.name || '未命名成员')}</strong><br><span style="color:var(--sub);font-size:10px;">${memberTypeText(profile)}</span>${memberDutySelectHtml(profile)}</td>
           <td><code>${escapeDashboardHtml(profile.pingcode_user_id)}</code><br><span style="color:#0F6E56;font-size:10px;">已绑定，不再需要手工输入</span></td>
           <td><strong>${escapeDashboardHtml(boundDisplayName)}</strong></td>
-          <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="toggleMemberResourceParticipation('${profile.id}',${isResourceParticipant(profile) ? 'false' : 'true'})">${isResourceParticipant(profile) ? '设为观察者' : '恢复资源成员'}</button><button class="btn-secondary" onclick="clearPingCodeMapping('${profile.id}')">解除绑定</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
+          <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="toggleMemberResourceParticipation('${profile.id}',${isResourceParticipant(profile) ? 'false' : 'true'})">${isResourceParticipant(profile) ? '移出资源统计' : '计入资源统计'}</button><button class="btn-secondary" onclick="clearPingCodeMapping('${profile.id}')">解除绑定</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
         </tr>`;
       }
       return `<tr>
-        <td><input class="dashboard-input" id="profileName-${profile.id}" value="${escapeDashboardHtml(profile.name || '')}" maxlength="50" placeholder="成员名称"><br><span style="color:var(--sub);font-size:10px;">${memberTypeText(profile)}</span></td>
+        <td><input class="dashboard-input" id="profileName-${profile.id}" value="${escapeDashboardHtml(profile.name || '')}" maxlength="50" placeholder="成员名称"><br><span style="color:var(--sub);font-size:10px;">${memberTypeText(profile)}</span>${memberDutySelectHtml(profile)}</td>
         <td><input class="dashboard-input" id="pingcodeMap-${profile.id}" list="pingcodeUserOptions" value="${escapeDashboardHtml(profile.pingcode_user_id || '')}" placeholder="选择候选或粘贴 PingCode 用户 ID"><br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(suggestion)}</span></td>
         <td>${escapeDashboardHtml(boundDisplayName)}</td>
-        <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button><button class="btn-secondary" onclick="toggleMemberResourceParticipation('${profile.id}',${isResourceParticipant(profile) ? 'false' : 'true'})">${isResourceParticipant(profile) ? '设为观察者' : '恢复资源成员'}</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button><button class="btn-secondary" onclick="toggleMemberResourceParticipation('${profile.id}',${isResourceParticipant(profile) ? 'false' : 'true'})">${isResourceParticipant(profile) ? '移出资源统计' : '计入资源统计'}</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
       </tr>`;
     }).join('');
     content.innerHTML = `
       <div class="history-card">
         <div class="card-hd" style="margin-bottom:12px;"><span class="card-title">👥 成员与 PingCode 账号映射</span><span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${directory.length} 个候选</span></div>
-        <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">姓名只用于建议；保存时以 PingCode 用户 ID 为唯一依据。观察者可以登录浏览，但不会出现在负责人、资源容量、进度与风险统计中。</div>
+        <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">职责分为系统管理员、QA 负责人/项目负责人和测试工程师；“计入资源”仅影响负责人候选、人力容量、进度与风险统计，不会改变账号权限。</div>
         <datalist id="pingcodeUserOptions">${options}</datalist>
         <div style="overflow-x:auto;"><table class="history-table"><thead><tr><th>平台成员</th><th>PingCode 用户 ID</th><th>当前显示名</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="4">暂无成员</td></tr>'}</tbody></table></div>
       </div>
@@ -1245,7 +1632,7 @@ function memberPasswordResetModalHtml() {
 }
 
 function openMemberPasswordReset(profileId) {
-  if (userRole !== 'admin') return;
+  if (!isSystemAdmin()) return;
   const profile = memberPasswordProfileCache.get(profileId);
   const modal = document.getElementById('memberPasswordResetModal');
   if (!profile || !modal) return;
@@ -1291,7 +1678,7 @@ function generateMemberTemporaryPassword() {
 }
 
 async function resetMemberPassword() {
-  if (userRole !== 'admin' || !memberPasswordTarget) return;
+  if (!isSystemAdmin() || !memberPasswordTarget) return;
   const password = document.getElementById('memberNewPassword')?.value || '';
   const confirmation = document.getElementById('memberConfirmPassword')?.value || '';
   if (password.length < 8) { showToast('新密码至少需要 8 位', 'error'); return; }
@@ -1321,6 +1708,7 @@ async function resetMemberPassword() {
 }
 
 async function savePingCodeMapping(profileId) {
+  if (!isSystemAdmin()) return;
   const input = document.getElementById(`pingcodeMap-${profileId}`);
   const nameInput = document.getElementById(`profileName-${profileId}`);
   const memberName = nameInput?.value.trim() || '';
@@ -1347,18 +1735,44 @@ async function savePingCodeMapping(profileId) {
   }
 }
 
+async function updateMemberDuty(profileId, role) {
+  if (!isSystemAdmin()) return;
+  const profile = memberPasswordProfileCache.get(profileId);
+  const nextDuty = normalizeDuty(role);
+  if (!profile) return;
+  if (profileId === currentUser.id && normalizeDuty(profile.role) === 'admin' && nextDuty !== 'admin') {
+    showToast('不能降低当前系统管理员自己的职责', 'error');
+    await renderMemberMappings();
+    return;
+  }
+  if (!window.confirm(`确认将“${profile.name || '该成员'}”设置为“${dutyText(nextDuty)}”吗？`)) {
+    await renderMemberMappings();
+    return;
+  }
+  try {
+    const { error } = await sb.from('profiles').update({ role:nextDuty }).eq('id', profileId);
+    if (error) throw error;
+    showToast(`职责已更新为：${dutyText(nextDuty)}`);
+    await renderMemberMappings();
+  } catch (error) {
+    console.error('[members] duty update failed:', error);
+    showToast('职责更新失败：' + error.message, 'error');
+    await renderMemberMappings();
+  }
+}
+
 async function toggleMemberResourceParticipation(profileId, enabled) {
-  if (userRole !== 'admin') return;
+  if (!isSystemAdmin()) return;
   const profile = memberPasswordProfileCache.get(profileId);
   if (!profile) return;
-  const action = enabled ? '恢复为资源成员' : '设为观察者';
-  if (!window.confirm(`确认将“${profile.name || '该账号'}”${action}吗？`)) return;
+  const action = enabled ? '计入资源统计' : '移出资源统计';
+  if (!window.confirm(`确认将“${profile.name || '该账号'}”${action}吗？职责权限不会改变。`)) return;
   try {
     const { error } = await sb.from('profiles')
       .update({ resource_participant: Boolean(enabled) })
       .eq('id', profileId);
     if (error) throw error;
-    showToast(enabled ? '已恢复资源统计与负责人选择' : '已设为观察者，不再参与资源和进度统计');
+    showToast(enabled ? '已计入负责人候选和资源统计' : '已移出资源统计，账号职责权限保持不变');
     await renderMemberMappings();
   } catch (error) {
     console.error('[members] resource participation update failed:', error);
@@ -1367,6 +1781,7 @@ async function toggleMemberResourceParticipation(profileId, enabled) {
 }
 
 async function clearPingCodeMapping(profileId) {
+  if (!isSystemAdmin()) return;
   if (!window.confirm('确认解除该成员与 PingCode 账号的绑定吗？')) return;
   try {
     const { error } = await sb.from('profiles').update({
@@ -1472,7 +1887,6 @@ function taskAssigneeList(task) {
 }
 
 function canCurrentUserEditTask(task) {
-  if (isCurrentUserObserver()) return false;
   const assignments = taskAssigneeList(task);
   return userRole === 'admin' || (
     task.created_by === currentUser.id
@@ -1482,7 +1896,6 @@ function canCurrentUserEditTask(task) {
 }
 
 function canCurrentUserUpdateTaskStatus(task) {
-  if (isCurrentUserObserver()) return false;
   return userRole === 'admin' || taskAssigneeList(task).some(item => item.member_id === currentUser.id);
 }
 
@@ -2079,6 +2492,7 @@ function portfolioPlanModalHtml() {
     <div class="dashboard-modal-panel" style="width:min(680px,100%);" onclick="event.stopPropagation()">
       <div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="portfolioPlanModalTitle">新增项目排期</div><button class="dashboard-modal-close" onclick="closePortfolioPlanEditor()"><i class="ti ti-x"></i></button></div>
       <div class="dashboard-form-grid">
+        <div class="form-group"><label class="form-label">关联项目中心 *</label><select class="form-select" id="portfolioQaProject" onchange="applyPortfolioQaProject()"><option value="">请选择项目</option></select></div>
         <div class="form-group"><label class="form-label">项目名称 *</label><input class="dashboard-input" id="portfolioProjectName" maxlength="120" placeholder="例如：Cranberry"></div>
         <div class="form-group"><label class="form-label">项目类型</label><select class="form-select" id="portfolioProjectType"><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option><option value="device">设备项目</option><option value="other">其他</option></select></div>
         <div class="form-group"><label class="form-label">开始月份 *</label><input class="dashboard-input" id="portfolioPlanStartMonth" type="month" onchange="renderPortfolioAllocationInputs()"></div>
@@ -2126,7 +2540,22 @@ function renderPortfolioAllocationInputs(seed = null) {
   updatePortfolioAllocationTotal();
 }
 
-function openPortfolioPlanEditor(id = null) {
+async function loadPortfolioQaProjectOptions(selectedId = '') {
+  const select = document.getElementById('portfolioQaProject');
+  if (!select) return;
+  const { data, error } = await sb.from('qa_projects').select('id,name,business_unit,status').eq('status','active').order('business_unit').order('name');
+  if (error) { select.innerHTML = '<option value="">项目加载失败</option>'; return; }
+  select.innerHTML = `<option value="">请选择项目</option>${(data || []).map(item => `<option value="${item.id}" data-name="${escapeDashboardHtml(item.name)}" ${item.id === selectedId ? 'selected' : ''}>${projectUnitText(item.business_unit)} · ${escapeDashboardHtml(item.name)}</option>`).join('')}`;
+}
+
+function applyPortfolioQaProject() {
+  const select = document.getElementById('portfolioQaProject');
+  const option = select?.selectedOptions?.[0];
+  const name = option?.dataset?.name || '';
+  if (name && !document.getElementById('portfolioProjectName').value.trim()) document.getElementById('portfolioProjectName').value = name;
+}
+
+async function openPortfolioPlanEditor(id = null) {
   if (userRole !== 'admin') return;
   const record = id ? portfolioPlanCache.get(id) : null;
   editingPortfolioPlanId = id;
@@ -2139,6 +2568,7 @@ function openPortfolioPlanEditor(id = null) {
   document.getElementById('portfolioPlanStatus').value = record?.status || 'planned';
   document.getElementById('portfolioPlanNotes').value = record?.notes || '';
   document.getElementById('portfolioPlanModal').classList.add('open');
+  await loadPortfolioQaProjectOptions(record?.project_id || '');
   const allocations = record?.monthly_allocations && Object.keys(record.monthly_allocations).length
     ? record.monthly_allocations
     : (record ? { [record.plan_month]:Number(record.required_person_months || 0) } : {});
@@ -2156,10 +2586,11 @@ async function savePortfolioPlan() {
   const startMonth = document.getElementById('portfolioPlanStartMonth')?.value || '';
   const endMonth = document.getElementById('portfolioPlanEndMonth')?.value || '';
   const projectName = document.getElementById('portfolioProjectName')?.value.trim() || '';
+  const projectId = document.getElementById('portfolioQaProject')?.value || '';
   const allocations = collectPortfolioAllocationInputs();
   const required = Object.values(allocations).reduce((sum, value) => sum + value, 0);
-  if (!startMonth || !endMonth || !projectName || !(required > 0)) {
-    showToast('请完整填写起止月份、项目名称和至少一个月的投入人月', 'error');
+  if (!startMonth || !endMonth || !projectName || !projectId || !(required > 0)) {
+    showToast('请选择项目，并完整填写起止月份、项目名称和至少一个月的投入人月', 'error');
     return;
   }
   if (endMonth < startMonth) {
@@ -2170,6 +2601,7 @@ async function savePortfolioPlan() {
     plan_month:`${startMonth}-01`,
     end_month:`${endMonth}-01`,
     project_name:projectName,
+    project_id:projectId,
     project_type:document.getElementById('portfolioProjectType').value,
     required_person_months:required,
     monthly_allocations:allocations,
@@ -2220,8 +2652,8 @@ async function shiftPortfolioMonth(offset) {
 async function renderPortfolioPlanning() {
   const content = document.getElementById('content');
   content.style.padding = '24px';
-  if (userRole !== 'admin' && !isCurrentUserObserver()) {
-    content.innerHTML = '<div class="history-card"><div class="dashboard-empty">项目总排期仅供管理员和观察者查看</div></div>';
+  if (!canManageQa()) {
+    content.innerHTML = '<div class="history-card"><div class="dashboard-empty">项目总排期仅供系统管理员和 QA 负责人查看</div></div>';
     return;
   }
   portfolioSelectedMonth ||= portfolioMonthKey();
@@ -2301,7 +2733,7 @@ async function renderPortfolioPlanning() {
       ).join('');
       const actual = actualByPlan.get(item.id) || { points:0, taskCount:0, tasks:[] };
       const linkedTasks = actual.tasks.map(task => `<div class="portfolio-linked-task"><strong title="${escapeDashboardHtml(task.title)}">${escapeDashboardHtml(task.title)}</strong><span>${escapeDashboardHtml(task.assigneeNames.join('、') || '未指定负责人')} · ${escapeDashboardHtml(taskStatusText(task.status))} · 实际 ${task.actualPoints.toFixed(1)} 点</span></div>`).join('');
-      return `<div class="portfolio-gantt-cell portfolio-gantt-project"><strong>${escapeDashboardHtml(item.project_name)}</strong><small>${portfolioTypeText(item.project_type)} · 共 ${Number(item.required_person_months).toFixed(1)} 人月<br>${portfolioMonthLabel(item.plan_month)}—${portfolioMonthLabel(endMonth)}<br>实际投入 ${actual.points.toFixed(1)} 点 · ${actual.taskCount} 个事项</small>${actual.taskCount ? `<details class="portfolio-linked-tasks"><summary>查看关联事项（${actual.taskCount}）</summary><div class="portfolio-linked-task-list">${linkedTasks}</div></details>` : '<div class="release-meta" style="margin-top:5px;">暂无关联事项</div>'}${userRole === 'admin' ? `<button class="portfolio-gantt-edit" onclick="openPortfolioPlanEditor('${item.id}')"><i class="ti ti-edit"></i> 编辑月度人力</button>` : ''}</div>${slots}`;
+      return `<div class="portfolio-gantt-cell portfolio-gantt-project"><button class="risk-action" style="font-size:12px;font-weight:700;padding:0;" onclick="openQaProjectFromPortfolio('${item.id}')" title="打开项目逐日甘特图">${escapeDashboardHtml(item.project_name)} <i class="ti ti-external-link"></i></button><small>${portfolioTypeText(item.project_type)} · 共 ${Number(item.required_person_months).toFixed(1)} 人月<br>${portfolioMonthLabel(item.plan_month)}—${portfolioMonthLabel(endMonth)}<br>实际投入 ${actual.points.toFixed(1)} 点 · ${actual.taskCount} 个事项</small>${actual.taskCount ? `<details class="portfolio-linked-tasks"><summary>查看关联事项（${actual.taskCount}）</summary><div class="portfolio-linked-task-list">${linkedTasks}</div></details>` : '<div class="release-meta" style="margin-top:5px;">暂无关联事项</div>'}${userRole === 'admin' ? `<button class="portfolio-gantt-edit" onclick="openPortfolioPlanEditor('${item.id}')"><i class="ti ti-edit"></i> 编辑月度人力</button>` : ''}</div>${slots}`;
     }).join('');
     const ganttHeader = `<div class="portfolio-gantt-cell portfolio-gantt-header">项目 / 总投入</div>${months.map(month => `<div class="portfolio-gantt-cell portfolio-gantt-header">${portfolioMonthLabel(month)}</div>`).join('')}`;
     const rows = selected.monthPlans.map(item => `<div class="portfolio-demand">
@@ -2314,7 +2746,7 @@ async function renderPortfolioPlanning() {
     </div>`).join('');
     const gapTone = selected.gap < -0.001 ? '#d9414b' : '#0F6E56';
     content.innerHTML = `<div class="history-card">
-      <div class="card-hd"><div><span class="card-title">🗓️ 项目总排期</span><div class="release-meta">按月汇总项目所需人月，对比 ${members.length} 位资源成员的可用容量；观察者不计入人力。</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openPortfolioPlanEditor()"><i class="ti ti-plus"></i> 新增项目需求</button>' : '<span class="card-tag">只读查看</span>'}</div>
+      <div class="card-hd"><div><span class="card-title">🗓️ 项目总排期</span><div class="release-meta">按月汇总项目所需人月，对比 ${members.length} 位“计入资源”成员的可用容量。</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openPortfolioPlanEditor()"><i class="ti ti-plus"></i> 新增项目需求</button>' : ''}</div>
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:14px 0;"><button class="btn-secondary" onclick="shiftPortfolioMonth(-1)">上个月</button><input class="dashboard-filter" type="month" value="${firstMonth.slice(0,7)}" onchange="changePortfolioMonth(this.value)"><button class="btn-secondary" onclick="changePortfolioMonth(portfolioMonthKey().slice(0,7))">本月</button><button class="btn-secondary" onclick="shiftPortfolioMonth(1)">下个月</button><span class="release-meta">向后展示 6 个月</span></div>
       <div class="quality-metrics">
         ${qualityMetricHtml('可用人力',`${capacityPersonMonths.toFixed(1)} 人月`,`${members.length} 位资源成员`,null)}
@@ -2902,7 +3334,7 @@ function qualityReportSummaryText() {
   const production = defects.filter(item => item.exposed_stage === 'production').length;
   const integration = defects.filter(item => item.exposed_stage === 'integration').length;
   const reviewed = defects.filter(item => item.review_status === 'completed').length;
-  return [`Liene QA 质量摘要 · ${new Date().toLocaleDateString('zh-CN')}`, `工作事项：${done}/${tasks.length} 已完成（${qualityPercent(done,tasks.length)}%）`, `TestHub：${executed}/${total} 已执行（${qualityPercent(executed,total)}%）`, `延期：${overdue} 项`, `阻塞：${blocked} 项`, `集成暴露 BUG：${integration} 项`, `已上线暴露 BUG：${production} 项`, `BUG 复盘：${reviewed}/${defects.length} 已完成`].join('\n');
+  return [`Hannto QA 质量摘要 · ${new Date().toLocaleDateString('zh-CN')}`, `工作事项：${done}/${tasks.length} 已完成（${qualityPercent(done,tasks.length)}%）`, `TestHub：${executed}/${total} 已执行（${qualityPercent(executed,total)}%）`, `延期：${overdue} 项`, `阻塞：${blocked} 项`, `集成暴露 BUG：${integration} 项`, `已上线暴露 BUG：${production} 项`, `BUG 复盘：${reviewed}/${defects.length} 已完成`].join('\n');
 }
 
 function renderRetrospectiveReport(defects) {
@@ -2970,7 +3402,7 @@ function externalQualityBriefText() {
   const missedTest = defects.filter(item => item.is_missed_test).length;
   const closed = defects.filter(item => ['verified','closed'].includes(item.status)).length;
   const rounds = externalQualityRoundStats(defects).map(([round,stat]) => `${round === 'unlinked' ? '未关联轮次' : `第 ${round} 轮`}：发现 ${stat.total}，重开 BUG ${stat.reopenedBugs} 个/${stat.reopenTimes} 次，改动引入 ${stat.changeInduced}，漏测 ${stat.missedTest}，已关闭 ${stat.closed}`).join('\n');
-  return [`Liene QA 对外质量简报`, `范围：${release ? release.name || release.version : '当前筛选条件'}`, `日期：${new Date().toLocaleDateString('zh-CN')}`, '', `BUG 总数：${defects.length}`, `P0/P1：${defects.filter(item => ['P0','P1'].includes(item.severity)).length}`, `重开 BUG：${reopenedBugs} 个，累计 ${reopenTimes} 次`, `改动引入：${changeInduced}（${qualityPercent(changeInduced,defects.length)}%）`, `漏测：${missedTest}（${qualityPercent(missedTest,defects.length)}%）`, `关闭率：${closed}/${defects.length}（${qualityPercent(closed,defects.length)}%）`, '', '分轮次质量：', rounds || '暂无轮次数据'].join('\n');
+  return [`Hannto QA 对外质量简报`, `范围：${release ? release.name || release.version : '当前筛选条件'}`, `日期：${new Date().toLocaleDateString('zh-CN')}`, '', `BUG 总数：${defects.length}`, `P0/P1：${defects.filter(item => ['P0','P1'].includes(item.severity)).length}`, `重开 BUG：${reopenedBugs} 个，累计 ${reopenTimes} 次`, `改动引入：${changeInduced}（${qualityPercent(changeInduced,defects.length)}%）`, `漏测：${missedTest}（${qualityPercent(missedTest,defects.length)}%）`, `关闭率：${closed}/${defects.length}（${qualityPercent(closed,defects.length)}%）`, '', '分轮次质量：', rounds || '暂无轮次数据'].join('\n');
 }
 
 async function copyExternalQualityBrief() {
@@ -2989,7 +3421,7 @@ function qualityRetrospectiveText() {
   defects.forEach(item => { const key=item.root_cause_category ? defectRootCauseText(item.root_cause_category) : '待分析';rootCounts.set(key,(rootCounts.get(key)||0)+1); });
   const roots = [...rootCounts.entries()].sort((a,b)=>b[1]-a[1]).map(([name,count])=>`${name} ${count}`).join('、') || '暂无';
   const pending = defects.filter(item => item.review_status !== 'completed' || !item.prevention_action);
-  return [`Liene QA BUG 复盘报告`, `范围：${release ? release.name || release.version : '当前筛选条件'} · ${new Date().toLocaleDateString('zh-CN')}`, `BUG 总数：${defects.length}`, `集成阶段暴露：${integration.length}`, `已上线暴露：${production.length}`, `复盘完成：${reviewed.length}/${defects.length}（${qualityPercent(reviewed.length,defects.length)}%）`, `根因分布：${roots}`, '', '已上线暴露 BUG：', ...(production.length ? production.map(item=>`- [${item.severity}] ${item.title} · ${qualityReportRaw.memberMap.get(item.executor_id)||'未命名成员'} · ${defectRootCauseText(item.root_cause_category)}`) : ['- 无']), '', '待闭环事项：', ...(pending.length ? pending.map(item=>`- ${item.title} · ${qualityReportRaw.memberMap.get(item.executor_id)||'未命名成员'} · ${item.review_status !== 'completed' ? defectReviewStatusText(item.review_status) : '缺少预防措施'}`) : ['- 无'])].join('\n');
+  return [`Hannto QA BUG 复盘报告`, `范围：${release ? release.name || release.version : '当前筛选条件'} · ${new Date().toLocaleDateString('zh-CN')}`, `BUG 总数：${defects.length}`, `集成阶段暴露：${integration.length}`, `已上线暴露：${production.length}`, `复盘完成：${reviewed.length}/${defects.length}（${qualityPercent(reviewed.length,defects.length)}%）`, `根因分布：${roots}`, '', '已上线暴露 BUG：', ...(production.length ? production.map(item=>`- [${item.severity}] ${item.title} · ${qualityReportRaw.memberMap.get(item.executor_id)||'未命名成员'} · ${defectRootCauseText(item.root_cause_category)}`) : ['- 无']), '', '待闭环事项：', ...(pending.length ? pending.map(item=>`- ${item.title} · ${qualityReportRaw.memberMap.get(item.executor_id)||'未命名成员'} · ${item.review_status !== 'completed' ? defectReviewStatusText(item.review_status) : '缺少预防措施'}`) : ['- 无'])].join('\n');
 }
 
 async function copyRetrospectiveReport() {
@@ -4936,10 +5368,6 @@ async function loadDashboardData(token) {
 }
 
 async function openNewTaskModal() {
-  if (isCurrentUserObserver()) {
-    showToast('观察者账号为只读模式，不参与工作事项和资源统计', 'error');
-    return;
-  }
   const modal = document.getElementById('newTaskModal');
   if (!modal) return;
   editingQaTaskId = null;
@@ -6204,7 +6632,7 @@ async function copyTodaySummary() {
   if (!dashboardSnapshot) { showToast('数据仍在加载，请稍后重试', 'error'); return; }
   const { activeRelease, activeReleases = activeRelease ? [activeRelease] : [], todayTasks, risks } = dashboardSnapshot;
   const lines = [
-    `Liene QA 今日摘要 · ${new Date().toLocaleDateString('zh-CN')}`,
+    `Hannto QA 今日摘要 · ${new Date().toLocaleDateString('zh-CN')}`,
     `当前版本：${activeReleases.length ? activeReleases.map(release => `${releasePlatformText(release.platform)} ${release.name || release.version}`).join(' · ') : '暂未设置'}`,
     `今日待办：${todayTasks.length} 项`,
     ...todayTasks.slice(0, 5).map(task => `- [${task.priority}] ${task.title}`),

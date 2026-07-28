@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Static smoke checks for the Liene QA dashboard workflow."""
+"""Static smoke checks for the Hannto QA dashboard workflow."""
 
 from __future__ import annotations
 
@@ -20,6 +20,10 @@ def require(text: str, values: list[str], label: str) -> None:
 def main() -> None:
     html = (ROOT / "main.html").read_text(encoding="utf-8")
     prd_html = (ROOT / "prd.html").read_text(encoding="utf-8")
+    platform_js = (ROOT / "src/core/platform.js").read_text(encoding="utf-8")
+    feedback_js = (ROOT / "src/modules/feedback/index.js").read_text(encoding="utf-8")
+    feedback_css = (ROOT / "src/modules/feedback/styles.css").read_text(encoding="utf-8")
+    module_guide = (ROOT / "docs/module-development-guide.md").read_text(encoding="utf-8")
     migration = (ROOT / "supabase/migrations/20260717_task_workflow_hardening.sql").read_text(encoding="utf-8")
     closure_migration = (ROOT / "supabase/migrations/20260720_task_management_closure.sql").read_text(encoding="utf-8")
     release_migration = (ROOT / "supabase/migrations/20260720_release_management.sql").read_text(encoding="utf-8")
@@ -39,10 +43,22 @@ def main() -> None:
     atomic_progress_migration = (ROOT / "supabase/migrations/20260724_atomic_task_progress.sql").read_text(encoding="utf-8")
     observer_profiles_migration = (ROOT / "supabase/migrations/20260728_resource_observer_profiles.sql").read_text(encoding="utf-8")
     portfolio_planning_migration = (ROOT / "supabase/migrations/20260728_project_monthly_planning.sql").read_text(encoding="utf-8")
+    duty_permissions_migration = (ROOT / "supabase/migrations/20260728_three_duty_permissions.sql").read_text(encoding="utf-8")
+    projects_feedback_migration = (ROOT / "supabase/migrations/20260728_projects_and_feedback.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
     require(html, [
+        '<script src="src/core/platform.js"></script>',
+        '<script src="src/modules/feedback/index.js"></script>',
+        '<link rel="stylesheet" href="src/modules/feedback/styles.css">',
+        "window.HanntoQA.pageTitles",
+        "window.HanntoQA.projectBusinessPages",
+        "window.HanntoQA.projectUnitText",
+        "function createModuleContext",
+        "function destroyActiveRegisteredModule",
+        "function renderRegisteredModule",
+        "renderRegisteredModule('feedback')",
         "function taskUsesTestHubProgress",
         "function renderTaskMemberDailyDetail",
         "function renderTaskMemberProgressSummary",
@@ -83,6 +99,42 @@ def main() -> None:
         "function isResourceParticipant",
         "function canViewTeamTasks",
         "function memberTypeText",
+        "function normalizeDuty",
+        "function isSystemAdmin",
+        "function canManageQa",
+        "function memberDutySelectHtml",
+        "function updateMemberDuty",
+        "QA 负责人/项目负责人",
+        "Hannto QA 管理平台",
+        "function toggleSidebarGroup",
+        "function restoreSidebarGroups",
+        "function expandSidebarGroupForItem",
+        "data-sidebar-group=\"projects\"",
+        "项目管理",
+        "sb-section-label",
+        "projectBusinessTabs",
+        "PROJECT_BUSINESS_PAGES",
+        "function updateProjectBusinessTabs",
+        "function switchProjectBusinessUnit",
+        "data-business-unit=\"xiaomi\"",
+        "hanntoQaProjectBusinessUnit",
+        "function renderProjectHub",
+        "function renderQaProjectDetailPage",
+        "function qaProjectMonthDays",
+        "function qaProjectTaskSlotLabel",
+        "function shiftQaProjectDetailMonth",
+        "function backToQaProjectList",
+        "function openQaProjectFromPortfolio",
+        "打开项目逐日甘特图",
+        "project-gantt-grid",
+        "返回项目列表",
+        "function openQaProjectEditor",
+        "function saveQaProject",
+        "小米",
+        "消费",
+        "Other",
+        "portfolioQaProject",
+        "project_id:projectId",
         "function toggleMemberResourceParticipation",
         ".eq('resource_participant', true)",
         "function loadTaskPortfolioPlans",
@@ -198,6 +250,44 @@ def main() -> None:
         "discoveredDirectoryRows",
         "已执行 ${executedCases} / 总 Case ${displayedTotalCases}",
     ], "main.html")
+    require(platform_js, [
+        "initializeHanntoQAPlatform",
+        "const pageTitles",
+        "const projectBusinessPages",
+        "const projectUnits",
+        "function projectUnitText",
+        "function registerModule",
+        "function getModule",
+        "function listModules",
+        "global.HanntoQA",
+    ], "platform core")
+    require(feedback_js, [
+        "registerFeedbackModule",
+        "id: 'feedback'",
+        "function renderFeedbackPage",
+        "function submitFeedback",
+        "function updateFeedbackTracking",
+        "function deleteFeedback",
+        "context.isSystemAdmin()",
+        "context.sb.from('qa_feedback')",
+        "仅系统管理员可以删除反馈",
+        "data-feedback-update",
+        "data-feedback-delete",
+        "feedbackRetryBtn",
+    ], "feedback module")
+    require(feedback_css, [
+        ".feedback-module",
+        ".feedback-module-card",
+        ".feedback-module-status",
+    ], "feedback module styles")
+    require(module_guide, [
+        "模块契约",
+        "Supabase 数据库迁移",
+        "身份、职责与权限",
+        "Git 与 PR 规则",
+        "模块迁移交付清单",
+        "合并验收底线",
+    ], "module development guide")
     require(migration, [
         "create table if not exists public.qa_task_allocation_history",
         "create or replace function public.save_qa_task_with_assignees",
@@ -344,6 +434,32 @@ def main() -> None:
         "project_monthly_plans_write_admin",
         "public.is_admin()",
     ], "project monthly planning migration")
+    require(duty_permissions_migration, [
+        "role in ('admin', 'qa_lead', 'tester')",
+        "alter column role set default 'tester'",
+        "create or replace function public.handle_new_user_profile()",
+        "create or replace function public.is_system_admin()",
+        "role in ('admin', 'qa_lead')",
+        "create or replace function public.is_resource_observer()",
+        "select false",
+        "create or replace function public.can_view_qa_task",
+        "using (public.is_system_admin())",
+        "with check (public.is_system_admin())",
+        "notify pgrst, 'reload schema'",
+    ], "three-duty permissions migration")
+    require(projects_feedback_migration, [
+        "create table if not exists public.qa_projects",
+        "create table if not exists public.qa_project_members",
+        "create or replace function public.can_view_qa_project",
+        "add column if not exists project_id",
+        "create table if not exists public.qa_feedback",
+        "created_by = auth.uid() or public.is_system_admin()",
+        "qa_feedback_update_system_admin",
+        "('小米 BU', 'xiaomi'",
+        "('消费 BU', 'consumer'",
+        "('Other', 'other'",
+        "notify pgrst, 'reload schema'",
+    ], "projects and feedback migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
@@ -409,6 +525,18 @@ def main() -> None:
         encoding="utf-8",
         stdout=subprocess.DEVNULL,
     )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/core/platform.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/modules/feedback/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
     prd_javascript = prd_html[prd_html.index("<script>", prd_html.index("<body>")) + 8 : prd_html.rindex("</script>")]
     subprocess.run(
         ["node", "-e", "let s='';process.stdin.on('data',d=>s+=d);process.stdin.on('end',()=>new Function(s));"],
@@ -424,7 +552,7 @@ def main() -> None:
         cwd=ROOT,
         check=True,
     )
-    print("Liene QA workflow self-check passed")
+    print("Hannto QA workflow self-check passed")
 
 
 if __name__ == "__main__":
