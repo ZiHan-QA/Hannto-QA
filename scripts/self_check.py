@@ -25,6 +25,8 @@ def main() -> None:
     feedback_css = (ROOT / "src/modules/feedback/styles.css").read_text(encoding="utf-8")
     projects_js = (ROOT / "src/modules/projects/index.js").read_text(encoding="utf-8")
     projects_css = (ROOT / "src/modules/projects/styles.css").read_text(encoding="utf-8")
+    tasks_js = (ROOT / "src/modules/tasks/index.js").read_text(encoding="utf-8")
+    tasks_css = (ROOT / "src/modules/tasks/styles.css").read_text(encoding="utf-8")
     module_guide = (ROOT / "docs/module-development-guide.md").read_text(encoding="utf-8")
     migration = (ROOT / "supabase/migrations/20260717_task_workflow_hardening.sql").read_text(encoding="utf-8")
     closure_migration = (ROOT / "supabase/migrations/20260720_task_management_closure.sql").read_text(encoding="utf-8")
@@ -48,6 +50,8 @@ def main() -> None:
     duty_permissions_migration = (ROOT / "supabase/migrations/20260728_three_duty_permissions.sql").read_text(encoding="utf-8")
     projects_feedback_migration = (ROOT / "supabase/migrations/20260728_projects_and_feedback.sql").read_text(encoding="utf-8")
     project_data_hub_migration = (ROOT / "supabase/migrations/20260728_project_data_hub.sql").read_text(encoding="utf-8")
+    atomic_task_project_link_migration = (ROOT / "supabase/migrations/20260728_atomic_task_project_link.sql").read_text(encoding="utf-8")
+    direct_task_project_link_migration = (ROOT / "supabase/migrations/20260728_task_direct_project_link.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
@@ -57,6 +61,8 @@ def main() -> None:
         '<link rel="stylesheet" href="src/modules/feedback/styles.css">',
         '<script src="src/modules/projects/index.js"></script>',
         '<link rel="stylesheet" href="src/modules/projects/styles.css">',
+        '<script src="src/modules/tasks/index.js"></script>',
+        '<link rel="stylesheet" href="src/modules/tasks/styles.css">',
         "window.HanntoQA.pageTitles",
         "window.HanntoQA.projectBusinessPages",
         "window.HanntoQA.projectUnitText",
@@ -65,6 +71,9 @@ def main() -> None:
         "function renderRegisteredModule",
         "renderRegisteredModule('feedback')",
         "renderRegisteredModule('projects')",
+        "renderRegisteredModule('tasks')",
+        "renderTaskWorkspace: workspaceData => renderTaskRecords(workspaceData)",
+        "function refreshTaskRecords",
         "function taskUsesTestHubProgress",
         "function renderTaskMemberDailyDetail",
         "function renderTaskMemberProgressSummary",
@@ -101,7 +110,6 @@ def main() -> None:
         "save_qa_task_progress",
         "function openTaskDetailDrawer",
         "function closeTaskDetailDrawer",
-        "function taskDetailDrawerHtml",
         "function isResourceParticipant",
         "function canViewTeamTasks",
         "function memberTypeText",
@@ -135,6 +143,8 @@ def main() -> None:
         "function toggleMemberResourceParticipation",
         ".eq('resource_participant', true)",
         "function loadTaskPortfolioPlans",
+        "function syncTaskProjectLink",
+        "taskProjectLinkSummary",
         "newTaskPortfolioPlan",
         "portfolio_plan_id: portfolioPlanId",
         "function renderPortfolioPlanning",
@@ -147,7 +157,7 @@ def main() -> None:
         "function portfolioTaskServerActualPoints",
         "sb.rpc('qa_server_now')",
         "所属版本 *",
-        "所属项目排期 *",
+        "选择版本后自动确定项目",
         "monthly_allocations:allocations",
         "portfolio-gantt-grid",
         "编辑月度人力",
@@ -166,13 +176,14 @@ def main() -> None:
         "testHubSyncDiagnostics",
         "function duplicateQaTask",
         "function locateTaskFromResource",
-        "teamTaskProgressModeFilter",
         "function renderTaskActivity",
         "function batchUpdateTaskStatus",
         "function batchUpdateTaskDeadline",
         "blocked_reason",
         "completion_note",
         "function renderReleaseManagement",
+        "data-business-unit=\"${unit}\"",
+        "<optgroup label=\"${label}\">",
         "function transitionRelease",
         "function addReleaseCheck",
         "transition_release_status",
@@ -479,6 +490,21 @@ def main() -> None:
         "with check (public.is_system_admin())",
         "notify pgrst, 'reload schema'",
     ], "three-duty permissions migration")
+    require(atomic_task_project_link_migration, [
+        "create or replace function public.save_qa_task_workflow",
+        "requested_release_id := nullif(task_payload ->> 'release_id', '')::uuid",
+        "portfolio_plan_id = resolved_portfolio_plan_id",
+        "No project schedule covers the task date range",
+        "notify pgrst, 'reload schema'",
+    ], "atomic task project link migration")
+    require(direct_task_project_link_migration, [
+        "add column if not exists project_id",
+        "qa_tasks_project_id_idx",
+        "new.project_id := release_project_id",
+        "monthly plan is optional",
+        "project_id = release_project_id",
+        "notify pgrst, 'reload schema'",
+    ], "direct task project link migration")
     require(projects_feedback_migration, [
         "create table if not exists public.qa_projects",
         "create table if not exists public.qa_project_members",
@@ -525,6 +551,41 @@ def main() -> None:
         "测试轮次（",
         "新增下一轮",
     ], "prd.html")
+    require(tasks_js, [
+        "registerTasksModule",
+        "id: 'tasks'",
+        "projectAware: true",
+        "loadWorkspaceData",
+        "buildWorkspaceViewModel",
+        "groupTaskAssignees",
+        "context.canViewTeamTasks()",
+        "context.businessUnit",
+        "workspaceData.viewModel = buildWorkspaceViewModel",
+        "function filterRows",
+        "function restoreViewState",
+        "function resetFiltersForFocus",
+        "function focusAfterRefresh",
+        "function renderListPage",
+        "function taskSummaryHtml",
+        "function taskFiltersHtml",
+        "teamTaskProgressModeFilter",
+        "function taskDetailDrawerHtml",
+        "function taskStatusBadgeHtml",
+        "function renderTaskRowHtml",
+        "function taskDetailBodyHtml",
+        "function openDetail",
+        "function closeDetail",
+        "selectedBatchTaskIds",
+        "context.renderTaskWorkspace(workspaceData)",
+        "refresh(context = state.context)",
+        "data-task-module-retry",
+    ], "tasks module")
+    require(tasks_css, [
+        ".tasks-module",
+        ".tasks-module-error",
+    ], "tasks module styles")
+    if "if (page === 'tasks') { renderTaskRecords(); return; }" in html:
+        raise AssertionError("tasks page must render through the registered module")
     require(sync_script, [
         "RUN_PAGE_SIZE = 5",
         "def plan_recency_key",
@@ -585,6 +646,110 @@ def main() -> None:
     )
     subprocess.run(
         ["node", "--check", str(ROOT / "src/modules/projects/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/modules/tasks/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    task_module_test = r"""
+let registeredModule;
+let receivedWorkspace;
+global.window = {
+  HanntoQA: {
+    registerModule(module) {
+      registeredModule = module;
+    }
+  }
+};
+require('./src/modules/tasks/index.js');
+const tableRows = {
+  qa_tasks: [
+    { id:'mine', title:'我的事项', assignee_id:'user-1', status:'todo', effort_person_days:1, project_id:'project-other', portfolio_plan_id:null },
+    { id:'other', title:'他人事项', assignee_id:'user-2', status:'done', effort_person_days:1, project_id:'project-other', portfolio_plan_id:null }
+  ],
+  profiles: [
+    { id:'user-1', name:'成员一', resource_participant:true },
+    { id:'user-2', name:'成员二', resource_participant:true }
+  ],
+  qa_task_assignees: [],
+  project_monthly_plans: [],
+  qa_projects: [{ id:'project-other', business_unit:'other', status:'active' }]
+};
+const sb = {
+  from(table) {
+    const chain = {
+      select() { return chain; },
+      order() { return chain; },
+      limit() { return chain; },
+      then(resolve) { resolve({ data:tableRows[table] || [], error:null }); }
+    };
+    return chain;
+  }
+};
+const content = {
+  dataset: {},
+  style: {},
+  innerHTML: '',
+  querySelector() { return null; }
+};
+registeredModule.render({
+  sb,
+  currentUser: { id:'user-1' },
+  businessUnit: 'other',
+  canManageQa: () => true,
+  canViewTeamTasks: () => false,
+  isSystemAdmin: () => false,
+  isResourceParticipant: profile => profile.resource_participant,
+  todayKey: () => '2026-07-28',
+  escapeHtml: String,
+  showToast() {},
+  content,
+  renderTaskWorkspace(workspace) {
+    receivedWorkspace = workspace;
+    workspace.renderListPage({
+      rows: [{
+        id:'mine',
+        title:'我的事项',
+        canEdit:true,
+        canUpdateStatus:true,
+        memberIds:'user-1',
+        status:'todo',
+        progressMode:'manual',
+        overdue:false,
+        startDate:'2026-07-28',
+        endDate:'2026-07-28',
+        testRound:1,
+        assigneeNames:['成员一'],
+        assignmentCount:1,
+        progressPercent:50,
+        actualTotal:0.5,
+        taskEffort:1,
+        range:'2026-07-28 全天',
+        syncText:'手工填报',
+        testHubPlanCount:0
+      }],
+      taskDetails:new Map()
+    });
+  }
+}).then(() => {
+  const viewModel = receivedWorkspace?.viewModel;
+  if (!viewModel
+    || viewModel.visibleTasks.length !== 1
+    || viewModel.visibleTasks[0].id !== 'mine'
+    || viewModel.taskCounts.todo !== 1
+    || !content.innerHTML.includes('data-task-id="mine"')
+    || !content.innerHTML.includes('id="taskDetailDrawer"')) {
+    process.exit(2);
+  }
+});
+"""
+    subprocess.run(
+        ["node", "-e", task_module_test],
         cwd=ROOT,
         check=True,
         stdout=subprocess.DEVNULL,
