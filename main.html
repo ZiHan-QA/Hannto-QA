@@ -7,9 +7,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
 <link rel="stylesheet" href="src/modules/feedback/styles.css">
+<link rel="stylesheet" href="src/modules/projects/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <script src="src/core/platform.js"></script>
 <script src="src/modules/feedback/index.js"></script>
+<script src="src/modules/projects/index.js"></script>
 <style>
 :root {
   --pink:   #FF6B9D;
@@ -749,13 +751,6 @@ let projectHubUnit = (() => {
     return ['xiaomi','consumer','other'].includes(saved) ? saved : 'xiaomi';
   } catch { return 'xiaomi'; }
 })();
-let selectedQaProjectId = null;
-let qaProjectCache = new Map();
-let qaProjectMemberCache = [];
-let qaProjectProfileCache = new Map();
-let editingQaProjectId = null;
-let qaProjectDetailMonth = '';
-
 function isResourceParticipant(profile) {
   return profile?.resource_participant !== false;
 }
@@ -850,10 +845,7 @@ function switchProjectBusinessUnit(unit) {
   projectHubUnit = unit;
   try { localStorage.setItem('hanntoQaProjectBusinessUnit', unit); } catch {}
   updateProjectBusinessTabs(currentPage);
-  if (currentPage === 'projects') {
-    selectedQaProjectId = null;
-    renderProjectHub();
-  }
+  if (PROJECT_BUSINESS_PAGES.has(currentPage)) renderPage(currentPage);
 }
 
 async function init() {
@@ -1040,6 +1032,19 @@ function createModuleContext() {
     escapeHtml: escapeDashboardHtml,
     showToast,
     projectUnitText,
+    taskStatusText,
+    taskAllocationPeriodText,
+    localDateKey: dashboardLocalDateKey,
+    dutyText,
+    isResourceParticipant,
+    rerender() {
+      renderPage(currentPage);
+    },
+    setBusinessUnit(unit) {
+      projectHubUnit = unit;
+      try { localStorage.setItem('hanntoQaProjectBusinessUnit', unit); } catch {}
+      updateProjectBusinessTabs(currentPage);
+    },
   });
 }
 
@@ -1067,9 +1072,9 @@ function renderPage(page) {
   const content = document.getElementById('content');
   updateProjectBusinessTabs(page);
   if (page === 'feedback') { renderRegisteredModule('feedback'); return; }
+  if (page === 'projects') { renderRegisteredModule('projects'); return; }
   destroyActiveRegisteredModule();
   if (page === 'dashboard') { renderDashboard(); return; }
-  if (page === 'projects') { renderProjectHub(); return; }
   if (page === 'tasks') { renderTaskRecords(); return; }
   if (page === 'portfolio') { renderPortfolioPlanning(); return; }
   if (page === 'releases') { renderReleaseManagement(); return; }
@@ -1112,208 +1117,43 @@ function renderPage(page) {
     </div>`;
 }
 
-// ── 自动化模块 ────────────────────────────────────────────────
-// ── 项目中心与意见反馈 ────────────────────────────────────────
-function projectStatusText(status) {
-  return status === 'archived' ? '已归档' : '进行中';
-}
-
-function projectEditorModalHtml() {
-  return `<div class="dashboard-modal" id="qaProjectModal" onclick="closeQaProjectEditor()">
-    <div class="dashboard-modal-panel" style="width:min(700px,100%);" onclick="event.stopPropagation()">
-      <div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="qaProjectModalTitle">新增项目</div><button class="dashboard-modal-close" onclick="closeQaProjectEditor()"><i class="ti ti-x"></i></button></div>
-      <div class="dashboard-form-grid">
-        <div class="form-group"><label class="form-label">项目名称 *</label><input class="dashboard-input" id="qaProjectName" maxlength="120" placeholder="例如：米家照片打印"></div>
-        <div class="form-group"><label class="form-label">所属分类 *</label><select class="form-select" id="qaProjectUnit"><option value="xiaomi">小米</option><option value="consumer">消费</option><option value="other">Other</option></select></div>
-        <div class="form-group"><label class="form-label">状态</label><select class="form-select" id="qaProjectStatus"><option value="active">进行中</option><option value="archived">已归档</option></select></div>
-        <div class="form-group"><label class="form-label">项目负责人</label><select class="form-select" id="qaProjectOwner"><option value="">暂不指定</option></select></div>
-      </div>
-      <div class="form-group" style="margin-top:12px;"><label class="form-label">项目成员（决定测试工程师可见范围）</label><div id="qaProjectMemberChoices" class="feature-card-grid"></div></div>
-      <div class="form-group" style="margin-top:12px;"><label class="form-label">项目说明</label><textarea class="dashboard-input" id="qaProjectDescription" rows="3" maxlength="1000"></textarea></div>
-      <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeQaProjectEditor()">取消</button><button class="btn-primary" id="saveQaProjectBtn" onclick="saveQaProject()">保存项目</button></div>
-    </div>
-  </div>`;
-}
-
-async function renderProjectHub() {
-  updateProjectBusinessTabs('projects');
-  const content = document.getElementById('content');
-  content.style.padding = '24px';
-  content.innerHTML = `<div class="page-card"><div class="empty"><div class="spinner"></div><div>正在加载项目…</div></div></div>`;
-  try {
-    const [projectsRes, membersRes, profilesRes, plansRes, tasksRes, assigneesRes, calendarRes] = await Promise.all([
-      sb.from('qa_projects').select('*').order('status').order('name'),
-      sb.from('qa_project_members').select('*'),
-      sb.from('profiles').select('id,name,role,resource_participant').order('name'),
-      sb.from('project_monthly_plans').select('id,project_id,project_name,plan_month,end_month,status'),
-      sb.from('qa_tasks').select('id,title,portfolio_plan_id,status,test_round,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').neq('status','cancelled'),
-      sb.from('qa_task_assignees').select('task_id,member_id'),
-      sb.from('work_calendar').select('work_date,is_workday,name'),
-    ]);
-    for (const result of [projectsRes, membersRes, profilesRes, plansRes, tasksRes, assigneesRes, calendarRes]) if (result.error) throw result.error;
-    qaProjectCache = new Map((projectsRes.data || []).map(item => [item.id, item]));
-    qaProjectMemberCache = membersRes.data || [];
-    qaProjectProfileCache = new Map((profilesRes.data || []).map(item => [item.id, item]));
-    const plans = plansRes.data || [];
-    const tasks = tasksRes.data || [];
-    const visible = [...qaProjectCache.values()].filter(item => item.business_unit === projectHubUnit);
-    if (selectedQaProjectId && !qaProjectCache.has(selectedQaProjectId)) selectedQaProjectId = null;
-    const cards = visible.length ? visible.map(project => {
-      const memberships = qaProjectMemberCache.filter(item => item.project_id === project.id);
-      const owners = memberships.filter(item => item.is_owner).map(item => qaProjectProfileCache.get(item.member_id)?.name).filter(Boolean);
-      const projectPlans = plans.filter(item => item.project_id === project.id);
-      const planIds = new Set(projectPlans.map(item => item.id));
-      const projectTasks = tasks.filter(item => planIds.has(item.portfolio_plan_id));
-      const done = projectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
-      return `<article class="project-card ${selectedQaProjectId === project.id ? 'selected' : ''}" onclick="openQaProject('${project.id}')">
-        <div style="display:flex;justify-content:space-between;gap:10px;"><div><div class="project-card-title">${escapeDashboardHtml(project.name)}</div><div class="project-card-meta">${escapeDashboardHtml(owners.join('、') || '待指定负责人')} · ${projectStatusText(project.status)}</div></div><span class="feedback-status ${project.status === 'archived' ? 'closed' : 'resolved'}">${projectStatusText(project.status)}</span></div>
-        <div class="project-card-stats"><div class="project-card-stat"><strong>${memberships.length}</strong><span>成员</span></div><div class="project-card-stat"><strong>${projectPlans.length}</strong><span>排期</span></div><div class="project-card-stat"><strong>${done}/${projectTasks.length}</strong><span>事项完成</span></div></div>
-        <div class="project-card-meta" style="margin-top:12px;">${escapeDashboardHtml(project.description || '暂无项目说明')}</div>
-      </article>`;
-    }).join('') : `<div class="empty" style="grid-column:1/-1;">当前分类暂无可见项目</div>`;
-    const selectedProject = selectedQaProjectId ? qaProjectCache.get(selectedQaProjectId) : null;
-    if (selectedProject) {
-      content.innerHTML = renderQaProjectDetailPage(selectedProject, plans, tasks, assigneesRes.data || [], calendarRes.data || []) + projectEditorModalHtml();
-      return;
-    }
-    content.innerHTML = `<div class="page-card">
-      <div class="card-hd"><div><div class="card-title">🗂️ 项目中心</div><div class="card-sub">测试工程师仅看到自己参与的项目；QA 负责人可维护全部项目和成员。</div></div>${canManageQa() ? `<button class="btn-primary" onclick="openQaProjectEditor()"><i class="ti ti-plus"></i> 新增项目</button>` : ''}</div>
-      <div class="project-card-grid">${cards}</div>
-    </div>${projectEditorModalHtml()}`;
-  } catch (error) {
-    content.innerHTML = `<div class="page-card"><div class="empty">项目加载失败：${escapeDashboardHtml(error.message)}<br><small>请先执行项目中心数据库迁移</small></div></div>`;
-  }
-}
-
-function qaProjectMonthKey(date = new Date()) {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}`;
-}
-
-function qaProjectShiftMonth(month, offset) {
-  const [year, monthNumber] = String(month || qaProjectMonthKey()).split('-').map(Number);
-  const date = new Date(year, monthNumber - 1 + offset, 1);
-  return qaProjectMonthKey(date);
-}
-
-function qaProjectMonthDays(month, calendarRows) {
-  const [year, monthNumber] = String(month).split('-').map(Number);
-  const calendar = new Map(calendarRows.map(item => [item.work_date, item]));
-  const count = new Date(year, monthNumber, 0).getDate();
-  return Array.from({ length:count }, (_, index) => {
-    const day = index + 1;
-    const date = new Date(year, monthNumber - 1, day);
-    const key = `${year}-${String(monthNumber).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    const override = calendar.get(key);
-    const weekend = date.getDay() === 0 || date.getDay() === 6;
-    return { key, day, weekday:['日','一','二','三','四','五','六'][date.getDay()], isWorkday:override ? override.is_workday : !weekend, name:override?.name || '' };
-  });
-}
-
-function qaProjectTaskSlotLabel(task, dateKey) {
-  if (!task.allocation_start_date || !task.allocation_end_date || dateKey < task.allocation_start_date || dateKey > task.allocation_end_date) return '';
-  const startPm = task.allocation_start_period === 'pm';
-  const endAm = task.allocation_end_period === 'am';
-  if (task.allocation_start_date === task.allocation_end_date) {
-    if (startPm) return '下午';
-    if (endAm) return '上午';
-    return '全天';
-  }
-  if (dateKey === task.allocation_start_date && startPm) return '下午';
-  if (dateKey === task.allocation_end_date && endAm) return '上午';
-  return '全天';
-}
-
-function qaProjectTaskBarClass(status) {
-  if (status === 'done' || status === 'completed') return 'completed';
-  if (status === 'blocked') return 'blocked';
-  if (status === 'todo') return 'todo';
-  return '';
-}
-
-function renderQaProjectDetailPage(project, plans, tasks, assignees, calendarRows) {
-  qaProjectDetailMonth ||= qaProjectMonthKey();
-  const memberships = qaProjectMemberCache.filter(item => item.project_id === project.id);
-  const memberNames = memberships.map(item => `${escapeDashboardHtml(qaProjectProfileCache.get(item.member_id)?.name || '未命名成员')}${item.is_owner ? '（负责人）' : ''}`);
-  const projectPlans = plans.filter(item => item.project_id === project.id);
-  const planIds = new Set(projectPlans.map(item => item.id));
-  const monthDays = qaProjectMonthDays(qaProjectDetailMonth, calendarRows);
-  const monthStart = monthDays[0]?.key || `${qaProjectDetailMonth}-01`;
-  const monthEnd = monthDays.at(-1)?.key || monthStart;
-  const projectTasks = tasks.filter(item =>
-    planIds.has(item.portfolio_plan_id)
-    && item.allocation_start_date
-    && item.allocation_end_date
-    && item.allocation_start_date <= monthEnd
-    && item.allocation_end_date >= monthStart
-  ).sort((a,b) => String(a.allocation_start_date || '').localeCompare(String(b.allocation_start_date || '')) || String(a.title || '').localeCompare(String(b.title || '')));
-  const assigneesByTask = new Map();
-  assignees.forEach(item => {
-    const values = assigneesByTask.get(item.task_id) || [];
-    if (!values.includes(item.member_id)) values.push(item.member_id);
-    assigneesByTask.set(item.task_id, values);
-  });
-  const days = monthDays;
-  const today = dashboardLocalDateKey(new Date());
-  const template = `270px repeat(${days.length},45px)`;
-  const header = `<div class="project-gantt-cell project-gantt-task project-gantt-head">工作事项 / 负责人 / 排期</div>${days.map(day => `<div class="project-gantt-cell project-gantt-head project-gantt-day ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" title="${escapeDashboardHtml(day.name || (day.isWorkday ? '工作日' : '非工作日'))}">${String(day.day).padStart(2,'0')}<br>周${day.weekday}</div>`).join('')}`;
-  const rows = projectTasks.length ? projectTasks.map(task => {
-    const ids = assigneesByTask.get(task.id) || (task.assignee_id ? [task.assignee_id] : []);
-    const names = ids.map(id => qaProjectProfileCache.get(id)?.name).filter(Boolean).join('、') || '未指定负责人';
-    const slots = days.map(day => {
-      const label = day.isWorkday ? qaProjectTaskSlotLabel(task, day.key) : '';
-      return `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}">${label ? `<div class="project-gantt-bar ${qaProjectTaskBarClass(task.status)}" title="${escapeDashboardHtml(`${task.title} · ${day.key} ${label}`)}">${label}</div>` : ''}</div>`;
-    }).join('');
-    return `<div class="project-gantt-cell project-gantt-task"><div><strong>${escapeDashboardHtml(task.title || '未命名事项')}</strong><div class="project-card-meta">${escapeDashboardHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${taskStatusText(task.status)}</div><div class="project-card-meta">${escapeDashboardHtml(task.allocation_start_date || '未排期')} ${taskAllocationPeriodText(task.allocation_start_period)} → ${escapeDashboardHtml(task.allocation_end_date || '未排期')} ${taskAllocationPeriodText(task.allocation_end_period)}</div></div></div>${slots}`;
-  }).join('') : `<div class="project-gantt-cell project-gantt-task">本月暂无工作事项</div><div class="project-gantt-cell" style="grid-column:span ${days.length};">可先在工作事项中关联该项目排期</div>`;
-  const completed = projectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
-  return `<div class="page-card">
-    <div class="card-hd"><div><button class="btn-secondary" onclick="backToQaProjectList()" style="margin-bottom:10px;"><i class="ti ti-arrow-left"></i> 返回项目列表</button><div class="card-title">${escapeDashboardHtml(project.name)}</div><div class="card-sub">${projectUnitText(project.business_unit)} · ${memberNames.join('、') || '尚未分配成员'}</div></div>${canManageQa() ? `<button class="btn-secondary" onclick="openQaProjectEditor('${project.id}')"><i class="ti ti-edit"></i> 编辑项目</button>` : ''}</div>
-    <div class="summary-grid" style="margin-top:14px;"><div class="summary-item"><div class="summary-label">关联排期</div><div class="summary-value">${projectPlans.length}</div></div><div class="summary-item"><div class="summary-label">本月事项</div><div class="summary-value">${projectTasks.length}</div></div><div class="summary-item"><div class="summary-label">已完成</div><div class="summary-value">${completed}</div></div></div>
-    <div class="project-detail-toolbar" style="margin-top:16px;"><button class="btn-secondary" onclick="shiftQaProjectDetailMonth(-1)">上个月</button><input class="dashboard-filter" type="month" value="${qaProjectDetailMonth}" onchange="changeQaProjectDetailMonth(this.value)"><button class="btn-secondary" onclick="changeQaProjectDetailMonth(qaProjectMonthKey())">本月</button><button class="btn-secondary" onclick="shiftQaProjectDetailMonth(1)">下个月</button><div class="project-detail-legend"><span>进行中</span><span class="todo">待处理</span><span class="done">已完成</span><span class="off">周末/节假日</span></div></div>
-    <div class="project-gantt-wrap"><div class="project-gantt-grid" style="grid-template-columns:${template};">${header}${rows}</div></div>
-  </div>`;
-}
-
-function switchProjectUnit(unit) {
-  switchProjectBusinessUnit(unit);
-}
-
-function openQaProject(id) {
-  selectedQaProjectId = id;
-  qaProjectDetailMonth = qaProjectMonthKey();
-  renderProjectHub();
-}
-
-function backToQaProjectList() {
-  selectedQaProjectId = null;
-  renderProjectHub();
-}
-
-function changeQaProjectDetailMonth(month) {
-  qaProjectDetailMonth = month || qaProjectMonthKey();
-  renderProjectHub();
-}
-
-function shiftQaProjectDetailMonth(offset) {
-  qaProjectDetailMonth = qaProjectShiftMonth(qaProjectDetailMonth || qaProjectMonthKey(), offset);
-  renderProjectHub();
-}
-
+// ── 项目中心跨模块入口 ────────────────────────────────────────
 async function openQaProjectFromPortfolio(planId) {
   const plan = portfolioPlanCache.get(planId);
-  if (!plan) { showToast('未找到项目排期，请刷新后重试', 'error'); return; }
+  if (!plan) {
+    showToast('未找到项目排期，请刷新后重试', 'error');
+    return;
+  }
   let projectId = plan.project_id || '';
+  let projectBusinessUnit = '';
   if (!projectId) {
-    const { data } = await sb.from('qa_projects').select('id,business_unit').eq('name', plan.project_name).limit(1).maybeSingle();
+    const { data } = await sb.from('qa_projects')
+      .select('id,business_unit')
+      .eq('name', plan.project_name)
+      .limit(1)
+      .maybeSingle();
     projectId = data?.id || '';
-    if (data?.business_unit) projectHubUnit = data.business_unit;
+    projectBusinessUnit = data?.business_unit || '';
+  } else {
+    const { data } = await sb.from('qa_projects')
+      .select('business_unit')
+      .eq('id', projectId)
+      .maybeSingle();
+    projectBusinessUnit = data?.business_unit || '';
   }
   if (!projectId) {
     showToast('该排期尚未关联项目中心，请先点击“编辑月度人力”选择项目', 'error');
     return;
   }
-  selectedQaProjectId = projectId;
-  qaProjectDetailMonth = String(portfolioSelectedMonth || plan.plan_month || qaProjectMonthKey()).slice(0,7);
+  const projectsModule = window.HanntoQA.getModule('projects');
+  if (!projectsModule?.openProject) {
+    showToast('项目中心模块尚未加载，请刷新后重试', 'error');
+    return;
+  }
+  if (projectBusinessUnit) {
+    projectHubUnit = projectBusinessUnit;
+    try { localStorage.setItem('hanntoQaProjectBusinessUnit', projectBusinessUnit); } catch {}
+  }
   currentPage = 'projects';
   document.getElementById('pageTitle').textContent = pageTitles.projects;
   let projectMenuItem = null;
@@ -1323,62 +1163,12 @@ async function openQaProjectFromPortfolio(planId) {
     if (active) projectMenuItem = item;
   });
   expandSidebarGroupForItem(projectMenuItem);
-  await renderProjectHub();
-}
-
-function openQaProjectEditor(id = '') {
-  editingQaProjectId = id;
-  const modal = document.getElementById('qaProjectModal');
-  if (!modal) return;
-  const project = id ? qaProjectCache.get(id) : null;
-  document.getElementById('qaProjectModalTitle').textContent = project ? '编辑项目' : '新增项目';
-  document.getElementById('qaProjectName').value = project?.name || '';
-  document.getElementById('qaProjectUnit').value = project?.business_unit || projectHubUnit;
-  document.getElementById('qaProjectStatus').value = project?.status || 'active';
-  document.getElementById('qaProjectDescription').value = project?.description || '';
-  const selected = new Set(qaProjectMemberCache.filter(item => item.project_id === id).map(item => item.member_id));
-  const owner = qaProjectMemberCache.find(item => item.project_id === id && item.is_owner)?.member_id || '';
-  const profiles = [...qaProjectProfileCache.values()];
-  document.getElementById('qaProjectOwner').innerHTML = `<option value="">暂不指定</option>${profiles.map(item => `<option value="${item.id}" ${owner === item.id ? 'selected' : ''}>${escapeDashboardHtml(item.name || item.id)}</option>`).join('')}`;
-  document.getElementById('qaProjectMemberChoices').innerHTML = profiles.map(item => `<label class="feature-mini-stat" style="text-align:left;display:flex;gap:8px;align-items:center;cursor:pointer;"><input type="checkbox" name="qaProjectMember" value="${item.id}" ${selected.has(item.id) ? 'checked' : ''}><span><strong style="font-size:12px;">${escapeDashboardHtml(item.name || '未命名成员')}</strong><small style="display:block;">${dutyText(item.role)}${isResourceParticipant(item) ? ' · 计入资源' : ''}</small></span></label>`).join('');
-  modal.classList.add('open');
-}
-
-function closeQaProjectEditor() {
-  document.getElementById('qaProjectModal')?.classList.remove('open');
-  editingQaProjectId = null;
-}
-
-async function saveQaProject() {
-  const name = document.getElementById('qaProjectName').value.trim();
-  if (!name) { showToast('请填写项目名称', 'error'); return; }
-  const button = document.getElementById('saveQaProjectBtn');
-  button.disabled = true;
-  try {
-    const payload = { name, business_unit:document.getElementById('qaProjectUnit').value, status:document.getElementById('qaProjectStatus').value, description:document.getElementById('qaProjectDescription').value.trim() || null };
-    const result = editingQaProjectId
-      ? await sb.from('qa_projects').update(payload).eq('id', editingQaProjectId).select().single()
-      : await sb.from('qa_projects').insert({ ...payload, created_by:currentUser.id }).select().single();
-    if (result.error) throw result.error;
-    const projectId = result.data.id;
-    const ownerId = document.getElementById('qaProjectOwner').value;
-    const selected = [...document.querySelectorAll('input[name="qaProjectMember"]:checked')].map(item => item.value);
-    if (ownerId && !selected.includes(ownerId)) selected.push(ownerId);
-    const remove = await sb.from('qa_project_members').delete().eq('project_id', projectId);
-    if (remove.error) throw remove.error;
-    if (selected.length) {
-      const add = await sb.from('qa_project_members').insert(selected.map(memberId => ({ project_id:projectId, member_id:memberId, is_owner:memberId === ownerId, added_by:currentUser.id })));
-      if (add.error) throw add.error;
-    }
-    projectHubUnit = payload.business_unit;
-    selectedQaProjectId = projectId;
-    showToast('项目已保存');
-    await renderProjectHub();
-  } catch (error) {
-    showToast(`保存失败：${error.message}`, 'error');
-  } finally {
-    button.disabled = false;
-  }
+  projectsModule.openProject(
+    createModuleContext(),
+    projectId,
+    String(portfolioSelectedMonth || plan.plan_month || '').slice(0, 7),
+  );
+  renderRegisteredModule('projects');
 }
 
 function normalizePersonName(value) {
@@ -1437,9 +1227,17 @@ async function loadTaskReleases(selectedId = '') {
   const select = document.getElementById('newTaskRelease');
   if (!select) return;
   try {
-    const { data, error } = await sb.from('releases').select('id,version,name,platform,status').order('created_at', { ascending:false }).limit(100);
+    const { data, error } = await sb.from('releases').select('id,version,name,platform,status,project_id').order('created_at', { ascending:false }).limit(100);
     if (error) throw error;
-    select.innerHTML = `<option value="">请选择所属版本</option>${(data || []).map(release => `<option value="${release.id}">${escapeDashboardHtml(release.name || release.version)}${release.platform ? ` · ${escapeDashboardHtml(release.platform)}` : ''}${release.status === 'active' ? '（当前）' : ''}</option>`).join('')}`;
+    const { data: projects, error: projectsError } = await sb.from('qa_projects').select('id,business_unit,status');
+    if (projectsError) throw projectsError;
+    const unitProjectIds = new Set((projects || []).filter(project => project.status !== 'archived' && project.business_unit === projectHubUnit).map(project => project.id));
+    const visible = (data || []).filter(release =>
+      unitProjectIds.has(release.project_id)
+      || (projectHubUnit === 'other' && !release.project_id)
+      || release.id === selectedId
+    );
+    select.innerHTML = `<option value="">请选择所属版本</option>${visible.map(release => `<option value="${release.id}" data-project-id="${escapeDashboardHtml(release.project_id || '')}">${escapeDashboardHtml(release.name || release.version)}${release.platform ? ` · ${escapeDashboardHtml(release.platform)}` : ''}${release.status === 'active' ? '（当前）' : ''}${!release.project_id ? ' · 未归属项目' : ''}</option>`).join('')}`;
     select.value = selectedId || '';
   } catch (error) {
     console.error('[task] releases load failed:', error);
@@ -1452,13 +1250,21 @@ async function loadTaskPortfolioPlans(selectedId = '') {
   if (!select) return;
   try {
     const { data, error } = await sb.from('project_monthly_plans')
-      .select('id,project_name,project_type,plan_month,end_month,status')
+      .select('id,project_id,project_name,project_type,plan_month,end_month,status')
       .neq('status', 'cancelled')
       .order('plan_month', { ascending:false })
       .order('project_name')
       .limit(200);
     if (error) throw error;
-    select.innerHTML = `<option value="">请选择所属项目排期</option>${(data || []).map(plan => `<option value="${plan.id}">${escapeDashboardHtml(plan.project_name)} · ${portfolioTypeText(plan.project_type)} · ${String(plan.plan_month).slice(0,7)}—${String(plan.end_month || plan.plan_month).slice(0,7)}</option>`).join('')}`;
+    const { data: projects, error: projectsError } = await sb.from('qa_projects').select('id,business_unit,status');
+    if (projectsError) throw projectsError;
+    const unitProjectIds = new Set((projects || []).filter(project => project.status !== 'archived' && project.business_unit === projectHubUnit).map(project => project.id));
+    const visible = (data || []).filter(plan =>
+      unitProjectIds.has(plan.project_id)
+      || (projectHubUnit === 'other' && !plan.project_id)
+      || plan.id === selectedId
+    );
+    select.innerHTML = `<option value="">请选择所属项目排期</option>${visible.map(plan => `<option value="${plan.id}" data-project-id="${escapeDashboardHtml(plan.project_id || '')}">${escapeDashboardHtml(plan.project_name)} · ${portfolioTypeText(plan.project_type)} · ${String(plan.plan_month).slice(0,7)}—${String(plan.end_month || plan.plan_month).slice(0,7)}${!plan.project_id ? ' · 未归属项目' : ''}</option>`).join('')}`;
     select.value = selectedId || '';
   } catch (error) {
     console.error('[task] portfolio plans load failed:', error);
@@ -2244,7 +2050,7 @@ function filterTeamTaskRows() {
 }
 
 function teamTaskViewStorageKey() {
-  return `lieneqa:task-view:${currentUser?.id || 'anonymous'}`;
+  return `lieneqa:task-view:${currentUser?.id || 'anonymous'}:${projectHubUnit}`;
 }
 
 function saveTeamTaskViewState() {
@@ -2663,17 +2469,23 @@ async function renderPortfolioPlanning() {
   const calendarFrom = months[0];
   const calendarTo = portfolioShiftedMonth(months.at(-1), 1);
   try {
-    const [plansResult, membersResult, calendarResult, tasksResult, assigneesResult, activityResult, serverTimeResult] = await Promise.all([
+    const [plansResult, membersResult, calendarResult, tasksResult, assigneesResult, activityResult, serverTimeResult, projectsResult] = await Promise.all([
       sb.from('project_monthly_plans').select('*').lt('plan_month', calendarTo).gte('end_month', calendarFrom).order('plan_month').order('project_name'),
       sb.from('profiles').select('id,name,daily_capacity,resource_participant').eq('resource_participant', true).order('name'),
       sb.from('work_calendar').select('work_date,is_workday,name'),
       sb.from('qa_tasks').select('id,title,assignee_id,portfolio_plan_id,status,created_at,completed_at,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').not('portfolio_plan_id','is',null).neq('status','cancelled'),
       sb.from('qa_task_assignees').select('task_id,member_id'),
       sb.from('qa_task_activity').select('task_id,new_values,created_at').order('created_at', { ascending:true }).limit(10000),
-      sb.rpc('qa_server_now')
+      sb.rpc('qa_server_now'),
+      sb.from('qa_projects').select('id,name,business_unit,status')
     ]);
-    for (const result of [plansResult, membersResult, calendarResult, tasksResult, assigneesResult, activityResult]) if (result.error) throw result.error;
-    const plans = plansResult.data || [];
+    for (const result of [plansResult, membersResult, calendarResult, tasksResult, assigneesResult, activityResult, projectsResult]) if (result.error) throw result.error;
+    const projectMap = new Map((projectsResult.data || []).map(project => [project.id, project]));
+    const plans = (plansResult.data || []).filter(plan => {
+      const project = projectMap.get(plan.project_id);
+      return (project?.status !== 'archived' && project?.business_unit === projectHubUnit) || (projectHubUnit === 'other' && !project);
+    });
+    const unassignedPlanCount = (plansResult.data || []).filter(plan => !plan.project_id && plan.status !== 'cancelled').length;
     const members = membersResult.data || [];
     const calendar = new Map((calendarResult.data || []).map(item => [item.work_date, item]));
     const activityByTask = new Map();
@@ -2746,7 +2558,8 @@ async function renderPortfolioPlanning() {
     </div>`).join('');
     const gapTone = selected.gap < -0.001 ? '#d9414b' : '#0F6E56';
     content.innerHTML = `<div class="history-card">
-      <div class="card-hd"><div><span class="card-title">🗓️ 项目总排期</span><div class="release-meta">按月汇总项目所需人月，对比 ${members.length} 位“计入资源”成员的可用容量。</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openPortfolioPlanEditor()"><i class="ti ti-plus"></i> 新增项目需求</button>' : ''}</div>
+      <div class="card-hd"><div><span class="card-title">🗓️ 项目总排期</span><div class="release-meta">当前展示“${projectUnitText(projectHubUnit)}”项目；按月汇总所需人月并对比 ${members.length} 位资源成员。</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openPortfolioPlanEditor()"><i class="ti ti-plus"></i> 新增项目需求</button>' : ''}</div>
+      ${unassignedPlanCount ? `<div class="feature-change-alert project-data-warning"><strong>${unassignedPlanCount} 条排期尚未归属项目</strong><div>已暂放在 Other，请编辑月度人力完成项目归属。</div></div>` : ''}
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:14px 0;"><button class="btn-secondary" onclick="shiftPortfolioMonth(-1)">上个月</button><input class="dashboard-filter" type="month" value="${firstMonth.slice(0,7)}" onchange="changePortfolioMonth(this.value)"><button class="btn-secondary" onclick="changePortfolioMonth(portfolioMonthKey().slice(0,7))">本月</button><button class="btn-secondary" onclick="shiftPortfolioMonth(1)">下个月</button><span class="release-meta">向后展示 6 个月</span></div>
       <div class="quality-metrics">
         ${qualityMetricHtml('可用人力',`${capacityPersonMonths.toFixed(1)} 人月`,`${members.length} 位资源成员`,null)}
@@ -2787,10 +2600,10 @@ function releasePlatformMatches(releasePlatform, selectedPlatform) {
 }
 
 function releaseModalHtml() {
-  return `<div class="dashboard-modal" id="releaseEditorModal" onclick="closeReleaseEditor()"><div class="dashboard-modal-panel" style="width:min(620px,100%);" onclick="event.stopPropagation()"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="releaseEditorTitle">新建版本</div><button class="dashboard-modal-close" onclick="closeReleaseEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">版本号</label><input class="dashboard-input" id="releaseVersion" maxlength="80" placeholder="例如 2.5.705"></div><div class="form-group"><label class="form-label">版本名称</label><input class="dashboard-input" id="releaseName" maxlength="160" placeholder="例如 证件照功能重构"></div><div class="form-group"><label class="form-label">产品端</label><select class="form-select" id="releasePlatform"><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option><option value="app_pad">APP + Pad</option></select><div class="assignee-allocation-note">APP、Pad、PC 可分别设置一个当前版本。</div></div><div class="form-group"><label class="form-label">计划发布日期</label><input class="dashboard-input" id="releaseDate" type="date"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="releaseNotes" rows="3" maxlength="1000" placeholder="填写版本范围、主要改动或发布说明"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeReleaseEditor()">取消</button><button class="btn-primary" id="saveReleaseBtn" onclick="saveRelease()">保存版本</button></div></div></div>`;
+  return `<div class="dashboard-modal" id="releaseEditorModal"><div class="dashboard-modal-panel" style="width:min(620px,100%);"><div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="releaseEditorTitle">新建版本</div><button class="dashboard-modal-close" onclick="closeReleaseEditor()"><i class="ti ti-x"></i></button></div><div class="dashboard-form-grid"><div class="form-group"><label class="form-label">所属项目 *</label><select class="form-select" id="releaseProject" required><option value="">请选择所属项目</option></select></div><div class="form-group"><label class="form-label">版本号</label><input class="dashboard-input" id="releaseVersion" maxlength="80" placeholder="例如 2.5.705"></div><div class="form-group"><label class="form-label">版本名称</label><input class="dashboard-input" id="releaseName" maxlength="160" placeholder="例如 证件照功能重构"></div><div class="form-group"><label class="form-label">产品端</label><select class="form-select" id="releasePlatform"><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option><option value="app_pad">APP + Pad</option></select><div class="assignee-allocation-note">APP、Pad、PC 可分别设置一个当前版本。</div></div><div class="form-group"><label class="form-label">计划发布日期</label><input class="dashboard-input" id="releaseDate" type="date"></div></div><div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="releaseNotes" rows="3" maxlength="1000" placeholder="填写版本范围、主要改动或发布说明"></textarea></div><div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;"><button class="btn-secondary" onclick="closeReleaseEditor()">取消</button><button class="btn-primary" id="saveReleaseBtn" onclick="saveRelease()">保存版本</button></div></div></div>`;
 }
 
-function openReleaseEditor(id = '') {
+async function openReleaseEditor(id = '') {
   const release = id ? releaseRecordCache.get(id) : null;
   document.getElementById('releaseEditorTitle').textContent = release ? '编辑版本' : '新建版本';
   document.getElementById('releaseVersion').value = release?.version || '';
@@ -2801,6 +2614,15 @@ function openReleaseEditor(id = '') {
   document.getElementById('releaseNotes').value = release?.notes || '';
   document.getElementById('releaseEditorModal').dataset.releaseId = id;
   document.getElementById('releaseEditorModal').classList.add('open');
+  const projectSelect = document.getElementById('releaseProject');
+  const { data: projects, error } = await sb.from('qa_projects').select('id,name,business_unit,status').order('name');
+  if (error) {
+    projectSelect.innerHTML = '<option value="">项目加载失败</option>';
+  } else {
+    const visible = (projects || []).filter(project => project.business_unit === projectHubUnit || project.id === release?.project_id);
+    projectSelect.innerHTML = `<option value="">请选择所属项目</option>${visible.map(project => `<option value="${project.id}">${escapeDashboardHtml(project.name)}${project.status === 'archived' ? '（已归档）' : ''}</option>`).join('')}`;
+    projectSelect.value = release?.project_id || '';
+  }
   setTimeout(() => document.getElementById('releaseVersion')?.focus(), 0);
 }
 
@@ -2816,11 +2638,13 @@ async function saveRelease() {
   const platform = document.getElementById('releasePlatform')?.value || 'app';
   const plannedReleaseDate = document.getElementById('releaseDate')?.value || null;
   const notes = document.getElementById('releaseNotes')?.value.trim() || null;
+  const projectId = document.getElementById('releaseProject')?.value || '';
   if (!version) { showToast('请填写版本号', 'error'); return; }
+  if (!projectId) { showToast('请选择所属项目', 'error'); return; }
   const button = document.getElementById('saveReleaseBtn');
   button.disabled = true;
   try {
-    const payload = { version, name, platform, planned_release_date:plannedReleaseDate, notes, owner_id:currentUser.id };
+    const payload = { version, name, platform, planned_release_date:plannedReleaseDate, notes, project_id:projectId, owner_id:currentUser.id };
     const result = id
       ? await sb.from('releases').update(payload).eq('id', id).select('id').maybeSingle()
       : await sb.from('releases').insert({ ...payload, created_by:currentUser.id }).select('id').single();
@@ -2891,15 +2715,25 @@ async function renderReleaseManagement() {
   content.style.padding = '24px';
   content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载版本发布信息…</div></div>';
   try {
-    const [releaseResult, taskResult, checkResult] = await Promise.all([
-      sb.from('releases').select('id,version,name,platform,products,status,owner_id,planned_release_date,notes,created_by,created_at,updated_at').order('created_at', { ascending:false }),
+    const [releaseResult, taskResult, checkResult, projectsResult] = await Promise.all([
+      sb.from('releases').select('id,version,name,platform,products,status,project_id,owner_id,planned_release_date,notes,created_by,created_at,updated_at').order('created_at', { ascending:false }),
       sb.from('qa_tasks').select('id,release_id,title,status,due_date,blocked_reason').not('release_id', 'is', null),
-      sb.from('release_checks').select('id,release_id,check_name,category,severity,status,source_type,last_evaluated_at').order('created_at', { ascending:true })
+      sb.from('release_checks').select('id,release_id,check_name,category,severity,status,source_type,last_evaluated_at').order('created_at', { ascending:true }),
+      sb.from('qa_projects').select('id,name,business_unit,status')
     ]);
     if (releaseResult.error) throw releaseResult.error;
     if (taskResult.error) throw taskResult.error;
     if (checkResult.error) throw checkResult.error;
-    const releases = releaseResult.data || [];
+    if (projectsResult.error) throw projectsResult.error;
+    const projects = projectsResult.data || [];
+    const projectMap = new Map(projects.map(project => [project.id, project]));
+    const releases = (releaseResult.data || []).filter(release => {
+      const project = projectMap.get(release.project_id);
+      return (project?.status !== 'archived' && project?.business_unit === projectHubUnit) || (projectHubUnit === 'other' && !project);
+    });
+    const unassignedReleaseCount = canManageQa()
+      ? (releaseResult.data || []).filter(release => !release.project_id && release.status !== 'archived').length
+      : 0;
     releaseRecordCache = new Map(releases.map(release => [release.id, release]));
     releaseTaskCache = new Map();
     (taskResult.data || []).forEach(task => { const items = releaseTaskCache.get(task.release_id) || []; items.push(task); releaseTaskCache.set(task.release_id, items); });
@@ -2918,9 +2752,9 @@ async function renderReleaseManagement() {
       const readinessText = release.status === 'released' ? '已发布' : ready ? '可发布' : danger ? '存在阻塞' : '准备中';
       const taskList = tasks.length ? tasks.map(task => `<div class="release-check-row"><span>${escapeDashboardHtml(task.title)}</span><span>${escapeDashboardHtml(taskStatusText(task.status))}</span><span>${task.due_date ? escapeDashboardHtml(task.due_date.slice(0,10)) : '-'}</span><button class="risk-action" onclick="openTaskFromDashboard('${task.id}','edit')">查看</button></div>`).join('') : '<div class="dashboard-empty">暂无关联工作事项</div>';
       const checkList = checks.length ? checks.map(check => `<div class="release-check-row"><span>${escapeDashboardHtml(check.check_name)}</span><span>${check.severity === 'high' ? '高' : check.severity === 'medium' ? '中' : '低'}风险</span><select class="dashboard-filter" style="min-width:88px;padding:5px;" onchange="updateReleaseCheck('${check.id}',this.value)" ${userRole === 'admin' ? '' : 'disabled'}><option value="pending" ${check.status === 'pending' ? 'selected' : ''}>待检查</option><option value="passed" ${check.status === 'passed' ? 'selected' : ''}>通过</option><option value="failed" ${check.status === 'failed' ? 'selected' : ''}>失败</option><option value="waived" ${check.status === 'waived' ? 'selected' : ''}>豁免</option><option value="unavailable" ${check.status === 'unavailable' ? 'selected' : ''}>不可用</option></select><span>${check.source_type === 'manual' ? '手工' : escapeDashboardHtml(check.source_type)}</span></div>`).join('') : '<div class="dashboard-empty">尚未添加发布检查项</div>';
-      return `<div class="release-card ${release.status === 'active' ? 'active' : ''}"><div class="release-card-hd"><div><h3>${escapeDashboardHtml(release.name || release.version)}</h3><div class="release-meta">${escapeDashboardHtml(release.version)} · ${releasePlatformText(release.platform)} · ${releaseStatusText(release.status)}${release.planned_release_date ? ` · ${release.planned_release_date}` : ''}</div></div><span class="release-readiness ${readinessClass}">${readinessText}</span></div><div class="release-stats"><div class="release-stat"><strong>${tasks.length}</strong><span>关联事项</span></div><div class="release-stat"><strong>${done}</strong><span>已完成</span></div><div class="release-stat"><strong>${blocked}</strong><span>已阻塞</span></div><div class="release-stat"><strong>${failed}</strong><span>检查失败</span></div></div>${release.notes ? `<div class="release-meta">${escapeDashboardHtml(release.notes)}</div>` : ''}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">${userRole === 'admin' ? `<button class="btn-secondary" onclick="openReleaseEditor('${release.id}')">编辑</button>${release.status === 'planned' ? `<button class="btn-primary" onclick="transitionRelease('${release.id}','active')">设为当前版本</button>` : ''}${release.status === 'active' ? `<button class="btn-primary" onclick="transitionRelease('${release.id}','released')">标记已发布</button>` : ''}${!['released','archived'].includes(release.status) ? `<button class="btn-secondary" onclick="transitionRelease('${release.id}','archived')">归档</button>` : ''}` : ''}</div><details class="member-daily-details"><summary>关联事项（${tasks.length}）</summary>${taskList}</details><details class="member-daily-details"><summary>发布检查（${checks.length}）</summary>${checkList}${userRole === 'admin' ? `<div class="release-check-form"><input class="dashboard-input" id="releaseCheckName-${release.id}" placeholder="新增检查项，例如：P0 用例全部通过"><select class="dashboard-filter" id="releaseCheckSeverity-${release.id}"><option value="high">高风险</option><option value="medium" selected>中风险</option><option value="low">低风险</option></select><button class="btn-secondary" onclick="addReleaseCheck('${release.id}')">添加</button></div>` : ''}</details></div>`;
+      return `<div class="release-card ${release.status === 'active' ? 'active' : ''}"><div class="release-card-hd"><div><h3>${escapeDashboardHtml(release.name || release.version)}</h3><div class="release-meta">${escapeDashboardHtml(projectMap.get(release.project_id)?.name || '未归属项目')} · ${escapeDashboardHtml(release.version)} · ${releasePlatformText(release.platform)} · ${releaseStatusText(release.status)}${release.planned_release_date ? ` · ${release.planned_release_date}` : ''}</div></div><span class="release-readiness ${readinessClass}">${readinessText}</span></div><div class="release-stats"><div class="release-stat"><strong>${tasks.length}</strong><span>关联事项</span></div><div class="release-stat"><strong>${done}</strong><span>已完成</span></div><div class="release-stat"><strong>${blocked}</strong><span>已阻塞</span></div><div class="release-stat"><strong>${failed}</strong><span>检查失败</span></div></div>${release.notes ? `<div class="release-meta">${escapeDashboardHtml(release.notes)}</div>` : ''}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:12px;">${userRole === 'admin' ? `<button class="btn-secondary" onclick="openReleaseEditor('${release.id}')">编辑</button>${release.status === 'planned' ? `<button class="btn-primary" onclick="transitionRelease('${release.id}','active')">设为当前版本</button>` : ''}${release.status === 'active' ? `<button class="btn-primary" onclick="transitionRelease('${release.id}','released')">标记已发布</button>` : ''}${!['released','archived'].includes(release.status) ? `<button class="btn-secondary" onclick="transitionRelease('${release.id}','archived')">归档</button>` : ''}` : ''}</div><details class="member-daily-details"><summary>关联事项（${tasks.length}）</summary>${taskList}</details><details class="member-daily-details"><summary>发布检查（${checks.length}）</summary>${checkList}${userRole === 'admin' ? `<div class="release-check-form"><input class="dashboard-input" id="releaseCheckName-${release.id}" placeholder="新增检查项，例如：P0 用例全部通过"><select class="dashboard-filter" id="releaseCheckSeverity-${release.id}"><option value="high">高风险</option><option value="medium" selected>中风险</option><option value="low">低风险</option></select><button class="btn-secondary" onclick="addReleaseCheck('${release.id}')">添加</button></div>` : ''}</details></div>`;
     }).join('');
-    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">🚀 版本发布管理</span><div class="release-meta">版本关联工作事项与发布检查，自动判断是否具备发布条件</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openReleaseEditor()"><i class="ti ti-plus"></i> 新建版本</button>' : ''}</div><div class="release-grid">${cards || '<div class="dashboard-empty">暂无版本，管理员可先创建第一个测试版本</div>'}</div></div>${releaseModalHtml()}`;
+    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">🚀 版本发布管理</span><div class="release-meta">当前仅展示“${projectUnitText(projectHubUnit)}”项目的版本、事项与发布检查</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openReleaseEditor()"><i class="ti ti-plus"></i> 新建版本</button>' : ''}</div>${unassignedReleaseCount ? `<div class="feature-change-alert project-data-warning"><strong>${unassignedReleaseCount} 个未归属项目的活动版本</strong><div>已暂放在 Other，请编辑版本完成归属。</div></div>` : ''}<div class="release-grid">${cards || '<div class="dashboard-empty">当前 BU 暂无版本</div>'}</div></div>${releaseModalHtml()}`;
   } catch (error) {
     console.error('[release] load failed:', error);
     content.innerHTML = `<div class="history-card"><div class="dashboard-empty">版本发布数据加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
@@ -3105,7 +2939,7 @@ function filterDefectRows() {
   const count=document.getElementById('defectVisibleCount'); if(count)count.textContent=`${visible} 项`;
 }
 
-async function renderBugManagement() {
+async function renderBugManagementLegacy() {
   const content=document.getElementById('content'); content.style.padding='24px'; content.innerHTML='<div class="history-card"><div class="dashboard-loading">正在加载 BUG 与复盘数据…</div></div>';
   try {
     const [defectsResult,membersResult,releasesResult,requirementsResult,prdsResult,tasksResult]=await Promise.all([sb.from('quality_defects').select('*').order('found_at',{ascending:false}),sb.from('profiles').select('id,name,resource_participant').eq('resource_participant',true).order('name'),sb.from('releases').select('id,version,name,platform').order('created_at',{ascending:false}),sb.from('requirements').select('id,title,prd_id').order('created_at',{ascending:false}),sb.from('prds').select('id,title,release_id').order('created_at',{ascending:false}),sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status').neq('status','cancelled').order('created_at',{ascending:false})]);
@@ -3116,6 +2950,90 @@ async function renderBugManagement() {
     content.innerHTML=`<div class="history-card"><div class="card-hd"><div><span class="card-title">🐞 BUG 管理与复盘</span><div class="release-meta">记录集成阶段与已上线暴露问题，关联版本和 PRD 并跟踪预防措施</div></div><div style="display:flex;gap:7px;align-items:center;">${userRole==='admin'?'<button class="btn-primary" onclick="openDefectEditor()"><i class="ti ti-plus"></i> 登记 BUG</button>':''}<span class="card-tag" id="defectVisibleCount">${(defectsResult.data||[]).length} 项</span></div></div><div class="team-task-filters"><input class="dashboard-filter" id="defectKeywordFilter" type="search" placeholder="搜索 BUG 或 PRD" oninput="filterDefectRows()"><select class="dashboard-filter" id="defectStageFilter" onchange="filterDefectRows()"><option value="all">全部暴露阶段</option><option value="integration">集成阶段</option><option value="production">已上线</option></select><select class="dashboard-filter" id="defectExecutorFilter" onchange="filterDefectRows()"><option value="all">全部负责人</option>${defectMemberCache.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||'未命名成员')}</option>`).join('')}</select><select class="dashboard-filter" id="defectReviewFilter" onchange="filterDefectRows()"><option value="all">全部复盘状态</option><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:1050px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>版本 / PRD</th><th>级别</th><th>状态</th><th>复盘/根因</th><th>发现日期</th><th>操作</th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="dashboard-empty">暂无暴露 BUG 记录</td></tr>'}</tbody></table></div></div>${defectEditorHtml()}`;
     if(userRole!=='admin'){document.getElementById('defectExecutorFilter').value=currentUser.id;filterDefectRows();}
   } catch(error){console.error('[defect] load failed:',error);content.innerHTML=`<div class="history-card"><div class="dashboard-empty">BUG 数据加载失败：${escapeDashboardHtml(error.message)}</div></div>`;}
+}
+
+async function renderBugManagement() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在加载 BUG 与复盘数据…</div></div>';
+  try {
+    const [defectsResult,membersResult,releasesResult,requirementsResult,prdsResult,tasksResult,plansResult,projectsResult] = await Promise.all([
+      sb.from('quality_defects').select('*').order('found_at',{ascending:false}),
+      sb.from('profiles').select('id,name,resource_participant').eq('resource_participant',true).order('name'),
+      sb.from('releases').select('id,version,name,platform,project_id').order('created_at',{ascending:false}),
+      sb.from('requirements').select('id,title,prd_id').order('created_at',{ascending:false}),
+      sb.from('prds').select('id,title,release_id').order('created_at',{ascending:false}),
+      sb.from('qa_tasks').select('id,title,prd_id,release_id,portfolio_plan_id,test_round,status').neq('status','cancelled').order('created_at',{ascending:false}),
+      sb.from('project_monthly_plans').select('id,project_id'),
+      sb.from('qa_projects').select('id,name,business_unit,status')
+    ]);
+    for (const result of [defectsResult,membersResult,releasesResult,requirementsResult,prdsResult,tasksResult,plansResult,projectsResult]) {
+      if (result.error) throw result.error;
+    }
+    const projects = projectsResult.data || [];
+    const projectMap = new Map(projects.map(project => [project.id,project]));
+    const planMap = new Map((plansResult.data || []).map(plan => [plan.id,plan]));
+    const allReleases = releasesResult.data || [];
+    const releaseMap = new Map(allReleases.map(release => [release.id,release]));
+    const allTasks = tasksResult.data || [];
+    const taskMap = new Map(allTasks.map(task => [task.id,task]));
+    const taskProject = task => {
+      const planProjectId = planMap.get(task?.portfolio_plan_id)?.project_id;
+      return projectMap.get(planProjectId || releaseMap.get(task?.release_id)?.project_id);
+    };
+    const belongsToCurrentUnit = project => project
+      ? project.status !== 'archived' && project.business_unit === projectHubUnit
+      : projectHubUnit === 'other';
+    const visibleTasks = allTasks.filter(task => belongsToCurrentUnit(taskProject(task)));
+    const visibleTaskIds = new Set(visibleTasks.map(task => task.id));
+    const visibleReleases = allReleases.filter(release => belongsToCurrentUnit(projectMap.get(release.project_id)));
+    const visibleReleaseIds = new Set(visibleReleases.map(release => release.id));
+    const defects = (defectsResult.data || []).filter(defect => {
+      const linkedTask = taskMap.get(defect.qa_task_id);
+      if (defect.qa_task_id) return linkedTask ? visibleTaskIds.has(linkedTask.id) : false;
+      if (defect.release_id) return visibleReleaseIds.has(defect.release_id);
+      return canManageQa() && projectHubUnit === 'other';
+    });
+    const unassignedCount = canManageQa()
+      ? (defectsResult.data || []).filter(defect => {
+          const linkedTask = taskMap.get(defect.qa_task_id);
+          return !taskProject(linkedTask) && !projectMap.get(releaseMap.get(defect.release_id)?.project_id);
+        }).length
+      : 0;
+
+    defectMemberCache = membersResult.data || [];
+    defectReleaseCache = visibleReleases;
+    defectRequirementCache = requirementsResult.data || [];
+    defectPrdCache = prdsResult.data || [];
+    defectTaskCache = visibleTasks;
+    defectRecordCache = new Map(defects.map(item => [item.id,item]));
+    const names = new Map(defectMemberCache.map(item => [item.id,item.name || '未命名成员']));
+    const releaseNames = new Map(visibleReleases.map(item => [item.id,item.name || item.version]));
+    const prdNames = new Map(defectPrdCache.map(item => [item.id,item.title]));
+    const rows = defects.map(defect => {
+      const canEdit = canManageQa() || defect.executor_id === currentUser.id;
+      const externalUrl = safeDefectExternalUrl(defect.external_url);
+      const linkedTask = taskMap.get(defect.qa_task_id);
+      const actionLabel = defect.executor_id === currentUser.id && defect.review_status !== 'completed'
+        ? '填写复盘'
+        : canManageQa() ? '查看/管理' : '查看复盘';
+      const reviewFlags = [
+        Number(defect.reopen_count || 0) > 0 ? `重开 ${Number(defect.reopen_count)} 次` : '',
+        defect.is_change_induced ? '改动引入' : '',
+        defect.is_missed_test ? '漏测' : ''
+      ].filter(Boolean).join(' · ');
+      return `<tr data-defect-row data-title="${escapeDashboardHtml(`${defect.title} ${prdNames.get(defect.prd_id)||''} ${linkedTask?.title||''}`.toLowerCase())}" data-stage="${defect.exposed_stage}" data-executor="${defect.executor_id}" data-review="${defect.review_status}"><td><strong>${escapeDashboardHtml(defect.title)}</strong>${externalUrl?`<br><a class="risk-action" href="${escapeDashboardHtml(externalUrl)}" target="_blank" rel="noopener">打开 PingCode</a>`:''}</td><td><span class="defect-stage ${defect.exposed_stage}">${defect.exposed_stage==='production'?'已上线':'集成阶段'}</span></td><td>${escapeDashboardHtml(names.get(defect.executor_id)||'未命名成员')}</td><td>${escapeDashboardHtml(releaseNames.get(defect.release_id)||'-')}<br><span class="release-meta">${escapeDashboardHtml(prdNames.get(defect.prd_id)||'未关联 PRD')}</span>${linkedTask?`<br><span class="release-meta">第 ${Number(linkedTask.test_round||1)} 轮 · ${escapeDashboardHtml(linkedTask.title)}</span>`:''}</td><td>${escapeDashboardHtml(defect.severity)}</td><td>${escapeDashboardHtml(defectStatusText(defect.status))}</td><td>${escapeDashboardHtml(defectReviewStatusText(defect.review_status))}<br><span class="release-meta">${escapeDashboardHtml(defectRootCauseText(defect.root_cause_category))}</span>${reviewFlags?`<br><span class="release-meta">${escapeDashboardHtml(reviewFlags)}</span>`:''}</td><td>${escapeDashboardHtml(defect.found_at)}</td><td>${canEdit?`<button class="btn-secondary" onclick="openDefectEditor('${defect.id}')">${actionLabel}</button>`:'-'}</td></tr>`;
+    }).join('');
+    content.innerHTML = `<div class="history-card">${unassignedCount?`<div class="feature-change-alert project-data-warning">当前有 ${unassignedCount} 个 BUG 尚未归属项目，已集中显示在 Other；请先关联工作事项或版本。</div>`:''}<div class="card-hd"><div><span class="card-title">🐞 BUG 管理与复盘</span><div class="release-meta">${escapeDashboardHtml(projectUnitText(projectHubUnit))} BU · 记录集成阶段与已上线问题，并追踪复盘和预防措施</div></div><div style="display:flex;gap:7px;align-items:center;">${canManageQa()?'<button class="btn-primary" onclick="openDefectEditor()"><i class="ti ti-plus"></i> 登记 BUG</button>':''}<span class="card-tag" id="defectVisibleCount">${defects.length} 项</span></div></div><div class="team-task-filters"><input class="dashboard-filter" id="defectKeywordFilter" type="search" placeholder="搜索 BUG、事项或 PRD" oninput="filterDefectRows()"><select class="dashboard-filter" id="defectStageFilter" onchange="filterDefectRows()"><option value="all">全部暴露阶段</option><option value="integration">集成阶段</option><option value="production">已上线</option></select><select class="dashboard-filter" id="defectExecutorFilter" onchange="filterDefectRows()"><option value="all">全部负责人</option>${defectMemberCache.map(item=>`<option value="${item.id}">${escapeDashboardHtml(item.name||'未命名成员')}</option>`).join('')}</select><select class="dashboard-filter" id="defectReviewFilter" onchange="filterDefectRows()"><option value="all">全部复盘状态</option><option value="pending">待复盘</option><option value="in_review">复盘中</option><option value="completed">已完成</option></select></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:1050px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>版本 / PRD</th><th>级别</th><th>状态</th><th>复盘/根因</th><th>发现日期</th><th>操作</th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="dashboard-empty">当前 BU 暂无暴露 BUG 记录</td></tr>'}</tbody></table></div></div>${defectEditorHtml()}`;
+    if (!canManageQa()) {
+      const executorFilter = document.getElementById('defectExecutorFilter');
+      if (executorFilter) executorFilter.value = currentUser.id;
+      filterDefectRows();
+    }
+  } catch(error) {
+    console.error('[defect] load failed:',error);
+    content.innerHTML = `<div class="history-card"><div class="dashboard-empty">BUG 数据加载失败：${escapeDashboardHtml(error.message)}</div></div>`;
+  }
 }
 
 function qualityPercent(value, total) {
@@ -3461,22 +3379,43 @@ async function renderQualityReport() {
   content.style.padding = '24px';
   content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在汇总质量数据…</div></div>';
   try {
-    const [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult] = await Promise.all([
-      sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
-      sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,due_date,created_at,updated_at,completed_at,completion_note,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids'),
+    const [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult,projectsResult,portfolioPlansResult] = await Promise.all([
+      sb.from('releases').select('id,version,name,platform,status,project_id,planned_release_date').order('created_at',{ascending:false}),
+      sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,portfolio_plan_id,due_date,created_at,updated_at,completed_at,completion_note,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids'),
       sb.from('profiles').select('id,name,resource_participant').eq('resource_participant',true).order('name'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id'),
       sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('release_checks').select('release_id,status,severity'),
       sb.from('quality_defects').select('id,title,qa_task_id,prd_id,requirement_id,release_id,exposed_stage,severity,status,executor_id,found_at,root_cause_category,review_status,reopen_count,is_change_induced,is_missed_test,impact,escape_reason,corrective_action,prevention_action'),
-      sb.from('prds').select('id,title')
+      sb.from('prds').select('id,title'),
+      sb.from('qa_projects').select('id,business_unit,status'),
+      sb.from('project_monthly_plans').select('id,project_id')
     ]);
-    for (const result of [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult]) if (result.error) throw result.error;
-    const releaseMap = new Map((releasesResult.data || []).map(item => [item.id,item]));
+    for (const result of [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult,projectsResult,portfolioPlansResult]) if (result.error) throw result.error;
+    const projectMap = new Map((projectsResult.data || []).map(item => [item.id,item]));
+    const planMap = new Map((portfolioPlansResult.data || []).map(item => [item.id,item]));
+    const releases = (releasesResult.data || []).filter(release => {
+      const project = projectMap.get(release.project_id);
+      return project?.business_unit === projectHubUnit || (projectHubUnit === 'other' && !project);
+    });
+    const releaseIdSet = new Set(releases.map(release => release.id));
+    const tasks = (tasksResult.data || []).filter(task => {
+      const planProject = projectMap.get(planMap.get(task.portfolio_plan_id)?.project_id);
+      if (planProject) return planProject.business_unit === projectHubUnit;
+      if (task.release_id && releaseIdSet.has(task.release_id)) return true;
+      return canManageQa() && projectHubUnit === 'other' && !task.portfolio_plan_id;
+    });
+    const taskIdSet = new Set(tasks.map(task => task.id));
+    const defects = (defectsResult.data || []).filter(defect =>
+      taskIdSet.has(defect.qa_task_id)
+      || releaseIdSet.has(defect.release_id)
+      || (canManageQa() && projectHubUnit === 'other' && !defect.qa_task_id && !defect.release_id)
+    );
+    const releaseMap = new Map(releases.map(item => [item.id,item]));
     const memberMap = new Map((membersResult.data || []).map(item => [item.id,item.name || '未命名成员']));
     const prdMap = new Map((prdsResult.data || []).map(item => [item.id,item.title || '未命名 PRD']));
-    const qaTaskMap = new Map((tasksResult.data || []).map(item => [item.id,item]));
+    const qaTaskMap = new Map(tasks.map(item => [item.id,item]));
     const assigneeMap = new Map();
     (assigneesResult.data || []).forEach(item => { const list=assigneeMap.get(item.task_id)||[]; list.push(item); assigneeMap.set(item.task_id,list); });
     const progressMap = new Map();
@@ -3485,8 +3424,9 @@ async function renderQualityReport() {
     taskAssigneesByTask = assigneeMap;
     taskProgressByTask = progressMap;
     taskTestHubProgressByTask = snapshotMap;
-    qualityReportRaw = { releases:releasesResult.data || [], tasks:tasksResult.data || [], members:membersResult.data || [], checks:checksResult.data || [], defects:defectsResult.data || [], releaseMap, memberMap, prdMap, qaTaskMap, assigneeMap, progressMap, snapshotMap };
-    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">📊 质量报表</span><div class="release-meta">汇总工作事项、团队投入、TestHub 执行进度、发布检查与暴露 BUG 复盘</div></div><div style="display:flex;gap:7px;"><button class="btn-secondary" onclick="copyQualityReportSummary()">复制摘要</button><button class="btn-secondary" onclick="downloadQualityReportCsv()">导出 CSV</button><span class="card-tag" id="qualityResultCount"></span></div></div><div class="team-task-filters"><select class="dashboard-filter" id="qualityReleaseFilter" onchange="renderQualityReportResults()"><option value="all">全部版本</option>${qualityReportRaw.releases.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}</select><select class="dashboard-filter" id="qualityPlatformFilter" onchange="renderQualityReportResults()"><option value="all">全部产品端</option><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option></select><select class="dashboard-filter" id="qualityMemberFilter" onchange="renderQualityReportResults()"><option value="all">全部成员</option>${qualityReportRaw.members.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || '未命名成员')}</option>`).join('')}</select><input class="dashboard-filter" id="qualityFromFilter" type="date" onchange="renderQualityReportResults()" title="统计开始日期"><input class="dashboard-filter" id="qualityToFilter" type="date" onchange="renderQualityReportResults()" title="统计结束日期"><button class="btn-secondary" onclick="clearQualityReportFilters()">清空筛选</button></div><div class="quality-metrics" id="qualityMetrics"></div><div class="history-card" style="margin:0 0 14px;"><div class="card-hd"><div><span class="card-title">🗓️ 成员周简报</span><div class="release-meta">自动汇总每个人完成事项、完成说明与延期内容；默认本周，可用上方日期调整</div></div></div><div id="qualityWeeklyBrief" style="display:grid;gap:10px;margin-top:10px;"></div></div><div class="quality-section-grid"><div class="history-card" style="margin:0;"><div class="card-title">工作事项明细</div><div style="overflow-x:auto;margin-top:10px;"><table class="history-table" style="min-width:780px;"><thead><tr><th>事项/版本</th><th>负责人</th><th>状态</th><th>计划/实际</th><th>TestHub</th><th>截止日期</th></tr></thead><tbody id="qualityTaskDetails"></tbody></table></div></div><div class="history-card" style="margin:0;"><div class="card-title">成员质量投入</div><div class="release-check-row" style="font-weight:600;"><span>成员</span><span>事项</span><span>完成</span><span>计划</span><span>实际</span></div><div id="qualityMemberStats"></div></div></div><div class="history-card" style="margin-top:14px;"><div class="card-hd"><span class="card-title">BUG 暴露与复盘</span><button class="btn-secondary" onclick="navTo('bugs')">进入 BUG 管理</button></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:850px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>级别</th><th>根因</th><th>复盘状态</th><th>操作</th></tr></thead><tbody id="qualityDefectDetails"></tbody></table></div></div></div>`;
+    const filteredChecks = (checksResult.data || []).filter(check => releaseIdSet.has(check.release_id));
+    qualityReportRaw = { releases, tasks, members:membersResult.data || [], checks:filteredChecks, defects, releaseMap, memberMap, prdMap, qaTaskMap, assigneeMap, progressMap, snapshotMap };
+    content.innerHTML = `<div class="history-card"><div class="card-hd"><div><span class="card-title">📊 质量报表</span><div class="release-meta">当前汇总“${projectUnitText(projectHubUnit)}”项目的事项、投入、TestHub、发布检查和 BUG 复盘</div></div><div style="display:flex;gap:7px;"><button class="btn-secondary" onclick="copyQualityReportSummary()">复制摘要</button><button class="btn-secondary" onclick="downloadQualityReportCsv()">导出 CSV</button><span class="card-tag" id="qualityResultCount"></span></div></div><div class="team-task-filters"><select class="dashboard-filter" id="qualityReleaseFilter" onchange="renderQualityReportResults()"><option value="all">全部版本</option>${qualityReportRaw.releases.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || item.version)} · ${releasePlatformText(item.platform)}</option>`).join('')}</select><select class="dashboard-filter" id="qualityPlatformFilter" onchange="renderQualityReportResults()"><option value="all">全部产品端</option><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option></select><select class="dashboard-filter" id="qualityMemberFilter" onchange="renderQualityReportResults()"><option value="all">全部成员</option>${qualityReportRaw.members.map(item => `<option value="${item.id}">${escapeDashboardHtml(item.name || '未命名成员')}</option>`).join('')}</select><input class="dashboard-filter" id="qualityFromFilter" type="date" onchange="renderQualityReportResults()" title="统计开始日期"><input class="dashboard-filter" id="qualityToFilter" type="date" onchange="renderQualityReportResults()" title="统计结束日期"><button class="btn-secondary" onclick="clearQualityReportFilters()">清空筛选</button></div><div class="quality-metrics" id="qualityMetrics"></div><div class="history-card" style="margin:0 0 14px;"><div class="card-hd"><div><span class="card-title">🗓️ 成员周简报</span><div class="release-meta">自动汇总每个人完成事项、完成说明与延期内容；默认本周，可用上方日期调整</div></div></div><div id="qualityWeeklyBrief" style="display:grid;gap:10px;margin-top:10px;"></div></div><div class="quality-section-grid"><div class="history-card" style="margin:0;"><div class="card-title">工作事项明细</div><div style="overflow-x:auto;margin-top:10px;"><table class="history-table" style="min-width:780px;"><thead><tr><th>事项/版本</th><th>负责人</th><th>状态</th><th>计划/实际</th><th>TestHub</th><th>截止日期</th></tr></thead><tbody id="qualityTaskDetails"></tbody></table></div></div><div class="history-card" style="margin:0;"><div class="card-title">成员质量投入</div><div class="release-check-row" style="font-weight:600;"><span>成员</span><span>事项</span><span>完成</span><span>计划</span><span>实际</span></div><div id="qualityMemberStats"></div></div></div><div class="history-card" style="margin-top:14px;"><div class="card-hd"><span class="card-title">BUG 暴露与复盘</span><button class="btn-secondary" onclick="navTo('bugs')">进入 BUG 管理</button></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:850px;"><thead><tr><th>BUG</th><th>暴露阶段</th><th>执行负责人</th><th>级别</th><th>根因</th><th>复盘状态</th><th>操作</th></tr></thead><tbody id="qualityDefectDetails"></tbody></table></div></div></div>`;
     content.insertAdjacentHTML('beforeend', `<div class="history-card" style="margin-top:14px;"><div class="card-hd"><div><span class="card-title">📣 对外质量简报</span><div class="release-meta">按测试轮次汇总，不包含负责人姓名、内部原因描述和纠正措施</div></div><button class="btn-primary" onclick="copyExternalQualityBrief()">复制对外简报</button></div><div class="quality-metrics" id="qualityExternalMetrics"></div><div style="overflow-x:auto;"><table class="history-table" style="min-width:760px;"><thead><tr><th>测试轮次</th><th>发现 BUG</th><th>重开 BUG</th><th>重开次数</th><th>改动引入</th><th>漏测</th><th>已关闭</th></tr></thead><tbody id="qualityExternalRoundRows"></tbody></table></div></div>`);
     content.insertAdjacentHTML('beforeend', `<div class="history-card" style="margin-top:14px;"><div class="card-hd"><div><span class="card-title">📝 BUG 复盘报告</span><div class="release-meta">跟随上方版本、平台、成员和日期筛选条件</div></div><button class="btn-secondary" onclick="copyRetrospectiveReport()">复制复盘报告</button></div><div class="retro-grid"><div class="retro-panel"><h4>根因分布</h4><div id="qualityRootCauseStats"></div></div><div class="retro-panel"><h4>执行负责人维度</h4><div id="qualityDefectOwnerStats"></div></div><div class="retro-panel"><h4>待复盘 / 待关闭措施</h4><div id="qualityRetrospectiveActions"></div></div></div></div>`);
     document.getElementById('qualityPlatformFilter').innerHTML='<option value="all">全部平台</option><option value="app">APP</option><option value="pad">Pad</option>';
@@ -3909,8 +3849,8 @@ async function renderTaskRecords() {
     let query = sb.from('qa_tasks')
       .select('id,title,description,priority,task_type,status,test_round,assignee_id,due_date,release_id,portfolio_plan_id,prd_id,requirement_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,related_id,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids')
       .order('created_at', { ascending:false })
-      .limit(200);
-    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, portfolioPlansResult, activityResult, requirementsResult, prdsResult, testHubSuitesResult, planCacheResult] = await Promise.all([
+      .limit(1000);
+    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, portfolioPlansResult, activityResult, requirementsResult, prdsResult, testHubSuitesResult, planCacheResult, qaProjectsResult] = await Promise.all([
       query,
       sb.from('profiles').select('id,name,resource_participant'),
       sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at').order('work_date', { ascending:false }),
@@ -3919,14 +3859,15 @@ async function renderTaskRecords() {
       sb.from('task_testhub_daily_execution').select('*'),
       sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false }),
       sb.from('releases').select('id,version,name,platform,status'),
-      sb.from('project_monthly_plans').select('id,project_name'),
+      sb.from('project_monthly_plans').select('id,project_id,project_name'),
       sb.from('qa_task_activity').select('task_id,action,changed_fields,changed_by,created_at').order('created_at', { ascending:false }).limit(1000),
       sb.from('requirements').select('id,title'),
       sb.from('prds').select('id,title'),
       sb.from('testhub_plan_suite_cache').select('library_id,plan_id,suite_id,suite_name,case_count,synced_at'),
       userRole === 'admin'
         ? sb.from('testhub_plan_cache').select('plan_id,name,status,state_name,synced_at')
-        : Promise.resolve({ data:[], error:null })
+        : Promise.resolve({ data:[], error:null }),
+      sb.from('qa_projects').select('id,business_unit,status')
     ]);
     if (tasksResult.error) throw tasksResult.error;
     if (profilesResult.error) throw profilesResult.error;
@@ -3942,6 +3883,7 @@ async function renderTaskRecords() {
     if (prdsResult.error) throw prdsResult.error;
     if (testHubSuitesResult.error) throw testHubSuitesResult.error;
     if (planCacheResult.error) throw planCacheResult.error;
+    if (qaProjectsResult.error) throw qaProjectsResult.error;
     dashboardMembers = (profilesResult.data || []).filter(isResourceParticipant);
     taskProgressByTask = new Map();
     (progressResult.data || []).forEach(log => {
@@ -3975,15 +3917,25 @@ async function renderTaskRecords() {
       list.push(item);
       taskActivityByTask.set(item.task_id, list);
     });
+    const projectById = new Map((qaProjectsResult.data || []).map(project => [project.id, project]));
+    const portfolioPlanById = new Map((portfolioPlansResult.data || []).map(plan => [plan.id, plan]));
+    const unitTasks = (tasksResult.data || []).filter(task => {
+      const project = projectById.get(portfolioPlanById.get(task.portfolio_plan_id)?.project_id);
+      if (project) return project.status !== 'archived' && project.business_unit === projectHubUnit;
+      return canManageQa() && projectHubUnit === 'other';
+    });
     const visibleTasks = canViewTeamTasks()
-      ? (tasksResult.data || [])
-      : (tasksResult.data || []).filter(task => taskAssigneeList(task).some(item => item.member_id === currentUser.id));
+      ? unitTasks
+      : unitTasks.filter(task => taskAssigneeList(task).some(item => item.member_id === currentUser.id));
     taskRecordCache = new Map(visibleTasks.map(task => [task.id, task]));
-    rebuildTaskSchedule(dashboardMembers, tasksResult.data || [], dashboardWorkCalendar);
+    rebuildTaskSchedule(dashboardMembers, unitTasks, dashboardWorkCalendar);
 
     const names = new Map((profilesResult.data || []).map(profile => [profile.id, profile.name || '未命名成员']));
     const releaseNames = new Map((releasesResult.data || []).map(release => [release.id, `${release.name || release.version}${release.platform ? ` · ${release.platform}` : ''}`]));
     const portfolioNames = new Map((portfolioPlansResult.data || []).map(plan => [plan.id, plan.project_name]));
+    const unassignedTaskCount = canManageQa()
+      ? (tasksResult.data || []).filter(task => !portfolioPlanById.get(task.portfolio_plan_id)?.project_id && !['done','cancelled'].includes(task.status)).length
+      : 0;
     const requirementNames = new Map((requirementsResult.data || []).map(requirement => [requirement.id, requirement.title]));
     const prdNames = new Map((prdsResult.data || []).map(prd => [prd.id, prd.title]));
     const testHubSuites = testHubSuitesResult.data || [];
@@ -4126,6 +4078,7 @@ async function renderTaskRecords() {
           <span class="card-title">📋 ${canViewTeamTasks() ? '团队工作事项' : '我的工作事项'}</span>
           <div style="display:flex;align-items:center;gap:8px;">${userRole === 'admin' ? '<button class="btn-secondary" onclick="copyLocalSyncAuthorization(this)">复制本地同步授权</button><button class="btn-secondary" onclick="syncTestHubProgress(null, this)"><i class="ti ti-refresh"></i> 一键同步 TestHub</button>' : ''}<span class="card-tag" id="teamTaskVisibleCount" style="background:#EDE8FF;color:var(--purple);">${visibleTasks.length} 项</span></div>
         </div>
+        ${unassignedTaskCount ? `<div class="feature-change-alert project-data-warning"><strong>${unassignedTaskCount} 个未完成事项尚未归属项目</strong><div>当前暂归入 Other；请由 QA 负责人编辑事项并选择所属项目排期。</div></div>` : ''}
         ${taskSummary}${taskFilters}
         <div class="team-task-filters task-batch-floating" id="taskBatchToolbar"><strong id="taskBatchCount">已选 0 项</strong><select class="dashboard-filter" id="taskBatchStatus"><option value="todo">改为待处理</option><option value="in_progress">改为进行中</option><option value="cancelled">改为已取消</option></select><button class="btn-secondary" onclick="batchUpdateTaskStatus()">批量更新状态</button><input class="dashboard-filter" id="taskBatchDeadline" type="date"><button class="btn-secondary" onclick="batchUpdateTaskDeadline()">批量修改截止日</button></div>
         <div style="overflow-x:auto;">
@@ -6513,6 +6466,11 @@ async function saveQaTask() {
   if (!title) { showToast('请填写任务标题', 'error'); return; }
   if (!releaseId) { showToast('请选择所属版本', 'error'); return; }
   if (!portfolioPlanId) { showToast('请选择所属项目排期', 'error'); return; }
+  const releaseProjectId = document.getElementById('newTaskRelease')?.selectedOptions?.[0]?.dataset.projectId || '';
+  const planProjectId = document.getElementById('newTaskPortfolioPlan')?.selectedOptions?.[0]?.dataset.projectId || '';
+  if (!releaseProjectId || !planProjectId || releaseProjectId !== planProjectId) {
+    showToast('所属版本和项目排期必须属于同一个项目', 'error'); return;
+  }
   if (!Number.isInteger(testRound) || testRound < 1 || testRound > 99) { showToast('测试轮次必须是 1 到 99 的整数', 'error'); return; }
   if (!Number.isFinite(effort) || effort <= 0) { showToast('预估人天必须大于 0', 'error'); return; }
   if (!assigneeIds.length) { showToast('请至少选择 1 位负责人', 'error'); return; }

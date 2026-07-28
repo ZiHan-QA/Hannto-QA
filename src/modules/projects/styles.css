@@ -1,0 +1,133 @@
+.projects-module .project-card {
+  appearance: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+}
+
+.projects-module-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.projects-module-description,
+.projects-module-field {
+  margin-top: 12px;
+}
+
+.projects-module-full-row {
+  grid-column: 1 / -1;
+}
+
+.project-state {
+  align-self: flex-start;
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.project-state.active {
+  background: #ddf7ee;
+  color: #0f6e56;
+}
+
+.project-state.planned {
+  background: #fff3cc;
+  color: #8a5a00;
+}
+
+.project-state.paused {
+  background: #eee8ff;
+  color: #5b21b6;
+}
+
+.project-state.closed,
+.project-state.archived {
+  background: #eee;
+  color: #666;
+}
+
+.projects-module-editor {
+  width: min(700px, 100%);
+}
+
+.projects-module-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.projects-module-member {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: 8px;
+  text-align: left;
+}
+
+.projects-module-member strong {
+  font-size: 12px;
+}
+
+.projects-module-member small {
+  display: block;
+}
+
+.projects-module-back {
+  margin-bottom: 10px;
+}
+
+.projects-module-summary {
+  margin-top: 14px;
+}
+
+.projects-module-toolbar {
+  margin-top: 16px;
+}
+
+.projects-module-empty-gantt {
+  color: var(--sub);
+}
+
+.projects-module-head-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.project-data-warning {
+  align-items: center;
+  background: #fff4e6;
+  border: 1px solid #ffd8a8;
+  border-radius: 12px;
+  color: #8a4b08;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin: 14px 0;
+  padding: 12px 14px;
+}
+
+.project-data-warning small {
+  flex-basis: 100%;
+}
+
+.projects-module-release-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.projects-module-release-strip span {
+  background: #faf6f2;
+  border-radius: 999px;
+  color: var(--sub);
+  font-size: 10px;
+  padding: 6px 10px;
+}
