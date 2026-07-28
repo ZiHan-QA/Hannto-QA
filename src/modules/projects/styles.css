@@ -131,3 +131,31 @@
   font-size: 10px;
   padding: 6px 10px;
 }
+
+.project-data-flow {
+  align-items: center;
+  background: #faf8ff;
+  border: 1px solid #dcd0ff;
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 12px;
+  margin: 14px 0;
+  padding: 12px 14px;
+}
+
+.project-data-flow strong {
+  color: #4b1fb8;
+}
+
+.project-data-flow span {
+  background: #eee8ff;
+  border-radius: 999px;
+  color: #5b21b6;
+  font-weight: 700;
+  padding: 5px 10px;
+}
+
+.project-data-flow small {
+  color: var(--sub);
+}

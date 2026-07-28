@@ -15,7 +15,7 @@ module-name/
 
 1. ~~feedback~~（已完成）
 2. ~~projects~~（已完成）
-3. releases
-4. reports
-5. tasks
+3. ~~tasks（页面入口与生命周期已迁移，业务内核继续拆分）~~
+4. releases
+5. reports
 6. portfolio

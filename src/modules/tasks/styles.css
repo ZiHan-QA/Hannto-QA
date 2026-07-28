@@ -1,0 +1,84 @@
+.tasks-module {
+  min-width: 0;
+}
+
+.tasks-module-error {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 120px;
+  padding: 20px;
+}
+
+.tasks-module-error > .ti {
+  color: var(--pink);
+  font-size: 24px;
+}
+
+.tasks-module-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tasks-module-toolbar .card-tag {
+  background: #ede8ff;
+  color: var(--purple);
+}
+
+.tasks-module-table-wrap {
+  overflow-x: auto;
+}
+
+.tasks-module-table {
+  min-width: 900px;
+}
+
+.tasks-module-empty-row {
+  padding: 30px;
+  color: var(--sub);
+  text-align: center;
+}
+
+.tasks-module-assignees,
+.tasks-module-range {
+  font-size: 11px;
+}
+
+.tasks-module-row-actions,
+.tasks-module-progress-head {
+  display: flex;
+  gap: 6px;
+}
+
+.tasks-module-row-actions {
+  flex-wrap: wrap;
+}
+
+.tasks-module-progress-head {
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.tasks-module-description {
+  white-space: pre-wrap;
+  font-size: 11px;
+  line-height: 1.65;
+}
+
+.tasks-module-list #teamTaskEmptyState {
+  display: none;
+  margin-top: 10px;
+}
+
+@media (max-width: 720px) {
+  .tasks-module-error {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .tasks-module-error .btn-secondary {
+    grid-column: 1 / -1;
+  }
+}

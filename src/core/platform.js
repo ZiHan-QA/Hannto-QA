@@ -4,7 +4,7 @@
   const pageTitles = Object.freeze({
     dashboard: '工作台',
     tasks: '工作事项',
-    releases: '版本发布',
+    releases: '版本与发布',
     report: '质量报表',
     prd: 'PRD 管理',
     testmap: '全功能测试地图',
@@ -19,7 +19,7 @@
     members: '成员管理',
     settings: '系统设置',
     portfolio: '项目总排期',
-    projects: '项目中心',
+    projects: '项目总览',
     feedback: '意见反馈',
   });
 
@@ -36,6 +36,7 @@
     xiaomi: '小米',
     consumer: '消费',
     other: 'Other',
+    unassigned: '待归属',
   });
 
   const modules = new Map();
