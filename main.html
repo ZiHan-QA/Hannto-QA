@@ -504,6 +504,50 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .member-work-summary small { color: var(--sub); }
 .member-work-summary .has-gap { background: #fff5e6; }
 .member-work-summary .has-gap strong { color: #b45309; }
+.portfolio-month-grid { display:grid; grid-template-columns:repeat(6,minmax(150px,1fr)); gap:9px; overflow-x:auto; padding-bottom:5px; }
+.portfolio-month-card { min-width:150px; padding:12px; border:1px solid var(--line); border-radius:13px; background:#fffdfb; }
+.portfolio-month-card.over { border-color:#f7b7b7; background:#fff2f2; }
+.portfolio-month-card.current { box-shadow:inset 0 0 0 1px var(--purple); }
+.portfolio-month-title { display:flex; justify-content:space-between; gap:8px; font-size:11px; font-weight:700; }
+.portfolio-month-numbers { margin-top:9px; font-size:10px; color:var(--sub); line-height:1.65; }
+.portfolio-month-numbers strong { color:var(--text); font-size:18px; }
+.portfolio-progress { height:6px; margin-top:8px; border-radius:999px; background:#eee9e3; overflow:hidden; }
+.portfolio-progress > i { display:block; height:100%; border-radius:inherit; background:var(--teal); }
+.portfolio-month-card.over .portfolio-progress > i { background:#ef5d68; }
+.portfolio-demand { display:grid; grid-template-columns:minmax(180px,1.6fr) 90px 100px 100px minmax(150px,1fr) 150px; gap:10px; align-items:center; padding:11px 0; border-bottom:1px solid var(--line); font-size:11px; }
+.portfolio-demand:last-child { border-bottom:0; }
+.portfolio-demand-head { color:var(--sub); font-size:10px; font-weight:600; }
+.portfolio-gantt { margin-top:14px; overflow-x:auto; border:1px solid var(--line); border-radius:14px; background:#fffdfb; }
+.portfolio-gantt-grid { display:grid; grid-template-columns:190px repeat(6,minmax(125px,1fr)); min-width:940px; }
+.portfolio-gantt-cell { min-height:42px; padding:9px 10px; border-right:1px solid var(--line); border-bottom:1px solid var(--line); font-size:10px; }
+.portfolio-gantt-cell:nth-child(7n) { border-right:0; }
+.portfolio-gantt-header { min-height:auto; color:var(--sub); font-weight:700; text-align:center; background:#fbf8f4; }
+.portfolio-gantt-project { position:sticky; left:0; z-index:2; background:#fffdfb; font-size:11px; }
+.portfolio-gantt-project small { display:block; margin-top:3px; color:var(--sub); font-size:9px; }
+.portfolio-gantt-edit { margin-top:6px; padding:4px 8px; border:1px solid var(--line); border-radius:7px; background:#fff; color:var(--purple); font-size:9px; cursor:pointer; }
+.portfolio-gantt-edit:hover { border-color:var(--purple); background:#f7f2ff; }
+.portfolio-linked-tasks { margin-top:6px; border-top:1px dashed var(--line); padding-top:5px; }
+.portfolio-linked-tasks summary { color:var(--purple); font-size:9px; font-weight:700; cursor:pointer; list-style:none; }
+.portfolio-linked-tasks summary::-webkit-details-marker { display:none; }
+.portfolio-linked-tasks summary::before { content:'▸'; display:inline-block; margin-right:4px; transition:transform .15s ease; }
+.portfolio-linked-tasks[open] summary::before { transform:rotate(90deg); }
+.portfolio-linked-task-list { max-height:150px; margin-top:5px; overflow:auto; display:grid; gap:5px; }
+.portfolio-linked-task { padding:6px; border-radius:7px; background:#f8f5f1; line-height:1.45; }
+.portfolio-linked-task strong { display:block; font-size:9px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.portfolio-linked-task span { display:block; color:var(--sub); font-size:8px; }
+.portfolio-gantt-slot { padding:6px; background:linear-gradient(90deg,transparent 49%,rgba(229,221,213,.35) 50%,transparent 51%); }
+.portfolio-gantt-bar { height:30px; display:flex; align-items:center; justify-content:center; border-radius:8px; color:#24302d; font-size:10px; font-weight:700; background:#c8f2eb; }
+.portfolio-gantt-bar.app { background:#ffdce9; color:#8d3154; }
+.portfolio-gantt-bar.pad { background:#ded6ff; color:#5431a4; }
+.portfolio-gantt-bar.pc { background:#d6efff; color:#245d82; }
+.portfolio-gantt-bar.device { background:#ffe7b8; color:#8a5700; }
+.portfolio-gantt-empty { color:#c6b8ac; text-align:center; padding-top:8px; }
+.portfolio-allocation-editor { margin-top:12px; padding:12px; border:1px solid var(--line); border-radius:12px; background:#fbf8f4; }
+.portfolio-allocation-grid { display:grid; grid-template-columns:repeat(3,minmax(130px,1fr)); gap:9px; margin-top:8px; }
+.portfolio-allocation-item label { display:block; margin-bottom:4px; color:var(--sub); font-size:10px; }
+.portfolio-allocation-total { margin-top:9px; color:var(--ink); font-size:11px; font-weight:700; }
+@media (max-width:720px) { .portfolio-allocation-grid { grid-template-columns:repeat(2,minmax(120px,1fr)); } }
+@media (max-width:900px) { .portfolio-demand { grid-template-columns:1fr 90px 90px; } .portfolio-demand > :nth-child(4), .portfolio-demand > :nth-child(5) { display:none; } }
 .task-title-button { border:0; padding:0; background:none; color:var(--text); font:inherit; font-weight:700; text-align:left; cursor:pointer; }
 .task-title-button:hover { color:var(--purple); }
 .task-list-progress { min-width:150px; }
@@ -547,6 +591,9 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   </a>
   <a class="sb-item" onclick="nav(this,'tasks')">
     <i class="ti ti-clipboard-list"></i>工作事项
+  </a>
+  <a class="sb-item" onclick="nav(this,'portfolio')" id="portfolioMenu" style="display:none">
+    <i class="ti ti-timeline"></i>项目总排期
   </a>
   <a class="sb-item" onclick="nav(this,'releases')">
     <i class="ti ti-rocket"></i>版本发布
@@ -657,6 +704,7 @@ const TASK_TEMPLATES = {
 
 let currentUser = null;
 let userRole = 'member';
+let currentUserResourceParticipant = true;
 let currentPage = 'dashboard';
 let autoRealtimeSub = null;
 let dashboardRealtimeSub = null;
@@ -699,6 +747,23 @@ let taskExpandedIds = new Set();
 let resourceCellDetailCache = new Map();
 let memberPasswordProfileCache = new Map();
 let memberPasswordTarget = null;
+
+function isResourceParticipant(profile) {
+  return profile?.resource_participant !== false;
+}
+
+function memberTypeText(profile) {
+  if (profile?.role === 'admin') return '管理员';
+  return isResourceParticipant(profile) ? '成员' : '观察者 · 只读不计资源';
+}
+
+function isCurrentUserObserver() {
+  return userRole !== 'admin' && currentUserResourceParticipant === false;
+}
+
+function canViewTeamTasks() {
+  return userRole === 'admin' || isCurrentUserObserver();
+}
 let localTestHubSyncMonitorToken = 0;
 let pendingTestHubFocusTaskId = null;
 let pendingTestHubSyncButton = null;
@@ -711,6 +776,7 @@ const pageTitles = {
   onboarding: '团队知识库',
   cases: '用例库', plan: '测试计划', bugs: 'BUG 管理',
   members: '成员管理', settings: '系统设置',
+  portfolio: '项目总排期',
 };
 
 async function init() {
@@ -719,9 +785,10 @@ async function init() {
   currentUser = session.user;
 
   try {
-    const { data } = await sb.from('profiles').select('role,name').eq('id', currentUser.id).single();
+    const { data } = await sb.from('profiles').select('role,name,resource_participant').eq('id', currentUser.id).single();
     if (data) {
       userRole = data.role || 'member';
+      currentUserResourceParticipant = data.resource_participant !== false;
       setUserInfo(data.name || currentUser.email, userRole);
     } else {
       setUserInfo(currentUser.email, 'member');
@@ -732,6 +799,9 @@ async function init() {
 
   if (userRole === 'admin') {
     document.getElementById('membersMenu').style.display = 'flex';
+  }
+  if (userRole === 'admin' || isCurrentUserObserver()) {
+    document.getElementById('portfolioMenu').style.display = 'flex';
   }
 
   const now = new Date();
@@ -752,7 +822,7 @@ async function init() {
 function setUserInfo(name, role) {
   const displayName = name !== currentUser.email ? name : currentUser.email.split('@')[0];
   document.getElementById('userName').textContent = displayName;
-  document.getElementById('userRole').textContent = role === 'admin' ? '管理员' : '成员';
+  document.getElementById('userRole').textContent = role === 'admin' ? '管理员' : isCurrentUserObserver() ? '观察者' : '成员';
   document.getElementById('userAvatar').textContent = displayName.charAt(0).toUpperCase();
 }
 
@@ -882,6 +952,7 @@ function renderPage(page) {
   const content = document.getElementById('content');
   if (page === 'dashboard') { renderDashboard(); return; }
   if (page === 'tasks') { renderTaskRecords(); return; }
+  if (page === 'portfolio') { renderPortfolioPlanning(); return; }
   if (page === 'releases') { renderReleaseManagement(); return; }
   if (page === 'report') { renderQualityReport(); return; }
   if (page === 'bugs') { renderBugManagement(); return; }
@@ -964,7 +1035,7 @@ function applyTaskTemplate(templateKey) {
 }
 
 function taskWorkflowFieldsHtml() {
-  return `<div class="dashboard-form-grid" style="margin-top:12px;"><div class="form-group"><label class="form-label" for="newTaskRelease">所属版本（选填）</label><select class="form-select" id="newTaskRelease"><option value="">不关联版本</option></select></div></div><div id="taskBlockedFields" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:#fff5e6;"><div class="dashboard-form-grid"><div class="form-group"><label class="form-label" for="newTaskBlockedOwner">阻塞处理人（选填）</label><select class="form-select" id="newTaskBlockedOwner"><option value="">暂未指定</option></select></div><div class="form-group"><label class="form-label" for="newTaskBlockedUntil">预计解除日期（选填）</label><input class="dashboard-input" id="newTaskBlockedUntil" type="date"></div></div><div class="form-group" style="margin-top:10px;"><label class="form-label" for="newTaskBlockedReason">阻塞原因</label><textarea class="dashboard-input" id="newTaskBlockedReason" rows="2" maxlength="1000" placeholder="说明阻塞内容、依赖方和下一步"></textarea></div></div><div id="taskCompletionFields" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:#eefaf5;"><label class="form-label" for="newTaskCompletionNote">完成说明</label><textarea class="dashboard-input" id="newTaskCompletionNote" rows="3" maxlength="1000" placeholder="填写完成结果、遗留问题或交付物"></textarea></div>`;
+  return `<div class="dashboard-form-grid" style="margin-top:12px;"><div class="form-group"><label class="form-label" for="newTaskRelease">所属版本 *</label><select class="form-select" id="newTaskRelease" required><option value="">请选择所属版本</option></select></div><div class="form-group"><label class="form-label" for="newTaskPortfolioPlan">所属项目排期 *</label><select class="form-select" id="newTaskPortfolioPlan" required><option value="">请选择所属项目排期</option></select><div class="assignee-allocation-note">关联后，服务器计时产生的实际完成点数会自动汇总到项目排期。</div></div></div><div id="taskBlockedFields" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:#fff5e6;"><div class="dashboard-form-grid"><div class="form-group"><label class="form-label" for="newTaskBlockedOwner">阻塞处理人（选填）</label><select class="form-select" id="newTaskBlockedOwner"><option value="">暂未指定</option></select></div><div class="form-group"><label class="form-label" for="newTaskBlockedUntil">预计解除日期（选填）</label><input class="dashboard-input" id="newTaskBlockedUntil" type="date"></div></div><div class="form-group" style="margin-top:10px;"><label class="form-label" for="newTaskBlockedReason">阻塞原因</label><textarea class="dashboard-input" id="newTaskBlockedReason" rows="2" maxlength="1000" placeholder="说明阻塞内容、依赖方和下一步"></textarea></div></div><div id="taskCompletionFields" style="display:none;margin-top:12px;padding:12px;border-radius:10px;background:#eefaf5;"><label class="form-label" for="newTaskCompletionNote">完成说明</label><textarea class="dashboard-input" id="newTaskCompletionNote" rows="3" maxlength="1000" placeholder="填写完成结果、遗留问题或交付物"></textarea></div>`;
 }
 
 function toggleTaskWorkflowFields() {
@@ -981,11 +1052,30 @@ async function loadTaskReleases(selectedId = '') {
   try {
     const { data, error } = await sb.from('releases').select('id,version,name,platform,status').order('created_at', { ascending:false }).limit(100);
     if (error) throw error;
-    select.innerHTML = `<option value="">不关联版本</option>${(data || []).map(release => `<option value="${release.id}">${escapeDashboardHtml(release.name || release.version)}${release.platform ? ` · ${escapeDashboardHtml(release.platform)}` : ''}${release.status === 'active' ? '（当前）' : ''}</option>`).join('')}`;
+    select.innerHTML = `<option value="">请选择所属版本</option>${(data || []).map(release => `<option value="${release.id}">${escapeDashboardHtml(release.name || release.version)}${release.platform ? ` · ${escapeDashboardHtml(release.platform)}` : ''}${release.status === 'active' ? '（当前）' : ''}</option>`).join('')}`;
     select.value = selectedId || '';
   } catch (error) {
     console.error('[task] releases load failed:', error);
     select.innerHTML = '<option value="">版本加载失败</option>';
+  }
+}
+
+async function loadTaskPortfolioPlans(selectedId = '') {
+  const select = document.getElementById('newTaskPortfolioPlan');
+  if (!select) return;
+  try {
+    const { data, error } = await sb.from('project_monthly_plans')
+      .select('id,project_name,project_type,plan_month,end_month,status')
+      .neq('status', 'cancelled')
+      .order('plan_month', { ascending:false })
+      .order('project_name')
+      .limit(200);
+    if (error) throw error;
+    select.innerHTML = `<option value="">请选择所属项目排期</option>${(data || []).map(plan => `<option value="${plan.id}">${escapeDashboardHtml(plan.project_name)} · ${portfolioTypeText(plan.project_type)} · ${String(plan.plan_month).slice(0,7)}—${String(plan.end_month || plan.plan_month).slice(0,7)}</option>`).join('')}`;
+    select.value = selectedId || '';
+  } catch (error) {
+    console.error('[task] portfolio plans load failed:', error);
+    select.innerHTML = '<option value="">项目排期加载失败</option>';
   }
 }
 
@@ -1030,7 +1120,7 @@ async function renderMemberMappings() {
 
   try {
     const [profilesResult, directoryResult, executionUsersResult, tasksResult, assigneesResult, calendarResult, progressResult, snapshotsResult, dailyResult] = await Promise.all([
-      sb.from('profiles').select('id,name,role,daily_capacity,pingcode_user_id,pingcode_display_name').order('name'),
+      sb.from('profiles').select('id,name,role,daily_capacity,resource_participant,pingcode_user_id,pingcode_display_name').order('name'),
       sb.from('pingcode_user_directory').select('pingcode_user_id,display_name,last_seen_at').order('display_name'),
       sb.from('task_testhub_daily_execution').select('executor_key,executor_name,synced_at').order('synced_at',{ascending:false}).limit(5000),
       sb.from('qa_tasks').select('id,title,status,created_at,completed_at,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days').in('status',['todo','in_progress','blocked','done']),
@@ -1089,10 +1179,11 @@ async function renderMemberMappings() {
     taskTestHubDailyByTask = new Map();
     (dailyResult.data || []).forEach(item => { const list=taskTestHubDailyByTask.get(item.task_id)||[]; list.push(item); taskTestHubDailyByTask.set(item.task_id,list); });
     dashboardWorkCalendar = new Map((calendarResult.data || []).map(day => [day.work_date, day]));
-    rebuildTaskSchedule(profiles, tasksResult.data || [], dashboardWorkCalendar);
-    resourceSourceMembers = profiles;
+    const resourceProfiles = profiles.filter(isResourceParticipant);
+    rebuildTaskSchedule(resourceProfiles, tasksResult.data || [], dashboardWorkCalendar);
+    resourceSourceMembers = resourceProfiles;
     resourceSourceTasks = tasksResult.data || [];
-    const memberResource = buildResourceCapacity(profiles, resourceSourceTasks, dashboardWorkCalendar);
+    const memberResource = buildResourceCapacity(resourceProfiles, resourceSourceTasks, dashboardWorkCalendar);
     pingCodeDirectoryCache = new Map(directory.map(user => [user.pingcode_user_id, user]));
     const options = directory.map(user =>
       `<option value="${escapeDashboardHtml(user.pingcode_user_id)}">${escapeDashboardHtml(user.display_name || '未命名')} · ${escapeDashboardHtml(user.pingcode_user_id.slice(-6))}</option>`
@@ -1107,23 +1198,23 @@ async function renderMemberMappings() {
         : suggestions.length > 1 ? `发现 ${suggestions.length} 个同名账号，请按 ID 确认` : '暂无同名候选';
       if (profile.pingcode_user_id) {
         return `<tr>
-          <td><strong>${escapeDashboardHtml(profile.name || '未命名成员')}</strong><br><span style="color:var(--sub);font-size:10px;">${profile.role === 'admin' ? '管理员' : '成员'}</span></td>
+          <td><strong>${escapeDashboardHtml(profile.name || '未命名成员')}</strong><br><span style="color:var(--sub);font-size:10px;">${memberTypeText(profile)}</span></td>
           <td><code>${escapeDashboardHtml(profile.pingcode_user_id)}</code><br><span style="color:#0F6E56;font-size:10px;">已绑定，不再需要手工输入</span></td>
           <td><strong>${escapeDashboardHtml(boundDisplayName)}</strong></td>
-          <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="clearPingCodeMapping('${profile.id}')">解除绑定</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
+          <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="toggleMemberResourceParticipation('${profile.id}',${isResourceParticipant(profile) ? 'false' : 'true'})">${isResourceParticipant(profile) ? '设为观察者' : '恢复资源成员'}</button><button class="btn-secondary" onclick="clearPingCodeMapping('${profile.id}')">解除绑定</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
         </tr>`;
       }
       return `<tr>
-        <td><input class="dashboard-input" id="profileName-${profile.id}" value="${escapeDashboardHtml(profile.name || '')}" maxlength="50" placeholder="成员名称"><br><span style="color:var(--sub);font-size:10px;">${profile.role === 'admin' ? '管理员' : '成员'}</span></td>
+        <td><input class="dashboard-input" id="profileName-${profile.id}" value="${escapeDashboardHtml(profile.name || '')}" maxlength="50" placeholder="成员名称"><br><span style="color:var(--sub);font-size:10px;">${memberTypeText(profile)}</span></td>
         <td><input class="dashboard-input" id="pingcodeMap-${profile.id}" list="pingcodeUserOptions" value="${escapeDashboardHtml(profile.pingcode_user_id || '')}" placeholder="选择候选或粘贴 PingCode 用户 ID"><br><span style="color:var(--sub);font-size:10px;">${escapeDashboardHtml(suggestion)}</span></td>
         <td>${escapeDashboardHtml(boundDisplayName)}</td>
-        <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
+        <td><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-primary" onclick="savePingCodeMapping('${profile.id}')">保存成员</button><button class="btn-secondary" onclick="toggleMemberResourceParticipation('${profile.id}',${isResourceParticipant(profile) ? 'false' : 'true'})">${isResourceParticipant(profile) ? '设为观察者' : '恢复资源成员'}</button><button class="btn-secondary" onclick="openMemberPasswordReset('${profile.id}')">重置密码</button></div></td>
       </tr>`;
     }).join('');
     content.innerHTML = `
       <div class="history-card">
         <div class="card-hd" style="margin-bottom:12px;"><span class="card-title">👥 成员与 PingCode 账号映射</span><span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${directory.length} 个候选</span></div>
-        <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">姓名只用于建议；保存时以 PingCode 用户 ID 为唯一依据。候选来自 TestHub 最近执行人。</div>
+        <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">姓名只用于建议；保存时以 PingCode 用户 ID 为唯一依据。观察者可以登录浏览，但不会出现在负责人、资源容量、进度与风险统计中。</div>
         <datalist id="pingcodeUserOptions">${options}</datalist>
         <div style="overflow-x:auto;"><table class="history-table"><thead><tr><th>平台成员</th><th>PingCode 用户 ID</th><th>当前显示名</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="4">暂无成员</td></tr>'}</tbody></table></div>
       </div>
@@ -1256,6 +1347,25 @@ async function savePingCodeMapping(profileId) {
   }
 }
 
+async function toggleMemberResourceParticipation(profileId, enabled) {
+  if (userRole !== 'admin') return;
+  const profile = memberPasswordProfileCache.get(profileId);
+  if (!profile) return;
+  const action = enabled ? '恢复为资源成员' : '设为观察者';
+  if (!window.confirm(`确认将“${profile.name || '该账号'}”${action}吗？`)) return;
+  try {
+    const { error } = await sb.from('profiles')
+      .update({ resource_participant: Boolean(enabled) })
+      .eq('id', profileId);
+    if (error) throw error;
+    showToast(enabled ? '已恢复资源统计与负责人选择' : '已设为观察者，不再参与资源和进度统计');
+    await renderMemberMappings();
+  } catch (error) {
+    console.error('[members] resource participation update failed:', error);
+    showToast('成员类型更新失败：' + error.message, 'error');
+  }
+}
+
 async function clearPingCodeMapping(profileId) {
   if (!window.confirm('确认解除该成员与 PingCode 账号的绑定吗？')) return;
   try {
@@ -1362,6 +1472,7 @@ function taskAssigneeList(task) {
 }
 
 function canCurrentUserEditTask(task) {
+  if (isCurrentUserObserver()) return false;
   const assignments = taskAssigneeList(task);
   return userRole === 'admin' || (
     task.created_by === currentUser.id
@@ -1371,6 +1482,7 @@ function canCurrentUserEditTask(task) {
 }
 
 function canCurrentUserUpdateTaskStatus(task) {
+  if (isCurrentUserObserver()) return false;
   return userRole === 'admin' || taskAssigneeList(task).some(item => item.member_id === currentUser.id);
 }
 
@@ -1848,6 +1960,387 @@ function releaseStatusText(status) {
   return ({ planned:'计划中', active:'当前活动', released:'已发布', archived:'已归档' })[status] || status;
 }
 
+let portfolioSelectedMonth = '';
+let portfolioPlanCache = new Map();
+let editingPortfolioPlanId = null;
+
+function portfolioMonthKey(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(`${String(value).slice(0, 7)}-01T00:00:00`);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`;
+}
+
+function portfolioMonthLabel(value) {
+  const date = new Date(`${value}T00:00:00`);
+  return `${date.getFullYear()}年${date.getMonth() + 1}月`;
+}
+
+function portfolioShiftedMonth(value, offset) {
+  const date = new Date(`${value}T00:00:00`);
+  date.setMonth(date.getMonth() + offset);
+  return portfolioMonthKey(date);
+}
+
+function portfolioMonthsBetween(startMonth, endMonth) {
+  if (!startMonth || !endMonth || endMonth < startMonth) return [];
+  const months = [];
+  let cursor = portfolioMonthKey(startMonth);
+  const last = portfolioMonthKey(endMonth);
+  while (cursor <= last && months.length < 60) {
+    months.push(cursor);
+    cursor = portfolioShiftedMonth(cursor, 1);
+  }
+  return months;
+}
+
+function portfolioPlanCoversMonth(plan, month) {
+  const endMonth = plan.end_month || plan.plan_month;
+  return plan.status !== 'cancelled' && plan.plan_month <= month && endMonth >= month;
+}
+
+function portfolioPlanMonthlyDemand(plan, month) {
+  if (!portfolioPlanCoversMonth(plan, month)) return 0;
+  const allocations = plan.monthly_allocations && typeof plan.monthly_allocations === 'object'
+    ? plan.monthly_allocations
+    : {};
+  if (Object.prototype.hasOwnProperty.call(allocations, month)) return Number(allocations[month] || 0);
+  return month === plan.plan_month ? Number(plan.required_person_months || 0) : 0;
+}
+
+function portfolioMonthWorkdays(monthKey, calendar) {
+  const start = new Date(`${monthKey}T00:00:00`);
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + 1);
+  let count = 0;
+  for (const cursor = new Date(start); cursor < end; cursor.setDate(cursor.getDate() + 1)) {
+    const key = dashboardLocalDateKey(cursor);
+    const override = calendar.get(key);
+    const isWorkday = override ? override.is_workday : ![0, 6].includes(cursor.getDay());
+    if (isWorkday) count += 1;
+  }
+  return count;
+}
+
+function portfolioTaskActiveIntervals(task, activities, now = new Date()) {
+  const ordered = [...(activities || [])].sort((left, right) => new Date(left.created_at) - new Date(right.created_at));
+  const intervals = [];
+  let status = null;
+  let activeStart = null;
+  for (const activity of ordered) {
+    const nextStatus = activity.new_values?.status;
+    if (!nextStatus || nextStatus === status) continue;
+    const changedAt = new Date(activity.created_at);
+    if (status === 'in_progress' && activeStart && nextStatus !== 'in_progress') {
+      intervals.push([activeStart, changedAt]);
+      activeStart = null;
+    }
+    if (status !== 'in_progress' && nextStatus === 'in_progress') activeStart = changedAt;
+    status = nextStatus;
+  }
+  if (status === 'in_progress' && activeStart) intervals.push([activeStart, now]);
+  if (!intervals.length && task.status === 'in_progress' && task.created_at) intervals.push([new Date(task.created_at), now]);
+  if (!intervals.length && task.status === 'done' && task.created_at && task.completed_at) {
+    intervals.push([new Date(task.created_at), new Date(task.completed_at)]);
+  }
+  return intervals.filter(([start, end]) => Number.isFinite(start.getTime()) && Number.isFinite(end.getTime()) && end > start);
+}
+
+function portfolioIntervalHalfDayUnits(intervals, calendar) {
+  let rawUnits = 0;
+  for (const [start, end] of intervals) {
+    for (let dateKey = dashboardLocalDateKey(start); dateKey <= dashboardLocalDateKey(end); dateKey = addDashboardDate(dateKey, 1)) {
+      if (!isResourceWorkday(dateKey, calendar)) continue;
+      for (const [from, to] of [['09:00:00','13:00:00'], ['13:00:00','18:00:00']]) {
+        const slotStart = new Date(`${dateKey}T${from}`);
+        const slotEnd = new Date(`${dateKey}T${to}`);
+        const overlap = Math.max(0, Math.min(end.getTime(), slotEnd.getTime()) - Math.max(start.getTime(), slotStart.getTime()));
+        if (overlap > 0) rawUnits += overlap / (slotEnd.getTime() - slotStart.getTime());
+      }
+    }
+  }
+  return rawUnits > 0 ? Math.ceil(rawUnits - 1e-9) : 0;
+}
+
+function portfolioTaskServerActualPoints(task, activities, calendar, now = new Date()) {
+  const halfDayUnits = portfolioIntervalHalfDayUnits(portfolioTaskActiveIntervals(task, activities, now), calendar);
+  const plannedDailyPoints = resourceDailyPoints(task, calendar);
+  return Math.max(0, halfDayUnits * plannedDailyPoints / 2);
+}
+
+function portfolioTypeText(value) {
+  return ({ app:'APP', pad:'Pad', pc:'PC', device:'设备项目', other:'其他' })[value] || '其他';
+}
+
+function portfolioStatusText(value) {
+  return ({ planned:'规划中', confirmed:'已确认', completed:'已完成', cancelled:'已取消' })[value] || value;
+}
+
+function portfolioPlanModalHtml() {
+  return `<div class="dashboard-modal" id="portfolioPlanModal" onclick="closePortfolioPlanEditor()">
+    <div class="dashboard-modal-panel" style="width:min(680px,100%);" onclick="event.stopPropagation()">
+      <div class="dashboard-modal-hd"><div class="dashboard-modal-title" id="portfolioPlanModalTitle">新增项目排期</div><button class="dashboard-modal-close" onclick="closePortfolioPlanEditor()"><i class="ti ti-x"></i></button></div>
+      <div class="dashboard-form-grid">
+        <div class="form-group"><label class="form-label">项目名称 *</label><input class="dashboard-input" id="portfolioProjectName" maxlength="120" placeholder="例如：Cranberry"></div>
+        <div class="form-group"><label class="form-label">项目类型</label><select class="form-select" id="portfolioProjectType"><option value="app">APP</option><option value="pad">Pad</option><option value="pc">PC</option><option value="device">设备项目</option><option value="other">其他</option></select></div>
+        <div class="form-group"><label class="form-label">开始月份 *</label><input class="dashboard-input" id="portfolioPlanStartMonth" type="month" onchange="renderPortfolioAllocationInputs()"></div>
+        <div class="form-group"><label class="form-label">结束月份（包含）*</label><input class="dashboard-input" id="portfolioPlanEndMonth" type="month" onchange="renderPortfolioAllocationInputs()"></div>
+        <div class="form-group"><label class="form-label">项目负责人（选填）</label><input class="dashboard-input" id="portfolioOwnerName" maxlength="80" placeholder="姓名或团队"></div>
+        <div class="form-group"><label class="form-label">状态</label><select class="form-select" id="portfolioPlanStatus"><option value="planned">规划中</option><option value="confirmed">已确认</option><option value="completed">已完成</option><option value="cancelled">已取消</option></select></div>
+      </div>
+      <div class="portfolio-allocation-editor"><strong>逐月投入人力 *</strong><div class="release-meta">每个月单独填写所需人月，允许某月为 0。</div><div class="portfolio-allocation-grid" id="portfolioAllocationGrid"></div><div class="portfolio-allocation-total" id="portfolioAllocationTotal">合计 0.0 人月</div></div>
+      <div class="form-group" style="margin-top:12px;"><label class="form-label">备注</label><textarea class="dashboard-input" id="portfolioPlanNotes" rows="3" maxlength="500" placeholder="范围、依赖、投入假设等"></textarea></div>
+      <div class="assignee-allocation-note">月度容量、甘特图和超载提醒都直接采用各月填写的人月，不做平均分摊。</div>
+      <div class="dashboard-form-actions"><button class="btn-secondary" onclick="closePortfolioPlanEditor()">取消</button><button class="btn-primary" id="savePortfolioPlanBtn" onclick="savePortfolioPlan()">保存排期</button></div>
+    </div>
+  </div>`;
+}
+
+function collectPortfolioAllocationInputs() {
+  return Object.fromEntries(Array.from(document.querySelectorAll('.portfolio-allocation-input')).map(input => [
+    input.dataset.month,
+    Math.max(0, Number(input.value || 0))
+  ]));
+}
+
+function updatePortfolioAllocationTotal() {
+  const total = Object.values(collectPortfolioAllocationInputs()).reduce((sum, value) => sum + value, 0);
+  const label = document.getElementById('portfolioAllocationTotal');
+  if (label) label.textContent = `合计 ${total.toFixed(1)} 人月`;
+}
+
+function renderPortfolioAllocationInputs(seed = null) {
+  const grid = document.getElementById('portfolioAllocationGrid');
+  if (!grid) return;
+  const preserved = seed || collectPortfolioAllocationInputs();
+  const startMonth = document.getElementById('portfolioPlanStartMonth')?.value || '';
+  const endMonth = document.getElementById('portfolioPlanEndMonth')?.value || '';
+  const months = portfolioMonthsBetween(startMonth, endMonth);
+  if (!months.length) {
+    grid.innerHTML = '<div class="release-meta">请先选择有效的开始和结束月份</div>';
+    updatePortfolioAllocationTotal();
+    return;
+  }
+  grid.innerHTML = months.map(month => `<div class="portfolio-allocation-item">
+    <label>${portfolioMonthLabel(month)}</label>
+    <input class="dashboard-input portfolio-allocation-input" data-month="${month}" type="number" min="0" max="999" step="0.1" value="${Number(preserved[month] || 0)}" oninput="updatePortfolioAllocationTotal()">
+  </div>`).join('');
+  updatePortfolioAllocationTotal();
+}
+
+function openPortfolioPlanEditor(id = null) {
+  if (userRole !== 'admin') return;
+  const record = id ? portfolioPlanCache.get(id) : null;
+  editingPortfolioPlanId = id;
+  document.getElementById('portfolioPlanModalTitle').textContent = record ? '编辑项目排期' : '新增项目排期';
+  document.getElementById('portfolioPlanStartMonth').value = (record?.plan_month || portfolioSelectedMonth).slice(0, 7);
+  document.getElementById('portfolioPlanEndMonth').value = (record?.end_month || record?.plan_month || portfolioSelectedMonth).slice(0, 7);
+  document.getElementById('portfolioProjectName').value = record?.project_name || '';
+  document.getElementById('portfolioProjectType').value = record?.project_type || 'app';
+  document.getElementById('portfolioOwnerName').value = record?.owner_name || '';
+  document.getElementById('portfolioPlanStatus').value = record?.status || 'planned';
+  document.getElementById('portfolioPlanNotes').value = record?.notes || '';
+  document.getElementById('portfolioPlanModal').classList.add('open');
+  const allocations = record?.monthly_allocations && Object.keys(record.monthly_allocations).length
+    ? record.monthly_allocations
+    : (record ? { [record.plan_month]:Number(record.required_person_months || 0) } : {});
+  renderPortfolioAllocationInputs(allocations);
+  setTimeout(() => document.getElementById('portfolioProjectName')?.focus(), 50);
+}
+
+function closePortfolioPlanEditor() {
+  document.getElementById('portfolioPlanModal')?.classList.remove('open');
+  editingPortfolioPlanId = null;
+}
+
+async function savePortfolioPlan() {
+  if (userRole !== 'admin') return;
+  const startMonth = document.getElementById('portfolioPlanStartMonth')?.value || '';
+  const endMonth = document.getElementById('portfolioPlanEndMonth')?.value || '';
+  const projectName = document.getElementById('portfolioProjectName')?.value.trim() || '';
+  const allocations = collectPortfolioAllocationInputs();
+  const required = Object.values(allocations).reduce((sum, value) => sum + value, 0);
+  if (!startMonth || !endMonth || !projectName || !(required > 0)) {
+    showToast('请完整填写起止月份、项目名称和至少一个月的投入人月', 'error');
+    return;
+  }
+  if (endMonth < startMonth) {
+    showToast('结束月份不能早于开始月份', 'error');
+    return;
+  }
+  const payload = {
+    plan_month:`${startMonth}-01`,
+    end_month:`${endMonth}-01`,
+    project_name:projectName,
+    project_type:document.getElementById('portfolioProjectType').value,
+    required_person_months:required,
+    monthly_allocations:allocations,
+    owner_name:document.getElementById('portfolioOwnerName').value.trim(),
+    status:document.getElementById('portfolioPlanStatus').value,
+    notes:document.getElementById('portfolioPlanNotes').value.trim()
+  };
+  const button = document.getElementById('savePortfolioPlanBtn');
+  button.disabled = true;
+  const wasEditing = Boolean(editingPortfolioPlanId);
+  try {
+    const result = editingPortfolioPlanId
+      ? await sb.from('project_monthly_plans').update(payload).eq('id', editingPortfolioPlanId)
+      : await sb.from('project_monthly_plans').insert({ ...payload, created_by:currentUser.id });
+    if (result.error) throw result.error;
+    portfolioSelectedMonth = payload.plan_month;
+    closePortfolioPlanEditor();
+    showToast(wasEditing ? '项目排期已更新' : '项目排期已添加');
+    await renderPortfolioPlanning();
+  } catch (error) {
+    console.error('[portfolio] save failed:', error);
+    showToast('项目排期保存失败：' + error.message, 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function deletePortfolioPlan(id) {
+  if (userRole !== 'admin') return;
+  const record = portfolioPlanCache.get(id);
+  if (!record || !window.confirm(`确认删除“${record.project_name}”的排期吗？`)) return;
+  const { error } = await sb.from('project_monthly_plans').delete().eq('id', id);
+  if (error) { showToast('删除失败：' + error.message, 'error'); return; }
+  showToast('项目排期已删除');
+  await renderPortfolioPlanning();
+}
+
+async function changePortfolioMonth(value) {
+  portfolioSelectedMonth = value ? `${value.slice(0, 7)}-01` : portfolioMonthKey();
+  await renderPortfolioPlanning();
+}
+
+async function shiftPortfolioMonth(offset) {
+  portfolioSelectedMonth = portfolioShiftedMonth(portfolioSelectedMonth || portfolioMonthKey(), offset);
+  await renderPortfolioPlanning();
+}
+
+async function renderPortfolioPlanning() {
+  const content = document.getElementById('content');
+  content.style.padding = '24px';
+  if (userRole !== 'admin' && !isCurrentUserObserver()) {
+    content.innerHTML = '<div class="history-card"><div class="dashboard-empty">项目总排期仅供管理员和观察者查看</div></div>';
+    return;
+  }
+  portfolioSelectedMonth ||= portfolioMonthKey();
+  content.innerHTML = '<div class="history-card"><div class="dashboard-loading">正在汇总项目排期与团队容量…</div></div>';
+  const firstMonth = portfolioSelectedMonth;
+  const months = Array.from({ length:6 }, (_, index) => portfolioShiftedMonth(firstMonth, index));
+  const calendarFrom = months[0];
+  const calendarTo = portfolioShiftedMonth(months.at(-1), 1);
+  try {
+    const [plansResult, membersResult, calendarResult, tasksResult, assigneesResult, activityResult, serverTimeResult] = await Promise.all([
+      sb.from('project_monthly_plans').select('*').lt('plan_month', calendarTo).gte('end_month', calendarFrom).order('plan_month').order('project_name'),
+      sb.from('profiles').select('id,name,daily_capacity,resource_participant').eq('resource_participant', true).order('name'),
+      sb.from('work_calendar').select('work_date,is_workday,name'),
+      sb.from('qa_tasks').select('id,title,assignee_id,portfolio_plan_id,status,created_at,completed_at,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').not('portfolio_plan_id','is',null).neq('status','cancelled'),
+      sb.from('qa_task_assignees').select('task_id,member_id'),
+      sb.from('qa_task_activity').select('task_id,new_values,created_at').order('created_at', { ascending:true }).limit(10000),
+      sb.rpc('qa_server_now')
+    ]);
+    for (const result of [plansResult, membersResult, calendarResult, tasksResult, assigneesResult, activityResult]) if (result.error) throw result.error;
+    const plans = plansResult.data || [];
+    const members = membersResult.data || [];
+    const calendar = new Map((calendarResult.data || []).map(item => [item.work_date, item]));
+    const activityByTask = new Map();
+    (activityResult.data || []).forEach(activity => {
+      const activities = activityByTask.get(activity.task_id) || [];
+      activities.push(activity);
+      activityByTask.set(activity.task_id, activities);
+    });
+    const memberNameById = new Map(members.map(member => [member.id, member.name || '未命名成员']));
+    const assigneeIdsByTask = new Map();
+    (assigneesResult.data || []).forEach(item => {
+      const ids = assigneeIdsByTask.get(item.task_id) || [];
+      if (!ids.includes(item.member_id)) ids.push(item.member_id);
+      assigneeIdsByTask.set(item.task_id, ids);
+    });
+    const actualByPlan = new Map();
+    const serverTimeFallback = Boolean(serverTimeResult.error || !serverTimeResult.data);
+    if (serverTimeFallback) console.warn('[portfolio] qa_server_now unavailable, temporarily using browser time:', serverTimeResult.error);
+    const serverNow = serverTimeFallback ? new Date() : new Date(serverTimeResult.data);
+    (tasksResult.data || []).forEach(task => {
+      const summary = actualByPlan.get(task.portfolio_plan_id) || { points:0, taskCount:0, tasks:[] };
+      const actualPoints = portfolioTaskServerActualPoints(task, activityByTask.get(task.id) || [], calendar, serverNow);
+      const assigneeIds = assigneeIdsByTask.get(task.id) || (task.assignee_id ? [task.assignee_id] : []);
+      const assigneeNames = assigneeIds.map(id => memberNameById.get(id)).filter(Boolean);
+      summary.points += actualPoints;
+      summary.taskCount += 1;
+      summary.tasks.push({
+        id:task.id,
+        title:task.title || '未命名事项',
+        status:task.status,
+        actualPoints,
+        assigneeNames
+      });
+      actualByPlan.set(task.portfolio_plan_id, summary);
+    });
+    portfolioPlanCache = new Map(plans.map(item => [item.id, item]));
+    const capacityPersonMonths = members.reduce((sum, member) => sum + (Number(member.daily_capacity) || 1), 0);
+    const monthSummaries = months.map(month => {
+      const monthPlans = plans.filter(item => portfolioPlanCoversMonth(item, month));
+      const demand = monthPlans.reduce((sum, item) => sum + portfolioPlanMonthlyDemand(item, month), 0);
+      const workdays = portfolioMonthWorkdays(month, calendar);
+      const utilization = capacityPersonMonths > 0 ? demand / capacityPersonMonths * 100 : 0;
+      return { month, monthPlans, demand, workdays, utilization, gap:capacityPersonMonths - demand };
+    });
+    const selected = monthSummaries[0];
+    const selectedActualPoints = selected.monthPlans.reduce((sum, plan) => sum + Number(actualByPlan.get(plan.id)?.points || 0), 0);
+    const cards = monthSummaries.map(item => `<article class="portfolio-month-card ${item.gap < -0.001 ? 'over' : ''} ${item.month === portfolioMonthKey() ? 'current' : ''}">
+      <div class="portfolio-month-title"><span>${portfolioMonthLabel(item.month)}</span><span>${item.gap < -0.001 ? `超 ${Math.abs(item.gap).toFixed(1)}` : `余 ${item.gap.toFixed(1)}`}</span></div>
+      <div class="portfolio-month-numbers"><strong>${item.demand.toFixed(1)}</strong> / ${capacityPersonMonths.toFixed(1)} 人月<br>${item.workdays} 个工作日 · ${item.monthPlans.length} 个项目</div>
+      <div class="portfolio-progress"><i style="width:${Math.min(100, item.utilization).toFixed(1)}%"></i></div>
+    </article>`).join('');
+    const ganttRows = plans.filter(item => item.status !== 'cancelled').map(item => {
+      const endMonth = item.end_month || item.plan_month;
+      const slots = months.map(month => portfolioPlanCoversMonth(item, month)
+        ? `<div class="portfolio-gantt-cell portfolio-gantt-slot"><div class="portfolio-gantt-bar ${item.project_type}">${portfolioPlanMonthlyDemand(item, month).toFixed(1)} 人月</div></div>`
+        : '<div class="portfolio-gantt-cell portfolio-gantt-slot"><div class="portfolio-gantt-empty">—</div></div>'
+      ).join('');
+      const actual = actualByPlan.get(item.id) || { points:0, taskCount:0, tasks:[] };
+      const linkedTasks = actual.tasks.map(task => `<div class="portfolio-linked-task"><strong title="${escapeDashboardHtml(task.title)}">${escapeDashboardHtml(task.title)}</strong><span>${escapeDashboardHtml(task.assigneeNames.join('、') || '未指定负责人')} · ${escapeDashboardHtml(taskStatusText(task.status))} · 实际 ${task.actualPoints.toFixed(1)} 点</span></div>`).join('');
+      return `<div class="portfolio-gantt-cell portfolio-gantt-project"><strong>${escapeDashboardHtml(item.project_name)}</strong><small>${portfolioTypeText(item.project_type)} · 共 ${Number(item.required_person_months).toFixed(1)} 人月<br>${portfolioMonthLabel(item.plan_month)}—${portfolioMonthLabel(endMonth)}<br>实际投入 ${actual.points.toFixed(1)} 点 · ${actual.taskCount} 个事项</small>${actual.taskCount ? `<details class="portfolio-linked-tasks"><summary>查看关联事项（${actual.taskCount}）</summary><div class="portfolio-linked-task-list">${linkedTasks}</div></details>` : '<div class="release-meta" style="margin-top:5px;">暂无关联事项</div>'}${userRole === 'admin' ? `<button class="portfolio-gantt-edit" onclick="openPortfolioPlanEditor('${item.id}')"><i class="ti ti-edit"></i> 编辑月度人力</button>` : ''}</div>${slots}`;
+    }).join('');
+    const ganttHeader = `<div class="portfolio-gantt-cell portfolio-gantt-header">项目 / 总投入</div>${months.map(month => `<div class="portfolio-gantt-cell portfolio-gantt-header">${portfolioMonthLabel(month)}</div>`).join('')}`;
+    const rows = selected.monthPlans.map(item => `<div class="portfolio-demand">
+      <div><strong>${escapeDashboardHtml(item.project_name)}</strong><br><span class="release-meta">${portfolioTypeText(item.project_type)}${item.owner_name ? ` · ${escapeDashboardHtml(item.owner_name)}` : ''}<br>${portfolioMonthLabel(item.plan_month)}—${portfolioMonthLabel(item.end_month || item.plan_month)}${item.notes ? `<br>${escapeDashboardHtml(item.notes)}` : ''}</span></div>
+      <strong>${portfolioPlanMonthlyDemand(item, selected.month).toFixed(1)}<br><span class="release-meta">总 ${Number(item.required_person_months).toFixed(1)}</span></strong>
+      <span>${portfolioStatusText(item.status)}</span>
+      <span>${(portfolioPlanMonthlyDemand(item, selected.month) * selected.workdays).toFixed(1)} 点</span>
+      <strong>${Number(actualByPlan.get(item.id)?.points || 0).toFixed(1)} 点<br><span class="release-meta">${Number(actualByPlan.get(item.id)?.taskCount || 0)} 个关联事项</span></strong>
+      <div>${userRole === 'admin' ? `<button class="btn-secondary" onclick="openPortfolioPlanEditor('${item.id}')">编辑</button> <button class="btn-secondary" onclick="deletePortfolioPlan('${item.id}')">删除</button>` : '-'}</div>
+    </div>`).join('');
+    const gapTone = selected.gap < -0.001 ? '#d9414b' : '#0F6E56';
+    content.innerHTML = `<div class="history-card">
+      <div class="card-hd"><div><span class="card-title">🗓️ 项目总排期</span><div class="release-meta">按月汇总项目所需人月，对比 ${members.length} 位资源成员的可用容量；观察者不计入人力。</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openPortfolioPlanEditor()"><i class="ti ti-plus"></i> 新增项目需求</button>' : '<span class="card-tag">只读查看</span>'}</div>
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:14px 0;"><button class="btn-secondary" onclick="shiftPortfolioMonth(-1)">上个月</button><input class="dashboard-filter" type="month" value="${firstMonth.slice(0,7)}" onchange="changePortfolioMonth(this.value)"><button class="btn-secondary" onclick="changePortfolioMonth(portfolioMonthKey().slice(0,7))">本月</button><button class="btn-secondary" onclick="shiftPortfolioMonth(1)">下个月</button><span class="release-meta">向后展示 6 个月</span></div>
+      <div class="quality-metrics">
+        ${qualityMetricHtml('可用人力',`${capacityPersonMonths.toFixed(1)} 人月`,`${members.length} 位资源成员`,null)}
+        ${qualityMetricHtml('项目需求',`${selected.demand.toFixed(1)} 人月`,`${selected.monthPlans.length} 个项目`,null)}
+        ${qualityMetricHtml('人力余量',`${selected.gap.toFixed(1)} 人月`,selected.gap < 0 ? '当前项目需求超过现有人力' : '当前人力可以覆盖',null,gapTone)}
+        ${qualityMetricHtml('利用率',`${selected.utilization.toFixed(0)}%`,`${selected.workdays} 个工作日 · ${(capacityPersonMonths * selected.workdays).toFixed(1)} 可用点`,Math.min(100,selected.utilization),selected.gap < 0 ? '#d9414b' : 'var(--teal)')}
+        ${qualityMetricHtml('实际投入',`${selectedActualPoints.toFixed(1)} 点`,'按服务器状态时间自动计算',null,'var(--purple)')}
+      </div>
+      ${serverTimeFallback ? '<div class="feature-change-alert" style="margin:12px 0;"><strong>服务器时间函数尚未安装</strong><div style="margin-top:4px;">页面已临时使用浏览器时间展示；执行最新项目排期 SQL 后会自动恢复服务器时间计算。</div></div>' : ''}
+      ${selected.gap < -0.001 ? `<div class="feature-change-alert" style="margin:12px 0;"><strong>人力超载 ${Math.abs(selected.gap).toFixed(1)} 人月</strong><div style="margin-top:4px;">建议调整项目月份、减少范围，或补充临时资源。</div></div>` : ''}
+      <div class="portfolio-month-grid">${cards}</div>
+      <div class="portfolio-gantt">
+        <div class="portfolio-gantt-grid">${ganttHeader}${ganttRows || `<div class="portfolio-gantt-cell portfolio-gantt-project">暂无项目</div>${months.map(() => '<div class="portfolio-gantt-cell portfolio-gantt-slot"><div class="portfolio-gantt-empty">—</div></div>').join('')}`}</div>
+      </div>
+    </div>
+    <div class="history-card" style="margin-top:14px;">
+      <div class="card-hd"><div><span class="card-title">${portfolioMonthLabel(selected.month)} 项目明细</span><div class="release-meta">本月分摊人月 × 当月工作日 = 预计投入点数</div></div><span class="card-tag">${selected.demand.toFixed(1)} / ${capacityPersonMonths.toFixed(1)} 人月</span></div>
+      <div class="portfolio-demand portfolio-demand-head"><span>项目 / 排期</span><span>本月人月</span><span>状态</span><span>预计点数</span><span>实际投入</span><span>操作</span></div>
+      ${rows || '<div class="dashboard-empty">该月份暂无项目需求</div>'}
+    </div>${portfolioPlanModalHtml()}`;
+  } catch (error) {
+    console.error('[portfolio] load failed:', error);
+    content.innerHTML = `<div class="history-card"><div class="dashboard-empty">项目总排期加载失败：${escapeDashboardHtml(error.message)}<br><span class="release-meta">请先执行项目总排期数据库迁移</span></div></div>`;
+  }
+}
+
 function releasePlatformText(platform) {
   return ({ android:'APP', ios:'APP', both:'APP', app:'APP', pad:'Pad', pc:'PC', mobile_all:'APP + Pad', app_pad:'APP + Pad' })[platform] || platform;
 }
@@ -2183,7 +2676,7 @@ function filterDefectRows() {
 async function renderBugManagement() {
   const content=document.getElementById('content'); content.style.padding='24px'; content.innerHTML='<div class="history-card"><div class="dashboard-loading">正在加载 BUG 与复盘数据…</div></div>';
   try {
-    const [defectsResult,membersResult,releasesResult,requirementsResult,prdsResult,tasksResult]=await Promise.all([sb.from('quality_defects').select('*').order('found_at',{ascending:false}),sb.from('profiles').select('id,name').order('name'),sb.from('releases').select('id,version,name,platform').order('created_at',{ascending:false}),sb.from('requirements').select('id,title,prd_id').order('created_at',{ascending:false}),sb.from('prds').select('id,title,release_id').order('created_at',{ascending:false}),sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status').neq('status','cancelled').order('created_at',{ascending:false})]);
+    const [defectsResult,membersResult,releasesResult,requirementsResult,prdsResult,tasksResult]=await Promise.all([sb.from('quality_defects').select('*').order('found_at',{ascending:false}),sb.from('profiles').select('id,name,resource_participant').eq('resource_participant',true).order('name'),sb.from('releases').select('id,version,name,platform').order('created_at',{ascending:false}),sb.from('requirements').select('id,title,prd_id').order('created_at',{ascending:false}),sb.from('prds').select('id,title,release_id').order('created_at',{ascending:false}),sb.from('qa_tasks').select('id,title,prd_id,release_id,test_round,status').neq('status','cancelled').order('created_at',{ascending:false})]);
     if(defectsResult.error)throw defectsResult.error;if(membersResult.error)throw membersResult.error;if(releasesResult.error)throw releasesResult.error;if(requirementsResult.error)throw requirementsResult.error;if(prdsResult.error)throw prdsResult.error;if(tasksResult.error)throw tasksResult.error;
     defectMemberCache=membersResult.data||[];defectReleaseCache=releasesResult.data||[];defectRequirementCache=requirementsResult.data||[];defectPrdCache=prdsResult.data||[];defectTaskCache=tasksResult.data||[];defectRecordCache=new Map((defectsResult.data||[]).map(item=>[item.id,item]));
     const names=new Map(defectMemberCache.map(item=>[item.id,item.name||'未命名成员'])); const releaseNames=new Map(defectReleaseCache.map(item=>[item.id,item.name||item.version])); const prdNames=new Map(defectPrdCache.map(item=>[item.id,item.title])); const taskMap=new Map(defectTaskCache.map(item=>[item.id,item]));
@@ -2539,7 +3032,7 @@ async function renderQualityReport() {
     const [releasesResult,tasksResult,membersResult,assigneesResult,progressResult,snapshotsResult,checksResult,defectsResult,prdsResult] = await Promise.all([
       sb.from('releases').select('id,version,name,platform,status,planned_release_date').order('created_at',{ascending:false}),
       sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,due_date,created_at,updated_at,completed_at,completion_note,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids'),
-      sb.from('profiles').select('id,name').order('name'),
+      sb.from('profiles').select('id,name,resource_participant').eq('resource_participant',true).order('name'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id'),
       sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
@@ -2982,18 +3475,19 @@ async function renderTaskRecords() {
 
   try {
     let query = sb.from('qa_tasks')
-      .select('id,title,description,priority,task_type,status,test_round,assignee_id,due_date,release_id,prd_id,requirement_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,related_id,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids')
+      .select('id,title,description,priority,task_type,status,test_round,assignee_id,due_date,release_id,portfolio_plan_id,prd_id,requirement_id,blocked_reason,blocked_owner_id,blocked_until,completion_note,created_by,created_at,completed_at,source,related_type,related_id,external_id,external_url,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids')
       .order('created_at', { ascending:false })
       .limit(200);
-    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, activityResult, requirementsResult, prdsResult, testHubSuitesResult, planCacheResult] = await Promise.all([
+    const [tasksResult, profilesResult, progressResult, testHubResult, assigneesResult, dailyResult, historyResult, releasesResult, portfolioPlansResult, activityResult, requirementsResult, prdsResult, testHubSuitesResult, planCacheResult] = await Promise.all([
       query,
-      sb.from('profiles').select('id,name'),
+      sb.from('profiles').select('id,name,resource_participant'),
       sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at').order('work_date', { ascending:false }),
       sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,sync_error,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
       sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('task_testhub_daily_execution').select('*'),
       sb.from('qa_task_allocation_history').select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at').order('changed_at', { ascending:false }),
       sb.from('releases').select('id,version,name,platform,status'),
+      sb.from('project_monthly_plans').select('id,project_name'),
       sb.from('qa_task_activity').select('task_id,action,changed_fields,changed_by,created_at').order('created_at', { ascending:false }).limit(1000),
       sb.from('requirements').select('id,title'),
       sb.from('prds').select('id,title'),
@@ -3010,12 +3504,13 @@ async function renderTaskRecords() {
     if (dailyResult.error) throw dailyResult.error;
     if (historyResult.error) throw historyResult.error;
     if (releasesResult.error) throw releasesResult.error;
+    if (portfolioPlansResult.error) throw portfolioPlansResult.error;
     if (activityResult.error) throw activityResult.error;
     if (requirementsResult.error) throw requirementsResult.error;
     if (prdsResult.error) throw prdsResult.error;
     if (testHubSuitesResult.error) throw testHubSuitesResult.error;
     if (planCacheResult.error) throw planCacheResult.error;
-    dashboardMembers = profilesResult.data || [];
+    dashboardMembers = (profilesResult.data || []).filter(isResourceParticipant);
     taskProgressByTask = new Map();
     (progressResult.data || []).forEach(log => {
       const logs = taskProgressByTask.get(log.task_id) || [];
@@ -3048,14 +3543,15 @@ async function renderTaskRecords() {
       list.push(item);
       taskActivityByTask.set(item.task_id, list);
     });
-    const visibleTasks = userRole === 'admin'
+    const visibleTasks = canViewTeamTasks()
       ? (tasksResult.data || [])
       : (tasksResult.data || []).filter(task => taskAssigneeList(task).some(item => item.member_id === currentUser.id));
     taskRecordCache = new Map(visibleTasks.map(task => [task.id, task]));
-    rebuildTaskSchedule(profilesResult.data || [], tasksResult.data || [], dashboardWorkCalendar);
+    rebuildTaskSchedule(dashboardMembers, tasksResult.data || [], dashboardWorkCalendar);
 
     const names = new Map((profilesResult.data || []).map(profile => [profile.id, profile.name || '未命名成员']));
     const releaseNames = new Map((releasesResult.data || []).map(release => [release.id, `${release.name || release.version}${release.platform ? ` · ${release.platform}` : ''}`]));
+    const portfolioNames = new Map((portfolioPlansResult.data || []).map(plan => [plan.id, plan.project_name]));
     const requirementNames = new Map((requirementsResult.data || []).map(requirement => [requirement.id, requirement.title]));
     const prdNames = new Map((prdsResult.data || []).map(prd => [prd.id, prd.title]));
     const testHubSuites = testHubSuitesResult.data || [];
@@ -3136,7 +3632,7 @@ async function renderTaskRecords() {
         html:`${detailActions}
           <div class="task-detail-section"><div class="task-detail-section-title">事项概览</div>
             ${task.description ? `<div style="white-space:pre-wrap;font-size:11px;line-height:1.65;">${escapeDashboardHtml(task.description)}</div>` : '<div class="release-meta">未填写事项说明</div>'}
-            <div class="assignee-allocation-note">第 ${Number(task.test_round || 1)} 轮 · ${escapeDashboardHtml(range)}${task.release_id ? ` · 版本 ${escapeDashboardHtml(releaseNames.get(task.release_id) || '未命名版本')}` : ''}</div>
+            <div class="assignee-allocation-note">第 ${Number(task.test_round || 1)} 轮 · ${escapeDashboardHtml(range)}${task.release_id ? ` · 版本 ${escapeDashboardHtml(releaseNames.get(task.release_id) || '未命名版本')}` : ''}${task.portfolio_plan_id ? ` · 项目 ${escapeDashboardHtml(portfolioNames.get(task.portfolio_plan_id) || '已关联项目')}` : ''}</div>
             ${task.requirement_id ? `<div class="assignee-allocation-note">验收范围：${escapeDashboardHtml(requirementNames.get(task.requirement_id) || '已关联验收范围')}</div>` : task.prd_id ? `<div class="assignee-allocation-note">PRD：${escapeDashboardHtml(prdNames.get(task.prd_id) || '已关联 PRD')}</div>` : ''}
             ${warningsHtml}
           </div>
@@ -3153,7 +3649,7 @@ async function renderTaskRecords() {
       });
       return `<tr data-team-task-row data-task-id="${task.id}" data-title="${escapeDashboardHtml(task.title.toLowerCase())}" data-members="${escapeDashboardHtml(memberIds)}" data-status="${escapeDashboardHtml(task.status)}" data-progress-mode="${progressMode}" data-overdue="${overdue ? 'true' : 'false'}" data-start="${escapeDashboardHtml(task.allocation_start_date || '')}" data-end="${escapeDashboardHtml(task.allocation_end_date || task.due_date?.slice(0, 10) || '')}">
         <td>${canEdit ? `<input type="checkbox" class="task-batch-checkbox" value="${task.id}" onchange="updateBatchTaskSelection()" aria-label="选择 ${escapeDashboardHtml(task.title)}">` : ''}</td>
-        <td><button class="task-title-button" onclick="openTaskDetailDrawer('${task.id}')">${escapeDashboardHtml(task.title)}</button>${warningsHtml}<div class="release-meta">第 ${Number(task.test_round || 1)} 轮${task.release_id ? ` · ${escapeDashboardHtml(releaseNames.get(task.release_id) || '未命名版本')}` : ''}</div></td>
+        <td><button class="task-title-button" onclick="openTaskDetailDrawer('${task.id}')">${escapeDashboardHtml(task.title)}</button>${warningsHtml}<div class="release-meta">第 ${Number(task.test_round || 1)} 轮${task.release_id ? ` · ${escapeDashboardHtml(releaseNames.get(task.release_id) || '未命名版本')}` : ''}${task.portfolio_plan_id ? ` · 项目 ${escapeDashboardHtml(portfolioNames.get(task.portfolio_plan_id) || '已关联')}` : ''}</div></td>
         <td><strong style="font-size:11px;">${escapeDashboardHtml(assigneeNames.join('、'))}</strong><div class="release-meta">${assignments.length} 位负责人</div></td>
         <td>${statuses[task.status] || escapeDashboardHtml(task.status)}</td>
         <td class="task-list-progress"><strong>${progressPercent.toFixed(0)}%</strong><div class="task-list-progress-track"><span class="task-list-progress-fill ${progressPercent >= 100 ? 'done' : ''}" style="width:${progressPercent.toFixed(1)}%"></span></div><div class="release-meta">${actual.totalActual.toFixed(2)} / ${taskEffort.toFixed(2)} 点 · ${progressMode === 'auto' ? 'TestHub' : '手工'}</div></td>
@@ -3180,11 +3676,11 @@ async function renderTaskRecords() {
         .reduce((subtotal, log) => subtotal + Number(log.progress_points || 0), 0);
     }, 0);
     const memberGapToday = Math.max(memberPlannedToday - memberActualToday, 0);
-    const memberSummary = userRole === 'admin' ? '' : `<div class="member-work-summary"><div><span>今日计划</span><strong>${memberPlannedToday.toFixed(2)}</strong><small>点</small></div><div><span>今日实际</span><strong>${memberActualToday.toFixed(2)}</strong><small>点</small></div><div class="${memberGapToday > 0.01 ? 'has-gap' : ''}"><span>今日差额</span><strong>${memberGapToday.toFixed(2)}</strong><small>点</small></div><div><span>负责事项</span><strong>${memberActiveTasks.length}</strong><small>项</small></div></div>`;
+    const memberSummary = canViewTeamTasks() ? '' : `<div class="member-work-summary"><div><span>今日计划</span><strong>${memberPlannedToday.toFixed(2)}</strong><small>点</small></div><div><span>今日实际</span><strong>${memberActualToday.toFixed(2)}</strong><small>点</small></div><div class="${memberGapToday > 0.01 ? 'has-gap' : ''}"><span>今日差额</span><strong>${memberGapToday.toFixed(2)}</strong><small>点</small></div><div><span>负责事项</span><strong>${memberActiveTasks.length}</strong><small>项</small></div></div>`;
     const taskSummary = `<div class="task-summary-chips"><button class="task-summary-chip" data-task-quick-view="mine" onclick="applyTaskQuickFilter('mine')">我的事项<strong>${visibleTasks.filter(task => taskAssigneeList(task).some(item => item.member_id === currentUser.id)).length}</strong></button><button class="task-summary-chip" data-task-quick-view="active" onclick="applyTaskQuickFilter('active')">未完成<strong>${taskCounts.active}</strong></button><button class="task-summary-chip" data-task-quick-view="in_progress" onclick="applyTaskQuickFilter('in_progress')">进行中<strong>${taskCounts.in_progress}</strong></button><button class="task-summary-chip danger" data-task-quick-view="due_soon" onclick="applyTaskQuickFilter('due_soon')">即将截止<strong>${visibleTasks.filter(task => ['todo','in_progress','blocked'].includes(task.status) && (task.allocation_end_date || '') >= taskTodayKey && (task.allocation_end_date || '') <= addDashboardDate(taskTodayKey,3)).length}</strong></button><button class="task-summary-chip danger" data-task-quick-view="overdue" onclick="applyTaskQuickFilter('overdue')">已逾期<strong>${taskCounts.overdue}</strong></button><button class="task-summary-chip" data-task-quick-view="done" onclick="applyTaskQuickFilter('done')">已完成<strong>${taskCounts.done}</strong></button></div>`;
     const taskFilters = `<div class="team-task-filters">
       <input class="dashboard-filter" id="teamTaskKeywordFilter" type="search" placeholder="搜索任务" oninput="filterTeamTaskRows()">
-      ${userRole === 'admin' ? `<select class="dashboard-filter" id="teamTaskMemberFilter" onchange="filterTeamTaskRows()"><option value="all">全部成员</option>${(profilesResult.data || []).map(profile => `<option value="${profile.id}">${escapeDashboardHtml(profile.name || '未命名成员')}</option>`).join('')}</select>` : ''}
+      ${canViewTeamTasks() ? `<select class="dashboard-filter" id="teamTaskMemberFilter" onchange="filterTeamTaskRows()"><option value="all">全部成员</option>${dashboardMembers.map(profile => `<option value="${profile.id}">${escapeDashboardHtml(profile.name || '未命名成员')}</option>`).join('')}</select>` : ''}
       <select class="dashboard-filter" id="teamTaskStatusFilter" onchange="filterTeamTaskRows()"><option value="active" selected>未完成任务</option><option value="mine">我的事项</option><option value="due_soon">未来 3 天截止</option><option value="todo">待处理</option><option value="in_progress">进行中</option><option value="blocked">已阻塞</option><option value="overdue">已逾期</option><option value="done">已完成</option><option value="cancelled">已取消</option><option value="all">全部状态</option></select>
       <select class="dashboard-filter" id="teamTaskProgressModeFilter" onchange="filterTeamTaskRows()"><option value="all">全部进度方式</option><option value="auto">TestHub 自动</option><option value="manual">手工填报</option></select>
       <input class="dashboard-filter" id="teamTaskDateFilter" type="date" onchange="filterTeamTaskRows()" title="筛选该日期正在执行的任务">
@@ -3195,7 +3691,7 @@ async function renderTaskRecords() {
       ${memberSummary}
       <div class="history-card">
         <div class="card-hd" style="margin-bottom:12px;">
-          <span class="card-title">📋 ${userRole === 'admin' ? '团队工作事项' : '我的工作事项'}</span>
+          <span class="card-title">📋 ${canViewTeamTasks() ? '团队工作事项' : '我的工作事项'}</span>
           <div style="display:flex;align-items:center;gap:8px;">${userRole === 'admin' ? '<button class="btn-secondary" onclick="copyLocalSyncAuthorization(this)">复制本地同步授权</button><button class="btn-secondary" onclick="syncTestHubProgress(null, this)"><i class="ti ti-refresh"></i> 一键同步 TestHub</button>' : ''}<span class="card-tag" id="teamTaskVisibleCount" style="background:#EDE8FF;color:var(--purple);">${visibleTasks.length} 项</span></div>
         </div>
         ${taskSummary}${taskFilters}
@@ -4209,15 +4705,15 @@ async function loadDashboardData(token) {
 
   const results = await Promise.allSettled([
     sb.from('releases').select('id,version,name,platform,planned_release_date,status').eq('status','active').order('platform'),
-    sb.from('qa_tasks').select('id,title,task_type,priority,status,created_at,due_date,release_id,source,external_id,external_url,assignee_id,created_by,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until,completion_note').in('status',['todo','in_progress','blocked']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
+    sb.from('qa_tasks').select('id,title,task_type,priority,status,created_at,due_date,release_id,portfolio_plan_id,source,external_id,external_url,assignee_id,created_by,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until,completion_note').in('status',['todo','in_progress','blocked']).order('due_date',{ascending:true,nullsFirst:false}).limit(100),
     sb.from('run_tasks').select('id,status,task_type,platform,created_at,started_at').gte('created_at', since24Hours),
     sb.from('device_configs').select('id,model_name,platform,is_online'),
     sb.from('consumables').select('id,name,brand,quantity,threshold,unit'),
     sb.from('release_checks').select('id,release_id,check_name,severity,status').in('status',['failed','unavailable']),
     userRole === 'admin'
-      ? sb.from('profiles').select('id,name,daily_capacity').order('name')
-      : sb.from('profiles').select('id,name,daily_capacity').eq('id', currentUser.id),
-    sb.from('qa_tasks').select('id,title,priority,assignee_id,status,created_at,completed_at,due_date,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until').in('status',['todo','in_progress','blocked','done']),
+      ? sb.from('profiles').select('id,name,daily_capacity,resource_participant').eq('resource_participant', true).order('name')
+      : sb.from('profiles').select('id,name,daily_capacity,resource_participant').eq('id', currentUser.id).eq('resource_participant', true),
+    sb.from('qa_tasks').select('id,title,priority,assignee_id,status,created_at,completed_at,due_date,portfolio_plan_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until').in('status',['todo','in_progress','blocked','done']),
     sb.from('work_calendar').select('work_date,is_workday,name'),
     sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id').lte('work_date', dashboardTodayInputValue()).limit(2000),
     sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
@@ -4440,6 +4936,10 @@ async function loadDashboardData(token) {
 }
 
 async function openNewTaskModal() {
+  if (isCurrentUserObserver()) {
+    showToast('观察者账号为只读模式，不参与工作事项和资源统计', 'error');
+    return;
+  }
   const modal = document.getElementById('newTaskModal');
   if (!modal) return;
   editingQaTaskId = null;
@@ -4481,7 +4981,7 @@ async function openNewTaskModal() {
   renderTestHubSuiteChoices([], []);
   toggleTestHubScopeFields();
   await loadTaskAssignees([currentUser.id], [{ member_id:currentUser.id, allocated_effort:1 }]);
-  await loadTaskReleases();
+  await Promise.all([loadTaskReleases(), loadTaskPortfolioPlans()]);
   document.getElementById('newTaskBlockedOwner').value = '';
   toggleTaskWorkflowFields();
   const testHubSearch = document.getElementById('newTaskTestHubSearch');
@@ -4533,7 +5033,10 @@ async function openEditQaTask(id, mode = 'full') {
   document.getElementById('newTaskAllocationEnd').value = task.allocation_end_date || '';
   document.getElementById('newTaskAllocationStartPeriod').value = task.allocation_start_period || 'am';
   document.getElementById('newTaskAllocationEndPeriod').value = task.allocation_end_period || 'pm';
-  await loadTaskReleases(task.release_id || '');
+  await Promise.all([
+    loadTaskReleases(task.release_id || ''),
+    loadTaskPortfolioPlans(task.portfolio_plan_id || '')
+  ]);
   document.getElementById('newTaskBlockedOwner').value = task.blocked_owner_id || '';
   document.getElementById('newTaskBlockedUntil').value = task.blocked_until || '';
   document.getElementById('newTaskBlockedReason').value = task.blocked_reason || '';
@@ -4583,7 +5086,10 @@ async function duplicateQaTask(id) {
   document.getElementById('newTaskAllocationStartPeriod').value = task.allocation_start_period || 'am';
   document.getElementById('newTaskAllocationEndPeriod').value = task.allocation_end_period || 'pm';
   await loadTaskAssignees(assignments.map(item => item.member_id), assignments);
-  await loadTaskReleases(task.release_id || '');
+  await Promise.all([
+    loadTaskReleases(task.release_id || ''),
+    loadTaskPortfolioPlans(task.portfolio_plan_id || '')
+  ]);
   renderAssigneeAllocationInputs(new Map(assignments.map(item => [item.member_id, item.allocated_effort])));
   showToast('已复制负责人和资源配置；TestHub 计划需重新选择');
 }
@@ -5477,10 +5983,10 @@ async function loadTaskAssignees(selectedIds = null, allocations = null) {
     let data = dashboardMembers;
     if (userRole === 'admin' || !data.length) {
       const result = userRole === 'admin'
-        ? await sb.from('profiles').select('id,name,role').order('name')
+        ? await sb.from('profiles').select('id,name,role,resource_participant').eq('resource_participant', true).order('name')
         : { data:[{ id:currentUser.id, name:document.getElementById('userName')?.textContent || '我', role:userRole }], error:null };
       if (result.error) throw result.error;
-      data = result.data || [];
+      data = (result.data || []).filter(isResourceParticipant);
       dashboardMembers = data;
     }
     select.innerHTML = dashboardMembers.map(member =>
@@ -5528,6 +6034,7 @@ async function saveQaTask() {
   const status = document.getElementById('newTaskStatus')?.value || 'todo';
   const testRound = Number(document.getElementById('newTaskRound')?.value || 1);
   const releaseId = document.getElementById('newTaskRelease')?.value || null;
+  const portfolioPlanId = document.getElementById('newTaskPortfolioPlan')?.value || null;
   const blockedReason = document.getElementById('newTaskBlockedReason')?.value.trim() || '';
   const blockedOwnerId = document.getElementById('newTaskBlockedOwner')?.value || null;
   const blockedUntil = document.getElementById('newTaskBlockedUntil')?.value || null;
@@ -5576,6 +6083,8 @@ async function saveQaTask() {
     return;
   }
   if (!title) { showToast('请填写任务标题', 'error'); return; }
+  if (!releaseId) { showToast('请选择所属版本', 'error'); return; }
+  if (!portfolioPlanId) { showToast('请选择所属项目排期', 'error'); return; }
   if (!Number.isInteger(testRound) || testRound < 1 || testRound > 99) { showToast('测试轮次必须是 1 到 99 的整数', 'error'); return; }
   if (!Number.isFinite(effort) || effort <= 0) { showToast('预估人天必须大于 0', 'error'); return; }
   if (!assigneeIds.length) { showToast('请至少选择 1 位负责人', 'error'); return; }
@@ -5616,6 +6125,7 @@ async function saveQaTask() {
       status,
       test_round: testRound,
       release_id: releaseId,
+      portfolio_plan_id: portfolioPlanId,
       prd_id: editingQaTaskPrdId,
       requirement_id: editingQaTaskRequirementId,
       blocked_reason: status === 'blocked' ? blockedReason : null,
@@ -5648,6 +6158,10 @@ async function saveQaTask() {
     });
     if (error) throw error;
     if (!data) throw new Error('未找到可保存的工作事项');
+    const { error: portfolioLinkError } = await sb.from('qa_tasks')
+      .update({ portfolio_plan_id:portfolioPlanId })
+      .eq('id', data);
+    if (portfolioLinkError) throw portfolioLinkError;
     const wasEditing = Boolean(editingQaTaskId);
     editingQaTaskId = null;
     closeNewTaskModal();

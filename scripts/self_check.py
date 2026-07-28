@@ -37,6 +37,8 @@ def main() -> None:
     assignee_status_migration = (ROOT / "supabase/migrations/20260721_assignee_task_status.sql").read_text(encoding="utf-8")
     case_trace_migration = (ROOT / "supabase/migrations/20260723_testhub_case_trace.sql").read_text(encoding="utf-8")
     atomic_progress_migration = (ROOT / "supabase/migrations/20260724_atomic_task_progress.sql").read_text(encoding="utf-8")
+    observer_profiles_migration = (ROOT / "supabase/migrations/20260728_resource_observer_profiles.sql").read_text(encoding="utf-8")
+    portfolio_planning_migration = (ROOT / "supabase/migrations/20260728_project_monthly_planning.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
@@ -78,6 +80,33 @@ def main() -> None:
         "function openTaskDetailDrawer",
         "function closeTaskDetailDrawer",
         "function taskDetailDrawerHtml",
+        "function isResourceParticipant",
+        "function canViewTeamTasks",
+        "function memberTypeText",
+        "function toggleMemberResourceParticipation",
+        ".eq('resource_participant', true)",
+        "function loadTaskPortfolioPlans",
+        "newTaskPortfolioPlan",
+        "portfolio_plan_id: portfolioPlanId",
+        "function renderPortfolioPlanning",
+        "function savePortfolioPlan",
+        "function portfolioMonthWorkdays",
+        "function portfolioMonthsBetween",
+        "function portfolioPlanMonthlyDemand",
+        "function renderPortfolioAllocationInputs",
+        "function portfolioTaskActiveIntervals",
+        "function portfolioTaskServerActualPoints",
+        "sb.rpc('qa_server_now')",
+        "所属版本 *",
+        "所属项目排期 *",
+        "monthly_allocations:allocations",
+        "portfolio-gantt-grid",
+        "编辑月度人力",
+        "portfolioPlanStartMonth",
+        "portfolioPlanEndMonth",
+        "const key = dashboardLocalDateKey(cursor)",
+        "project_monthly_plans",
+        "项目总排期",
         "事项累计完成度（选填）",
         "function focusTeamTaskAfterRefresh",
         "function resetTeamTaskFiltersForFocus",
@@ -293,6 +322,28 @@ def main() -> None:
         "insert into public.task_progress_logs",
         "update public.qa_tasks",
     ], "atomic task progress migration")
+    require(observer_profiles_migration, [
+        "add column if not exists resource_participant",
+        "resource_participant = false",
+        "'xuguang.li'",
+        "create or replace function public.is_resource_observer",
+        "or public.is_resource_observer()",
+        "or public.is_resource_observer());",
+    ], "resource observer profiles migration")
+    require(portfolio_planning_migration, [
+        "create table if not exists public.project_monthly_plans",
+        "required_person_months",
+        "add column if not exists end_month",
+        "add column if not exists monthly_allocations",
+        "add column if not exists portfolio_plan_id",
+        "qa_tasks_portfolio_plan_idx",
+        "create or replace function public.qa_server_now()",
+        "project_monthly_plans_end_month_check",
+        "project_monthly_plans_allocations_check",
+        "project_monthly_plans_read_authenticated",
+        "project_monthly_plans_write_admin",
+        "public.is_admin()",
+    ], "project monthly planning migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
