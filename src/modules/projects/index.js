@@ -121,10 +121,10 @@
     const missedDefects = projectDefects.filter(item => item.is_missed_test).length;
     const blocked = allProjectTasks.filter(item => item.status === 'blocked').length;
     const todayKey = context.localDateKey(new Date());
-    const overdue = allProjectTasks.filter(item =>
-      ['todo', 'in_progress', 'blocked'].includes(item.status)
-      && (item.allocation_end_date || '') < todayKey
-    ).length;
+    const overdue = allProjectTasks.filter(item => context.taskDelayState
+      ? context.taskDelayState(item).delayed
+      : ['todo', 'in_progress', 'blocked'].includes(item.status)
+        && (item.allocation_end_date || '') < todayKey).length;
     const plannedPoints = allProjectTasks.reduce((sum, task) => sum + Number(task.effort_person_days || 0), 0);
     const snapshotsByTask = new Map(snapshots.map(item => [item.task_id, item]));
     const logsByTask = new Map();
@@ -172,7 +172,8 @@
         const label = day.isWorkday ? taskSlotLabel(task, day.key) : '';
         return `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}">${label ? `<div class="project-gantt-bar ${taskBarClass(task.status)}" title="${escapeHtml(`${task.title} · ${day.key} ${label}`)}">${label}</div>` : ''}</div>`;
       }).join('');
-      return `<div class="project-gantt-cell project-gantt-task"><div><strong>${escapeHtml(task.title || '未命名事项')}</strong><div class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</div><div class="project-card-meta">${escapeHtml(task.allocation_start_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_start_period)} → ${escapeHtml(task.allocation_end_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_end_period)}</div></div></div>${slots}`;
+      const delayBadge = context.taskDelayBadgeHtml ? context.taskDelayBadgeHtml(task) : '';
+      return `<div class="project-gantt-cell project-gantt-task"><div><strong>${escapeHtml(task.title || '未命名事项')}${delayBadge}</strong><div class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</div><div class="project-card-meta">${escapeHtml(task.allocation_start_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_start_period)} → ${escapeHtml(task.allocation_end_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_end_period)}</div></div></div>${slots}`;
     }).join('') : `<div class="project-gantt-cell project-gantt-task">本月暂无工作事项</div><div class="project-gantt-cell projects-module-empty-gantt" style="grid-column:span ${days.length};">可先在工作事项中关联该项目排期</div>`;
     const completed = projectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
     return `<div class="page-card projects-module">
@@ -242,7 +243,7 @@
         context.sb.from('qa_project_members').select('*'),
         context.sb.from('profiles').select('id,name,role,resource_participant').order('name'),
         context.sb.from('project_monthly_plans').select('id,project_id,project_name,plan_month,end_month,status'),
-        context.sb.from('qa_tasks').select('id,title,project_id,portfolio_plan_id,release_id,status,test_round,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period').neq('status', 'cancelled'),
+        context.sb.from('qa_tasks').select('id,title,project_id,portfolio_plan_id,release_id,status,test_round,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,completed_at,delay_recorded_at,delay_waived_at,delay_waived_by,delay_waiver_reason').neq('status', 'cancelled'),
         context.sb.from('qa_task_assignees').select('task_id,member_id'),
         context.sb.from('work_calendar').select('work_date,is_workday,name'),
         context.sb.from('releases').select('id,project_id,version,name,status,planned_release_date'),
