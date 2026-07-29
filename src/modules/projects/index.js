@@ -11,6 +11,10 @@
     editingProjectId: null,
     detailMonth: '',
     showArchived: false,
+    detailTasks: new Map(),
+    draggingTaskId: null,
+    dragAnchorDate: '',
+    suppressTaskClick: false,
   };
 
   function statusText(status) {
@@ -39,6 +43,20 @@
   function shiftMonth(month, offset) {
     const [year, number] = String(month || monthKey()).split('-').map(Number);
     return monthKey(new Date(year, number - 1 + offset, 1));
+  }
+
+  function shiftDate(dateKey, offset) {
+    const [year, month, day] = String(dateKey).split('-').map(Number);
+    const date = new Date(Date.UTC(year, month - 1, day + offset));
+    return date.toISOString().slice(0, 10);
+  }
+
+  function dateOffset(from, to) {
+    const parse = value => {
+      const [year, month, day] = String(value).split('-').map(Number);
+      return Date.UTC(year, month - 1, day);
+    };
+    return Math.round((parse(to) - parse(from)) / 86400000);
   }
 
   function monthDays(month, calendarRows) {
@@ -113,6 +131,7 @@
     const planIds = new Set(projectPlans.map(item => item.id));
     const allProjectTasks = tasks.filter(item =>
       item.project_id === project.id || planIds.has(item.portfolio_plan_id));
+    state.detailTasks = new Map(allProjectTasks.map(item => [item.id, item]));
     const taskIds = new Set(allProjectTasks.map(item => item.id));
     const projectReleases = releases.filter(item => item.project_id === project.id);
     const releaseIds = new Set(projectReleases.map(item => item.id));
@@ -170,10 +189,12 @@
       const names = ids.map(id => state.profiles.get(id)?.name).filter(Boolean).join('、') || '未指定负责人';
       const slots = days.map(day => {
         const label = day.isWorkday ? taskSlotLabel(task, day.key) : '';
-        return `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}">${label ? `<div class="project-gantt-bar ${taskBarClass(task.status)}" title="${escapeHtml(`${task.title} · ${day.key} ${label}`)}">${label}</div>` : ''}</div>`;
+        const movable = context.canManageQa() && !['done', 'completed'].includes(task.status);
+        return `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" data-project-drop-date="${day.key}" data-project-workday="${day.isWorkday ? 'true' : 'false'}">${label ? `<button type="button" class="project-gantt-bar ${taskBarClass(task.status)}" data-project-task-open="${task.id}" data-project-slot-date="${day.key}" ${movable ? 'draggable="true"' : ''} title="${escapeHtml(`${task.title} · ${day.key} ${label}${movable ? ' · 可拖动改期' : ' · 点击查看'}`)}">${label}</button>` : ''}</div>`;
       }).join('');
       const delayBadge = context.taskDelayBadgeHtml ? context.taskDelayBadgeHtml(task) : '';
-      return `<div class="project-gantt-cell project-gantt-task"><div><strong>${escapeHtml(task.title || '未命名事项')}${delayBadge}</strong><div class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</div><div class="project-card-meta">${escapeHtml(task.allocation_start_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_start_period)} → ${escapeHtml(task.allocation_end_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_end_period)}</div></div></div>${slots}`;
+      const movable = context.canManageQa() && !['done', 'completed'].includes(task.status);
+      return `<div class="project-gantt-cell project-gantt-task"><button type="button" class="project-gantt-task-button" data-project-task-open="${task.id}" data-project-slot-date="${task.allocation_start_date}" ${movable ? 'draggable="true"' : ''}><strong>${escapeHtml(task.title || '未命名事项')}${delayBadge}</strong><span class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</span><span class="project-card-meta">${escapeHtml(task.allocation_start_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_start_period)} → ${escapeHtml(task.allocation_end_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_end_period)}</span></button></div>${slots}`;
     }).join('') : `<div class="project-gantt-cell project-gantt-task">本月暂无工作事项</div><div class="project-gantt-cell projects-module-empty-gantt" style="grid-column:span ${days.length};">可先在工作事项中关联该项目排期</div>`;
     const completed = projectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
     return `<div class="page-card projects-module">
@@ -192,7 +213,7 @@
         <div class="summary-item"><div class="summary-label">项目成员</div><div class="summary-value">${memberships.length}</div></div>
       </div>
       <div class="projects-module-release-strip">${projectReleases.length ? projectReleases.map(release => `<span><strong>${escapeHtml(release.version || release.name || '未命名版本')}</strong> · ${releaseStatusText(release.status)}</span>`).join('') : '<span>尚未关联版本</span>'}</div>
-      <div class="project-detail-toolbar projects-module-toolbar"><button class="btn-secondary" type="button" data-project-month-shift="-1">上个月</button><input class="dashboard-filter" type="month" value="${state.detailMonth}" data-project-month><button class="btn-secondary" type="button" data-project-current-month>本月</button><button class="btn-secondary" type="button" data-project-month-shift="1">下个月</button><div class="project-detail-legend"><span>进行中</span><span class="todo">待处理</span><span class="done">已完成</span><span class="off">周末/节假日</span></div></div>
+      <div class="project-detail-toolbar projects-module-toolbar"><button class="btn-secondary" type="button" data-project-month-shift="-1">上个月</button><input class="dashboard-filter" type="month" value="${state.detailMonth}" data-project-month><button class="btn-secondary" type="button" data-project-current-month>本月</button><button class="btn-secondary" type="button" data-project-month-shift="1">下个月</button><div class="project-detail-legend"><span>进行中</span><span class="todo">待处理</span><span class="done">已完成</span><span class="off">周末/节假日</span></div><span class="project-gantt-hint">${context.canManageQa() ? '点击事项编辑 · 拖动事项调整排期' : '点击事项查看详情'}</span></div>
       <div class="project-gantt-wrap"><div class="project-gantt-grid" style="grid-template-columns:${template};">${header}${rows}</div></div>
     </div>${editorModalHtml()}`;
   }
@@ -228,6 +249,74 @@
       state.detailMonth = shiftMonth(state.detailMonth || monthKey(), Number(button.dataset.projectMonthShift));
       render(state.context);
     }));
+    root.querySelectorAll('[data-project-task-open]').forEach(button => {
+      button.addEventListener('click', () => {
+        if (state.suppressTaskClick) return;
+        state.context.openTask?.(button.dataset.projectTaskOpen, 'edit');
+      });
+      button.addEventListener('dragstart', event => {
+        if (!state.context.canManageQa() || !button.draggable) {
+          event.preventDefault();
+          return;
+        }
+        state.draggingTaskId = button.dataset.projectTaskOpen;
+        state.dragAnchorDate = button.dataset.projectSlotDate;
+        state.suppressTaskClick = true;
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', state.draggingTaskId);
+        button.classList.add('dragging');
+      });
+      button.addEventListener('dragend', () => {
+        button.classList.remove('dragging');
+        root.querySelectorAll('.project-gantt-drop-target').forEach(cell => cell.classList.remove('project-gantt-drop-target'));
+        state.draggingTaskId = null;
+        state.dragAnchorDate = '';
+        setTimeout(() => { state.suppressTaskClick = false; }, 80);
+      });
+    });
+    root.querySelectorAll('[data-project-drop-date]').forEach(cell => {
+      cell.addEventListener('dragover', event => {
+        if (!state.draggingTaskId || cell.dataset.projectWorkday !== 'true') return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        cell.classList.add('project-gantt-drop-target');
+      });
+      cell.addEventListener('dragleave', () => cell.classList.remove('project-gantt-drop-target'));
+      cell.addEventListener('drop', async event => {
+        event.preventDefault();
+        cell.classList.remove('project-gantt-drop-target');
+        await moveTaskSchedule(state.draggingTaskId, state.dragAnchorDate, cell.dataset.projectDropDate);
+      });
+    });
+  }
+
+  async function moveTaskSchedule(taskId, anchorDate, targetDate) {
+    const context = state.context;
+    const task = state.detailTasks.get(taskId);
+    if (!context.canManageQa() || !task || !anchorDate || !targetDate) return;
+    if (['done', 'completed'].includes(task.status)) {
+      context.showToast('已完成事项不能拖动排期，可点击事项查看历史', 'error');
+      return;
+    }
+    const offset = dateOffset(anchorDate, targetDate);
+    if (!offset) return;
+    const nextStart = shiftDate(task.allocation_start_date, offset);
+    const nextEnd = shiftDate(task.allocation_end_date, offset);
+    if (!window.confirm(`确认将“${task.title}”整体移动 ${Math.abs(offset)} 天至 ${nextStart}—${nextEnd}？`)) return;
+    try {
+      const cutoff = task.allocation_end_period === 'am' ? '12:00:00' : '19:00:00';
+      const due = new Date(`${nextEnd}T${cutoff}`).toISOString();
+      const { error } = await context.sb.from('qa_tasks').update({
+        allocation_start_date: nextStart,
+        allocation_end_date: nextEnd,
+        due_date: due,
+      }).eq('id', task.id);
+      if (error) throw error;
+      context.showToast('事项排期已移动');
+      context.rerender();
+    } catch (error) {
+      context.showToast(`移动排期失败：${error.message}`, 'error');
+    }
   }
 
   async function render(context) {

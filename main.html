@@ -1052,6 +1052,9 @@ function createModuleContext() {
     taskAllocationPeriodText,
     taskDelayState,
     taskDelayBadgeHtml,
+    openTask(taskId, mode = 'edit') {
+      return openTaskFromDashboard(taskId, mode);
+    },
     localDateKey: dashboardLocalDateKey,
     todayKey: dashboardTodayInputValue,
     addDate: addDashboardDate,
@@ -4839,6 +4842,15 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
     // Completed/cancelled work remains in historical capacity statistics, but it
     // must never create overdue, not-started, blocked or delay risks.
     if (['done', 'cancelled'].includes(task.status)) return;
+    const scheduledToday = Boolean(
+      (task.allocation_start_date && task.allocation_end_date
+        && task.allocation_start_date <= todayKey
+        && task.allocation_end_date >= todayKey)
+      || task.due_date?.slice(0, 10) === todayKey
+    );
+    // Today's work remains actionable until 19:00. Do not count it as a
+    // dashboard risk while the team still has time to finish it.
+    if (scheduledToday && now.getHours() < DAILY_PROGRESS_CUTOFF_HOUR) return;
     taskAssigneeList(task).forEach(assignment => {
     const member = memberMap.get(assignment.member_id);
     const memberName = member?.name || (assignment.member_id === currentUser.id ? '我' : '未命名成员');
@@ -4859,7 +4871,9 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
       return;
     }
 
-    if (due && due < now) {
+    const dueKey = task.due_date?.slice(0, 10) || task.allocation_end_date || '';
+    if (due && (dueKey < todayKey
+      || (dueKey === todayKey && now.getHours() >= DAILY_PROGRESS_CUTOFF_HOUR))) {
       risks.push({
         level: 'high',
         title: `${label} 已超过截止日期`,
@@ -6636,7 +6650,7 @@ async function saveQaTask() {
 
   button.disabled = true;
   try {
-    const due = new Date(`${dueDate}T${allocationEndPeriod === 'am' ? '12:00:00' : '18:00:00'}`);
+    const due = new Date(`${dueDate}T${allocationEndPeriod === 'am' ? '12:00:00' : `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:00:00`}`);
     const payload = {
       title,
       description,
