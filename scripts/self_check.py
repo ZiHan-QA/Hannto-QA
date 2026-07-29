@@ -52,6 +52,7 @@ def main() -> None:
     project_data_hub_migration = (ROOT / "supabase/migrations/20260728_project_data_hub.sql").read_text(encoding="utf-8")
     atomic_task_project_link_migration = (ROOT / "supabase/migrations/20260728_atomic_task_project_link.sql").read_text(encoding="utf-8")
     direct_task_project_link_migration = (ROOT / "supabase/migrations/20260728_task_direct_project_link.sql").read_text(encoding="utf-8")
+    qa_lead_task_edit_migration = (ROOT / "supabase/migrations/20260729_qa_lead_task_edit_permissions.sql").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
@@ -265,6 +266,7 @@ def main() -> None:
         "function renderDetail",
         "function monthDays",
         "function taskSlotLabel",
+        "async function moveTaskSchedule",
         "function openEditor",
         "async function saveProject",
         "function openProject",
@@ -275,6 +277,8 @@ def main() -> None:
         "BUG / 漏测",
         "data-project-open",
         "data-project-month",
+        "data-project-task-open",
+        "data-project-drop-date",
         "data-project-save",
         "返回项目列表",
     ], "projects module")
@@ -283,6 +287,8 @@ def main() -> None:
         ".projects-module-editor",
         ".project-state.active",
         ".projects-module-member",
+        ".project-gantt-task-button",
+        ".project-gantt-drop-target",
     ], "projects module styles")
     for legacy_project_function in [
         "function renderProjectHub",
@@ -497,6 +503,13 @@ def main() -> None:
         "No project schedule covers the task date range",
         "notify pgrst, 'reload schema'",
     ], "atomic task project link migration")
+    require(qa_lead_task_edit_migration, [
+        "save_qa_task_workflow(jsonb,jsonb)",
+        "role in (''admin'', ''qa_lead'')",
+        "Could not patch QA lead permission",
+        "grant execute on function public.save_qa_task_workflow",
+        "notify pgrst, 'reload schema'",
+    ], "QA lead task edit permissions migration")
     require(direct_task_project_link_migration, [
         "add column if not exists project_id",
         "qa_tasks_project_id_idx",
@@ -568,7 +581,10 @@ def main() -> None:
         "function renderListPage",
         "function taskSummaryHtml",
         "function taskFiltersHtml",
-        "teamTaskProgressModeFilter",
+        "data-task-filter=\"member\"",
+        "data-task-filter=\"status\"",
+        "data-task-filter=\"progress\"",
+        "function updateMultiFilterLabels",
         "function taskDetailDrawerHtml",
         "function taskStatusBadgeHtml",
         "function renderTaskRowHtml",
@@ -583,6 +599,8 @@ def main() -> None:
     require(tasks_css, [
         ".tasks-module",
         ".tasks-module-error",
+        ".task-multi-filter",
+        ".task-multi-filter-menu",
     ], "tasks module styles")
     if "if (page === 'tasks') { renderTaskRecords(); return; }" in html:
         raise AssertionError("tasks page must render through the registered module")

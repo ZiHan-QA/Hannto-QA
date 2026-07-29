@@ -132,6 +132,53 @@
   padding: 6px 10px;
 }
 
+.project-gantt-task-button {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.project-gantt-task-button span {
+  display: block;
+}
+
+.project-gantt-task-button:hover strong {
+  color: var(--purple);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.projects-module .project-gantt-bar {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.projects-module [draggable="true"] {
+  cursor: grab;
+}
+
+.projects-module [draggable="true"]:active,
+.projects-module .dragging {
+  cursor: grabbing;
+  opacity: .55;
+}
+
+.projects-module .project-gantt-drop-target {
+  background: #eee8ff;
+  box-shadow: inset 0 0 0 2px #8b5cf6;
+}
+
+.project-gantt-hint {
+  margin-left: auto;
+  color: var(--purple);
+  font-size: 10px;
+}
+
 .project-data-flow {
   align-items: center;
   background: #faf8ff;

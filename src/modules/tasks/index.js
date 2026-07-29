@@ -197,13 +197,37 @@
   }
 
   function readFilters() {
+    const checkedValues = name => [...document.querySelectorAll(`[data-task-filter="${name}"]:checked`)]
+      .map(input => input.value);
     return {
       keyword: document.getElementById('teamTaskKeywordFilter')?.value || '',
-      member: document.getElementById('teamTaskMemberFilter')?.value || 'all',
-      status: document.getElementById('teamTaskStatusFilter')?.value || 'active',
-      progressMode: document.getElementById('teamTaskProgressModeFilter')?.value || 'all',
+      members: checkedValues('member'),
+      statuses: checkedValues('status'),
+      progressModes: checkedValues('progress'),
       date: document.getElementById('teamTaskDateFilter')?.value || '',
     };
+  }
+
+  function updateMultiFilterLabels(filters = readFilters()) {
+    const update = (id, values, allText, labels) => {
+      const summary = document.querySelector(`[data-task-filter-summary="${id}"]`);
+      if (!summary) return;
+      summary.textContent = !values.length
+        ? allText
+        : values.length === 1
+          ? (labels[values[0]] || allText)
+          : `已选 ${values.length} 项`;
+    };
+    update('member', filters.members, '全部成员',
+      Object.fromEntries((state.viewModel?.resourceMembers || []).map(item => [item.id, item.name || '未命名成员'])));
+    update('status', filters.statuses, '全部状态', {
+      active:'未完成任务', mine:'我的事项', due_soon:'未来 3 天截止',
+      todo:'待处理', in_progress:'进行中', blocked:'已阻塞',
+      overdue:'已逾期', done:'已完成', cancelled:'已取消',
+    });
+    update('progress', filters.progressModes, '全部进度方式', {
+      auto:'TestHub 自动', manual:'手工填报',
+    });
   }
 
   function saveViewState() {
@@ -228,17 +252,18 @@
       const matchesDate = !filters.date
         || (!!row.dataset.start && !!row.dataset.end
           && row.dataset.start <= filters.date && row.dataset.end >= filters.date);
-      const matches = (!keyword || (row.dataset.title || '').includes(keyword))
-        && (filters.member === 'all' || members.includes(filters.member))
-        && (filters.status === 'all'
-          || (filters.status === 'active' ? ['todo', 'in_progress', 'blocked'].includes(row.dataset.status)
-            : filters.status === 'mine' ? members.includes(state.context.currentUser?.id)
-            : filters.status === 'overdue' ? row.dataset.overdue === 'true'
-            : filters.status === 'due_soon'
+      const matchesStatus = !filters.statuses.length || filters.statuses.some(status =>
+        status === 'active' ? ['todo', 'in_progress', 'blocked'].includes(row.dataset.status)
+          : status === 'mine' ? members.includes(state.context.currentUser?.id)
+          : status === 'overdue' ? row.dataset.overdue === 'true'
+          : status === 'due_soon'
               ? ['todo', 'in_progress', 'blocked'].includes(row.dataset.status)
                 && row.dataset.end >= today && row.dataset.end <= soon
-              : row.dataset.status === filters.status))
-        && (filters.progressMode === 'all' || row.dataset.progressMode === filters.progressMode)
+              : row.dataset.status === status);
+      const matches = (!keyword || (row.dataset.title || '').includes(keyword))
+        && (!filters.members.length || filters.members.some(member => members.includes(member)))
+        && matchesStatus
+        && (!filters.progressModes.length || filters.progressModes.includes(row.dataset.progressMode))
         && matchesDate;
       row.style.display = matches ? '' : 'none';
       if (matches) visible += 1;
@@ -248,8 +273,10 @@
     const empty = document.getElementById('teamTaskEmptyState');
     if (empty) empty.style.display = visible ? 'none' : 'block';
     document.querySelectorAll('[data-task-quick-view]').forEach(button => {
-      button.classList.toggle('task-view-active', button.dataset.taskQuickView === filters.status);
+      button.classList.toggle('task-view-active',
+        filters.statuses.length === 1 && button.dataset.taskQuickView === filters.statuses[0]);
     });
+    updateMultiFilterLabels(filters);
     saveViewState();
   }
 
@@ -261,9 +288,6 @@
     if (!saved) return;
     const mappings = {
       teamTaskKeywordFilter: saved.keyword,
-      teamTaskMemberFilter: saved.member,
-      teamTaskStatusFilter: saved.status,
-      teamTaskProgressModeFilter: saved.progressMode,
       teamTaskDateFilter: saved.date,
     };
     Object.entries(mappings).forEach(([id, value]) => {
@@ -274,6 +298,18 @@
         element.value = value || '';
       }
     });
+    const restoreChecks = (name, values, legacyValue) => {
+      const selected = new Set(Array.isArray(values)
+        ? values
+        : legacyValue && legacyValue !== 'all' ? [legacyValue] : []);
+      document.querySelectorAll(`[data-task-filter="${name}"]`).forEach(input => {
+        input.checked = selected.has(input.value);
+      });
+    };
+    restoreChecks('member', saved.members, saved.member);
+    restoreChecks('status', saved.statuses, saved.status);
+    restoreChecks('progress', saved.progressModes, saved.progressMode);
+    updateMultiFilterLabels();
     state.expandedIds = new Set(Array.isArray(saved.expanded) ? saved.expanded : []);
     document.querySelectorAll('[data-task-detail]').forEach(details => {
       details.open = state.expandedIds.has(details.dataset.taskDetail);
@@ -291,14 +327,8 @@
       const element = document.getElementById(id);
       if (element) element.value = '';
     });
-    const defaults = {
-      teamTaskMemberFilter: 'all',
-      teamTaskStatusFilter: 'active',
-      teamTaskProgressModeFilter: 'all',
-    };
-    Object.entries(defaults).forEach(([id, value]) => {
-      const element = document.getElementById(id);
-      if (element) element.value = value;
+    document.querySelectorAll('[data-task-filter]').forEach(input => {
+      input.checked = input.dataset.taskFilter === 'status' && input.value === 'active';
     });
     filterRows();
   }
@@ -307,22 +337,16 @@
     const task = state.viewModel?.visibleTasks.find(item => item.id === taskId);
     const keyword = document.getElementById('teamTaskKeywordFilter');
     if (keyword) keyword.value = task?.title || '';
-    const defaults = {
-      teamTaskMemberFilter: 'all',
-      teamTaskStatusFilter: 'all',
-      teamTaskProgressModeFilter: 'all',
-      teamTaskDateFilter: '',
-    };
-    Object.entries(defaults).forEach(([id, value]) => {
-      const element = document.getElementById(id);
-      if (element) element.value = value;
-    });
+    document.querySelectorAll('[data-task-filter]').forEach(input => { input.checked = false; });
+    const date = document.getElementById('teamTaskDateFilter');
+    if (date) date.value = '';
     filterRows();
   }
 
   function applyQuickFilter(status) {
-    const select = document.getElementById('teamTaskStatusFilter');
-    if (select) select.value = status;
+    document.querySelectorAll('[data-task-filter="status"]').forEach(input => {
+      input.checked = input.value === status;
+    });
     filterRows();
   }
 
@@ -377,31 +401,33 @@
   function taskFiltersHtml() {
     const escapeHtml = state.context.escapeHtml;
     const memberFilter = state.context.canViewTeamTasks()
-      ? `<select class="dashboard-filter" id="teamTaskMemberFilter" onchange="filterTeamTaskRows()">
-          <option value="all">全部成员</option>
-          ${(state.viewModel?.resourceMembers || []).map(profile => `<option value="${profile.id}">${escapeHtml(profile.name || '未命名成员')}</option>`).join('')}
-        </select>`
+      ? `<details class="task-multi-filter">
+          <summary data-task-filter-summary="member">全部成员</summary>
+          <div class="task-multi-filter-menu">
+            ${(state.viewModel?.resourceMembers || []).map(profile => `<label><input type="checkbox" value="${profile.id}" data-task-filter="member" onchange="filterTeamTaskRows()"> ${escapeHtml(profile.name || '未命名成员')}</label>`).join('')}
+          </div>
+        </details>`
       : '';
     return `<div class="team-task-filters">
       <input class="dashboard-filter" id="teamTaskKeywordFilter" type="search" placeholder="搜索任务" oninput="filterTeamTaskRows()">
       ${memberFilter}
-      <select class="dashboard-filter" id="teamTaskStatusFilter" onchange="filterTeamTaskRows()">
-        <option value="active" selected>未完成任务</option>
-        <option value="mine">我的事项</option>
-        <option value="due_soon">未来 3 天截止</option>
-        <option value="todo">待处理</option>
-        <option value="in_progress">进行中</option>
-        <option value="blocked">已阻塞</option>
-        <option value="overdue">已逾期</option>
-        <option value="done">已完成</option>
-        <option value="cancelled">已取消</option>
-        <option value="all">全部状态</option>
-      </select>
-      <select class="dashboard-filter" id="teamTaskProgressModeFilter" onchange="filterTeamTaskRows()">
-        <option value="all">全部进度方式</option>
-        <option value="auto">TestHub 自动</option>
-        <option value="manual">手工填报</option>
-      </select>
+      <details class="task-multi-filter">
+        <summary data-task-filter-summary="status">未完成任务</summary>
+        <div class="task-multi-filter-menu">
+          ${[
+            ['active','未完成任务',true], ['mine','我的事项'], ['due_soon','未来 3 天截止'],
+            ['todo','待处理'], ['in_progress','进行中'], ['blocked','已阻塞'],
+            ['overdue','已逾期'], ['done','已完成'], ['cancelled','已取消'],
+          ].map(([value,label,checked]) => `<label><input type="checkbox" value="${value}" data-task-filter="status" onchange="filterTeamTaskRows()" ${checked ? 'checked' : ''}> ${label}</label>`).join('')}
+        </div>
+      </details>
+      <details class="task-multi-filter">
+        <summary data-task-filter-summary="progress">全部进度方式</summary>
+        <div class="task-multi-filter-menu">
+          <label><input type="checkbox" value="auto" data-task-filter="progress" onchange="filterTeamTaskRows()"> TestHub 自动</label>
+          <label><input type="checkbox" value="manual" data-task-filter="progress" onchange="filterTeamTaskRows()"> 手工填报</label>
+        </div>
+      </details>
       <input class="dashboard-filter" id="teamTaskDateFilter" type="date" onchange="filterTeamTaskRows()" title="筛选该日期正在执行的任务">
       <button class="btn-secondary" type="button" onclick="clearTeamTaskFilters()">清空筛选</button>
     </div>`;
