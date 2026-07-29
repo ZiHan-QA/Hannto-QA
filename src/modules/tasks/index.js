@@ -31,6 +31,10 @@
     'created_by',
     'created_at',
     'completed_at',
+    'delay_recorded_at',
+    'delay_waived_at',
+    'delay_waived_by',
+    'delay_waiver_reason',
     'source',
     'related_type',
     'related_id',
@@ -140,14 +144,17 @@
         .some(item => item.member_id === context.currentUser?.id));
     const todayKey = context.todayKey();
     const activeStatuses = new Set(['todo', 'in_progress', 'blocked']);
+    const isDelayed = task => context.taskDelayState
+      ? context.taskDelayState(task).delayed
+      : activeStatuses.has(task.status)
+        && Boolean(task.allocation_end_date || task.due_date)
+        && String(task.allocation_end_date || task.due_date).slice(0, 10) < todayKey;
     const taskCounts = {
       active: visibleTasks.filter(task => activeStatuses.has(task.status)).length,
       todo: visibleTasks.filter(task => task.status === 'todo').length,
       in_progress: visibleTasks.filter(task => task.status === 'in_progress').length,
       blocked: visibleTasks.filter(task => task.status === 'blocked').length,
-      overdue: visibleTasks.filter(task => activeStatuses.has(task.status)
-        && task.due_date
-        && task.due_date.slice(0, 10) < todayKey).length,
+      overdue: visibleTasks.filter(isDelayed).length,
       done: visibleTasks.filter(task => task.status === 'done').length,
       mine: visibleTasks.filter(task => taskAssignments(task, groupedAssignees)
         .some(item => item.member_id === context.currentUser?.id)).length,
@@ -435,7 +442,7 @@
     return `<tr data-team-task-row data-task-id="${id}" data-title="${escapeHtml(String(row.title || '').toLowerCase())}" data-members="${escapeHtml(row.memberIds || '')}" data-status="${escapeHtml(row.status || '')}" data-progress-mode="${progressMode}" data-overdue="${row.overdue ? 'true' : 'false'}" data-start="${escapeHtml(row.startDate || '')}" data-end="${escapeHtml(row.endDate || '')}">
       <td>${row.canEdit ? `<input type="checkbox" class="task-batch-checkbox" value="${id}" onchange="updateBatchTaskSelection()" aria-label="选择 ${escapeHtml(row.title)}">` : ''}</td>
       <td>
-        <button class="task-title-button" onclick="openTaskDetailDrawer('${id}')">${escapeHtml(row.title)}</button>
+        <button class="task-title-button" onclick="openTaskDetailDrawer('${id}')">${escapeHtml(row.title)}</button>${row.delayBadgeHtml || ''}
         ${row.warningsHtml || ''}
         <div class="release-meta">第 ${Number(row.testRound || 1)} 轮${row.releaseName ? ` · ${escapeHtml(row.releaseName)}` : ''}${row.portfolioName ? ` · 项目 ${escapeHtml(row.portfolioName)}` : ''}</div>
       </td>
@@ -446,7 +453,7 @@
         <div class="task-list-progress-track"><span class="task-list-progress-fill ${progressPercent >= 100 ? 'done' : ''}" style="width:${progressPercent.toFixed(1)}%"></span></div>
         <div class="release-meta">${Number(row.actualTotal || 0).toFixed(2)} / ${Number(row.taskEffort || 0).toFixed(2)} 点 · ${progressMode === 'auto' ? 'TestHub' : '手工'}</div>
       </td>
-      <td><strong class="tasks-module-range">${escapeHtml(row.range || '-')}</strong><div class="release-meta">${row.overdue ? '已逾期' : escapeHtml(row.syncText || '')}</div></td>
+      <td><strong class="tasks-module-range">${escapeHtml(row.range || '-')}</strong><div class="release-meta">${row.overdue ? (row.status === 'done' ? '完成时间晚于原排期' : '已超过排期') : escapeHtml(row.syncText || '')}</div></td>
       <td><div class="tasks-module-row-actions">
         <button class="btn-secondary" onclick="openTaskDetailDrawer('${id}')">详情</button>
         ${row.canUpdateStatus ? `<button class="btn-primary" onclick="openProgressModal('${id}')">${row.testHubPlanCount ? '更新状态' : '更新进度'}</button>` : ''}
@@ -481,6 +488,8 @@
         ${detail.description ? `<div class="tasks-module-description">${escapeHtml(detail.description)}</div>` : '<div class="release-meta">未填写事项说明</div>'}
         <div class="assignee-allocation-note">${relationship}</div>
         ${relatedAsset}
+        ${detail.delayBadgeHtml || ''}
+        ${detail.delayWaiverReason ? `<div class="release-meta">管理员说明：${escapeHtml(detail.delayWaiverReason)}</div>` : ''}
         ${detail.warningsHtml || ''}
       </div>
       <div class="task-detail-section">
