@@ -15,12 +15,13 @@ module-name/
 
 1. ~~feedback~~（已完成）
 2. ~~projects~~（已完成）
-3. tasks（页面入口、查询、列表和详情已迁移；编辑器、进度和 TestHub 计算继续拆分）
-4. releases
-5. reports
-6. portfolio
-7. bugs
-8. members
+3. ~~departments~~（部门、员工档案和供应商基础已完成）
+4. tasks（页面入口、查询、列表和详情已迁移；编辑器、进度和 TestHub 计算继续拆分）
+5. releases
+6. reports
+7. portfolio
+8. bugs
+9. members
 9. dashboard
 
 当前架构、剩余迁移范围和多人协作要求见

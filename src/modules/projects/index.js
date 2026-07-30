@@ -15,7 +15,18 @@
     draggingTaskId: null,
     dragAnchorDate: '',
     suppressTaskClick: false,
+    dataCache: null,
+    dataCacheKey: '',
+    dataCacheAt: 0,
   };
+
+  const DATA_CACHE_TTL_MS = 5 * 60 * 1000;
+
+  function invalidateDataCache() {
+    state.dataCache = null;
+    state.dataCacheKey = '';
+    state.dataCacheAt = 0;
+  }
 
   function statusText(status) {
     return ({
@@ -182,39 +193,94 @@
       assigneesByTask.set(item.task_id, values);
     });
     const today = todayKey;
-    const template = `270px repeat(${days.length},45px)`;
-    const header = `<div class="project-gantt-cell project-gantt-task project-gantt-head">工作事项 / 负责人 / 排期</div>${days.map(day => `<div class="project-gantt-cell project-gantt-head project-gantt-day ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" title="${escapeHtml(day.name || (day.isWorkday ? '工作日' : '非工作日'))}">${String(day.day).padStart(2, '0')}<br>周${day.weekday}</div>`).join('')}`;
-    const rows = projectTasks.length ? projectTasks.map(task => {
+    const template = `248px repeat(${days.length},42px)`;
+    const header = `<div class="project-gantt-cell project-gantt-task project-gantt-head" style="grid-row:1;grid-column:1;">工作事项 / 负责人 / 排期</div>${days.map((day, dayIndex) => `<div class="project-gantt-cell project-gantt-head project-gantt-day ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" style="grid-row:1;grid-column:${dayIndex + 2};" title="${escapeHtml(day.name || (day.isWorkday ? '工作日' : '非工作日'))}">${String(day.day).padStart(2, '0')}<br>周${day.weekday}</div>`).join('')}`;
+    const rows = projectTasks.length ? projectTasks.map((task, taskIndex) => {
       const ids = assigneesByTask.get(task.id) || (task.assignee_id ? [task.assignee_id] : []);
       const names = ids.map(id => state.profiles.get(id)?.name).filter(Boolean).join('、') || '未指定负责人';
-      const slots = days.map(day => {
-        const label = day.isWorkday ? taskSlotLabel(task, day.key) : '';
-        const movable = context.canManageQa() && !['done', 'completed'].includes(task.status);
-        return `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" data-project-drop-date="${day.key}" data-project-workday="${day.isWorkday ? 'true' : 'false'}">${label ? `<button type="button" class="project-gantt-bar ${taskBarClass(task.status)}" data-project-task-open="${task.id}" data-project-slot-date="${day.key}" ${movable ? 'draggable="true"' : ''} title="${escapeHtml(`${task.title} · ${day.key} ${label}${movable ? ' · 可拖动改期' : ' · 点击查看'}`)}">${label}</button>` : ''}</div>`;
-      }).join('');
+      const row = taskIndex + 2;
+      const visibleStart = task.allocation_start_date < monthStart ? monthStart : task.allocation_start_date;
+      const visibleEnd = task.allocation_end_date > monthEnd ? monthEnd : task.allocation_end_date;
+      const startIndex = Math.max(0, days.findIndex(day => day.key === visibleStart));
+      const endIndex = Math.max(startIndex, days.findIndex(day => day.key === visibleEnd));
+      const startsAfternoon = visibleStart === task.allocation_start_date && task.allocation_start_period === 'pm';
+      const endsMorning = visibleEnd === task.allocation_end_date && task.allocation_end_period === 'am';
+      const slots = days.map((day, dayIndex) => `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" style="grid-row:${row};grid-column:${dayIndex + 2};" data-project-drop-date="${day.key}" data-project-workday="${day.isWorkday ? 'true' : 'false'}"></div>`).join('');
       const delayBadge = context.taskDelayBadgeHtml ? context.taskDelayBadgeHtml(task) : '';
-      const movable = context.canManageQa() && !['done', 'completed'].includes(task.status);
-      return `<div class="project-gantt-cell project-gantt-task"><button type="button" class="project-gantt-task-button" data-project-task-open="${task.id}" data-project-slot-date="${task.allocation_start_date}" ${movable ? 'draggable="true"' : ''}><strong>${escapeHtml(task.title || '未命名事项')}${delayBadge}</strong><span class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</span><span class="project-card-meta">${escapeHtml(task.allocation_start_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_start_period)} → ${escapeHtml(task.allocation_end_date || '未排期')} ${context.taskAllocationPeriodText(task.allocation_end_period)}</span></button></div>${slots}`;
+      const movable = context.canManageQa();
+      const durationText = `${task.allocation_start_date} ${context.taskAllocationPeriodText(task.allocation_start_period)} → ${task.allocation_end_date} ${context.taskAllocationPeriodText(task.allocation_end_period)}`;
+      const barText = `${Number(task.effort_person_days || 0).toFixed(1)} 人天`;
+      return `<div class="project-gantt-cell project-gantt-task" style="grid-row:${row};grid-column:1;"><button type="button" class="project-gantt-task-button" data-project-task-open="${task.id}"><strong>${escapeHtml(task.title || '未命名事项')}${delayBadge}</strong><span class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</span><span class="project-card-meta">${escapeHtml(durationText)}</span></button></div>${slots}<button type="button" class="project-gantt-continuous-bar ${taskBarClass(task.status)}" style="grid-row:${row};grid-column:${startIndex + 2} / ${endIndex + 3};--bar-start-inset:${startsAfternoon ? '50%' : '4px'};--bar-end-inset:${endsMorning ? '50%' : '4px'};" data-project-task-open="${task.id}" data-project-slot-date="${visibleStart}" ${movable ? 'draggable="true"' : ''} title="${escapeHtml(`${task.title} · ${durationText}${movable ? ' · 拖动可整体改期' : ' · 点击查看详情'}`)}"><span>${escapeHtml(barText)}</span></button>`;
     }).join('') : `<div class="project-gantt-cell project-gantt-task">本月暂无工作事项</div><div class="project-gantt-cell projects-module-empty-gantt" style="grid-column:span ${days.length};">可先在工作事项中关联该项目排期</div>`;
-    const completed = projectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
-    return `<div class="page-card projects-module">
-      <div class="card-hd">
-        <div><button class="btn-secondary projects-module-back" type="button" data-project-back><i class="ti ti-arrow-left"></i> 返回项目列表</button><div class="card-title">${escapeHtml(project.name)}</div><div class="card-sub">${context.projectUnitText(project.business_unit)} · ${memberNames.join('、') || '尚未分配成员'}</div></div>
-        ${context.canManageQa() ? `<button class="btn-secondary" type="button" data-project-edit="${project.id}"><i class="ti ti-edit"></i> 编辑项目</button>` : ''}
-      </div>
-      <div class="project-data-flow"><strong>当前项目的数据关系</strong><span>项目 → 版本 → 工作事项</span><small>月度人力规划由工作事项的版本和日期自动关联，不需要在事项中手工选择。</small></div>
-      <div class="summary-grid projects-module-summary">
-        <div class="summary-item"><div class="summary-label">计划 / 实际点数</div><div class="summary-value">${plannedPoints.toFixed(1)} / ${actualPoints.toFixed(1)}</div></div>
-        <div class="summary-item"><div class="summary-label">TestHub 执行率</div><div class="summary-value">${testHubTotal ? `${Math.round(testHubExecuted / testHubTotal * 100)}%` : '-'}</div><div class="project-card-meta">${testHubExecuted}/${testHubTotal} Case</div></div>
-        <div class="summary-item"><div class="summary-label">当前版本</div><div class="summary-value">${projectReleases.filter(item => item.status === 'active').length}</div><div class="project-card-meta">共 ${projectReleases.length} 个版本</div></div>
-        <div class="summary-item"><div class="summary-label">事项完成</div><div class="summary-value">${allProjectTasks.filter(item => ['done','completed'].includes(item.status)).length}/${allProjectTasks.length}</div></div>
-        <div class="summary-item"><div class="summary-label">延期 / 阻塞</div><div class="summary-value">${overdue} / ${blocked}</div></div>
-        <div class="summary-item"><div class="summary-label">BUG / 漏测</div><div class="summary-value">${projectDefects.length} / ${missedDefects}</div><div class="project-card-meta">${openDefects} 个未关闭</div></div>
-        <div class="summary-item"><div class="summary-label">项目成员</div><div class="summary-value">${memberships.length}</div></div>
-      </div>
-      <div class="projects-module-release-strip">${projectReleases.length ? projectReleases.map(release => `<span><strong>${escapeHtml(release.version || release.name || '未命名版本')}</strong> · ${releaseStatusText(release.status)}</span>`).join('') : '<span>尚未关联版本</span>'}</div>
-      <div class="project-detail-toolbar projects-module-toolbar"><button class="btn-secondary" type="button" data-project-month-shift="-1">上个月</button><input class="dashboard-filter" type="month" value="${state.detailMonth}" data-project-month><button class="btn-secondary" type="button" data-project-current-month>本月</button><button class="btn-secondary" type="button" data-project-month-shift="1">下个月</button><div class="project-detail-legend"><span>进行中</span><span class="todo">待处理</span><span class="done">已完成</span><span class="off">周末/节假日</span></div><span class="project-gantt-hint">${context.canManageQa() ? '点击事项编辑 · 拖动事项调整排期' : '点击事项查看详情'}</span></div>
-      <div class="project-gantt-wrap"><div class="project-gantt-grid" style="grid-template-columns:${template};">${header}${rows}</div></div>
+    const completed = allProjectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
+    const completionRate = allProjectTasks.length ? Math.round(completed / allProjectTasks.length * 100) : 0;
+    const executionRate = testHubTotal ? Math.round(testHubExecuted / testHubTotal * 100) : 0;
+    const effortRate = plannedPoints ? Math.round(actualPoints / plannedPoints * 100) : 0;
+    const activeReleases = projectReleases.filter(item => item.status === 'active');
+    const riskCount = overdue + blocked + openDefects;
+    return `<div class="projects-module project-detail-page">
+      <section class="project-detail-hero">
+        <div class="project-detail-heading">
+          <button class="project-detail-back" type="button" data-project-back title="返回项目列表"><i class="ti ti-arrow-left"></i></button>
+          <div class="project-detail-identity">
+            <div class="project-detail-kicker"><span>${escapeHtml(context.projectUnitText(project.business_unit))}</span><span class="project-state ${escapeHtml(project.status || 'active')}">${escapeHtml(statusText(project.status))}</span></div>
+            <h2>${escapeHtml(project.name)}</h2>
+            <p><i class="ti ti-users"></i>${memberNames.join('、') || '尚未分配成员'}</p>
+          </div>
+        </div>
+        <div class="project-detail-actions">
+          <button class="btn-primary" type="button" data-project-task-new="${project.id}"><i class="ti ti-plus"></i> 新建事项</button>
+          <button class="btn-secondary" type="button" data-project-refresh><i class="ti ti-refresh"></i> 刷新</button>
+          ${context.canManageQa() ? `<button class="btn-primary" type="button" data-project-edit="${project.id}"><i class="ti ti-edit"></i> 编辑项目</button>` : ''}
+        </div>
+      </section>
+
+      <section class="project-detail-metrics">
+        <article class="${effortRate > 100 ? 'danger' : ''}">
+          <span class="project-metric-icon pink"><i class="ti ti-chart-dots-3"></i></span>
+          <div><small>计划 / 实际点数</small><strong>${plannedPoints.toFixed(1)} <em>/ ${actualPoints.toFixed(1)}</em></strong><p>${effortRate}% 投入</p></div>
+          <i class="project-metric-progress"><b style="width:${Math.min(100, effortRate)}%"></b></i>
+        </article>
+        <article>
+          <span class="project-metric-icon purple"><i class="ti ti-test-pipe"></i></span>
+          <div><small>TestHub 执行率</small><strong>${testHubTotal ? `${executionRate}%` : '-'}</strong><p>${testHubExecuted}/${testHubTotal} Case</p></div>
+          <i class="project-metric-progress"><b style="width:${executionRate}%"></b></i>
+        </article>
+        <article>
+          <span class="project-metric-icon teal"><i class="ti ti-checkbox"></i></span>
+          <div><small>事项完成</small><strong>${completed} <em>/ ${allProjectTasks.length}</em></strong><p>${completionRate}% 已交付</p></div>
+          <i class="project-metric-progress"><b style="width:${completionRate}%"></b></i>
+        </article>
+        <article class="${riskCount ? 'warning' : ''}">
+          <span class="project-metric-icon amber"><i class="ti ti-alert-triangle"></i></span>
+          <div><small>待处理风险</small><strong>${riskCount}</strong><p>${overdue} 延期 · ${blocked} 阻塞 · ${openDefects} BUG</p></div>
+        </article>
+        <article>
+          <span class="project-metric-icon blue"><i class="ti ti-rocket"></i></span>
+          <div><small>当前版本</small><strong>${activeReleases.length}</strong><p>共 ${projectReleases.length} 个版本</p></div>
+        </article>
+        <article>
+          <span class="project-metric-icon mint"><i class="ti ti-users-group"></i></span>
+          <div><small>项目成员</small><strong>${memberships.length}</strong><p>${memberNames.length ? '已配置参与成员' : '等待分配成员'}</p></div>
+        </article>
+      </section>
+
+      <section class="project-release-panel">
+        <div class="project-section-heading"><div><span class="project-section-icon"><i class="ti ti-versions"></i></span><strong>版本状态</strong><small>项目 → 版本 → 工作事项自动关联</small></div><span>${projectReleases.length} 个版本</span></div>
+        <div class="projects-module-release-strip">${projectReleases.length ? projectReleases.map(release => `<span class="${release.status === 'active' ? 'active' : ''}"><i class="ti ti-rocket"></i><strong>${escapeHtml(release.version || release.name || '未命名版本')}</strong><small>${escapeHtml(releaseStatusText(release.status))}</small></span>`).join('') : '<span class="empty"><i class="ti ti-link-off"></i>尚未关联版本</span>'}</div>
+      </section>
+
+      <section class="project-schedule-panel">
+        <div class="project-schedule-head">
+          <div><span class="project-section-icon"><i class="ti ti-calendar-stats"></i></span><strong>月度工作排期</strong><small>${projectTasks.length} 个事项覆盖 ${state.detailMonth}</small></div>
+          <span class="project-gantt-hint">${context.canManageQa() ? '点击事项编辑，拖动可调整排期' : '点击事项查看详情'}</span>
+        </div>
+        <div class="project-detail-toolbar projects-module-toolbar">
+          <div class="project-month-nav"><button class="btn-secondary" type="button" data-project-month-shift="-1" title="上个月"><i class="ti ti-chevron-left"></i></button><input class="dashboard-filter" type="month" value="${state.detailMonth}" data-project-month><button class="btn-secondary project-current-month" type="button" data-project-current-month>回到本月</button><button class="btn-secondary" type="button" data-project-month-shift="1" title="下个月"><i class="ti ti-chevron-right"></i></button></div>
+          <div class="project-detail-legend"><span>进行中</span><span class="todo">待处理</span><span class="done">已完成</span><span class="off">周末/节假日</span></div>
+        </div>
+        <div class="project-gantt-wrap"><div class="project-gantt-grid" style="grid-template-columns:${template};grid-template-rows:34px repeat(${Math.max(1, projectTasks.length)},64px);">${header}${rows}</div></div>
+      </section>
     </div>${editorModalHtml()}`;
   }
 
@@ -229,6 +295,19 @@
     root.querySelector('[data-project-toggle-archived]')?.addEventListener('click', () => {
       state.showArchived = !state.showArchived;
       render(state.context);
+    });
+    root.querySelector('[data-project-refresh]')?.addEventListener('click', () => {
+      invalidateDataCache();
+      render(state.context);
+    });
+    root.querySelector('[data-project-task-new]')?.addEventListener('click', async event => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await state.context.createTaskForProject?.(button.dataset.projectTaskNew);
+      } finally {
+        if (button.isConnected) button.disabled = false;
+      }
     });
     root.querySelectorAll('[data-project-edit]').forEach(button => button.addEventListener('click', () => openEditor(button.dataset.projectEdit)));
     root.querySelector('[data-project-back]')?.addEventListener('click', () => {
@@ -294,10 +373,6 @@
     const context = state.context;
     const task = state.detailTasks.get(taskId);
     if (!context.canManageQa() || !task || !anchorDate || !targetDate) return;
-    if (['done', 'completed'].includes(task.status)) {
-      context.showToast('已完成事项不能拖动排期，可点击事项查看历史', 'error');
-      return;
-    }
     const offset = dateOffset(anchorDate, targetDate);
     if (!offset) return;
     const nextStart = shiftDate(task.allocation_start_date, offset);
@@ -312,7 +387,8 @@
         due_date: due,
       }).eq('id', task.id);
       if (error) throw error;
-      context.showToast('事项排期已移动');
+      context.showToast(`排期已更新为 ${nextStart} — ${nextEnd}`);
+      invalidateDataCache();
       context.rerender();
     } catch (error) {
       context.showToast(`移动排期失败：${error.message}`, 'error');
@@ -325,26 +401,41 @@
     state.businessUnit = context.businessUnit;
     const content = context.content;
     content.style.padding = '24px';
-    content.innerHTML = '<div class="page-card"><div class="empty"><div class="spinner"></div><div>正在加载项目…</div></div></div>';
     try {
-      const [projectsRes, membersRes, profilesRes, plansRes, tasksRes, assigneesRes, calendarRes, releasesRes, defectsRes, snapshotsRes, progressRes, healthRes] = await Promise.all([
-        context.sb.from('qa_projects').select('*').order('status').order('name'),
-        context.sb.from('qa_project_members').select('*'),
-        context.sb.from('profiles').select('id,name,role,resource_participant').order('name'),
-        context.sb.from('project_monthly_plans').select('id,project_id,project_name,plan_month,end_month,status'),
-        context.sb.from('qa_tasks').select('id,title,project_id,portfolio_plan_id,release_id,status,test_round,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,completed_at,delay_recorded_at,delay_waived_at,delay_waived_by,delay_waiver_reason').neq('status', 'cancelled'),
-        context.sb.from('qa_task_assignees').select('task_id,member_id'),
-        context.sb.from('work_calendar').select('work_date,is_workday,name'),
-        context.sb.from('releases').select('id,project_id,version,name,status,planned_release_date'),
-        context.sb.from('quality_defects').select('id,qa_task_id,release_id,status,severity,review_status,is_missed_test'),
-        context.sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,synced_at'),
-        context.sb.from('task_progress_logs').select('task_id,progress_points,source,work_date'),
-        context.canManageQa()
-          ? context.sb.from('qa_project_data_health').select('*').maybeSingle()
-          : Promise.resolve({ data: null, error: null }),
-      ]);
+      const cacheKey = `${context.currentUser?.id || ''}:${context.currentDuty || ''}`;
+      const cacheFresh = state.dataCache
+        && state.dataCacheKey === cacheKey
+        && Date.now() - state.dataCacheAt < DATA_CACHE_TTL_MS;
+      let results = state.dataCacheKey === cacheKey ? state.dataCache : null;
+      let fetchedFreshData = false;
+      if (!cacheFresh) {
+        content.innerHTML = '<div class="page-card"><div class="empty"><div class="spinner"></div><div>正在加载项目…</div></div></div>';
+        results = await Promise.all([
+          context.sb.from('qa_projects').select('*').order('status').order('name'),
+          context.sb.from('qa_project_members').select('*'),
+          context.sb.from('profiles').select('id,name,role,resource_participant').order('name'),
+          context.sb.from('project_monthly_plans').select('id,project_id,project_name,plan_month,end_month,status'),
+          context.sb.from('qa_tasks').select('id,title,project_id,portfolio_plan_id,release_id,status,test_round,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,completed_at,delay_recorded_at,delay_waived_at,delay_waived_by,delay_waiver_reason').neq('status', 'cancelled'),
+          context.sb.from('qa_task_assignees').select('task_id,member_id'),
+          context.sb.from('work_calendar').select('work_date,is_workday,name'),
+          context.sb.from('releases').select('id,project_id,version,name,status,planned_release_date'),
+          context.sb.from('quality_defects').select('id,qa_task_id,release_id,status,severity,review_status,is_missed_test'),
+          context.sb.from('task_testhub_progress').select('task_id,total_cases,executed_cases,progress_ratio,synced_at'),
+          context.sb.from('task_progress_logs').select('task_id,progress_points,source,work_date'),
+          context.canManageQa()
+            ? context.sb.from('qa_project_data_health').select('*').maybeSingle()
+            : Promise.resolve({ data: null, error: null }),
+        ]);
+        fetchedFreshData = true;
+      }
+      const [projectsRes, membersRes, profilesRes, plansRes, tasksRes, assigneesRes, calendarRes, releasesRes, defectsRes, snapshotsRes, progressRes, healthRes] = results;
       for (const result of [projectsRes, membersRes, profilesRes, plansRes, tasksRes, assigneesRes, calendarRes, releasesRes, defectsRes, snapshotsRes, progressRes, healthRes]) {
         if (result.error) throw result.error;
+      }
+      if (fetchedFreshData) {
+        state.dataCache = results;
+        state.dataCacheKey = cacheKey;
+        state.dataCacheAt = Date.now();
       }
       state.projects = new Map((projectsRes.data || []).map(item => [item.id, item]));
       state.members = membersRes.data || [];
@@ -379,7 +470,7 @@
       const health = healthRes.data || {};
       const healthTotal = Number(health.unassigned_plans || 0) + Number(health.unassigned_releases || 0) + Number(health.unassigned_tasks || 0) + Number(health.unassigned_bugs || 0);
       content.innerHTML = `<div class="page-card projects-module">
-        <div class="card-hd"><div><div class="card-title">🗂️ 项目总览</div><div class="card-sub">一个项目统一管理成员、版本、工作事项、月度人力和质量数据。</div></div><div class="projects-module-head-actions"><button class="btn-secondary" type="button" data-project-toggle-archived>${state.showArchived ? '隐藏已归档' : '查看已归档'}</button>${context.canManageQa() ? '<button class="btn-primary" type="button" data-project-new><i class="ti ti-plus"></i> 新增项目</button>' : ''}</div></div>
+        <div class="card-hd"><div><div class="card-title">🗂️ 项目总览</div><div class="card-sub">一个项目统一管理成员、版本、工作事项、月度人力和质量数据。数据会缓存 5 分钟，可随时手动刷新。</div></div><div class="projects-module-head-actions"><button class="btn-secondary" type="button" data-project-refresh><i class="ti ti-refresh"></i> 刷新数据</button><button class="btn-secondary" type="button" data-project-toggle-archived>${state.showArchived ? '隐藏已归档' : '查看已归档'}</button>${context.canManageQa() ? '<button class="btn-primary" type="button" data-project-new><i class="ti ti-plus"></i> 新增项目</button>' : ''}</div></div>
         <div class="project-data-flow"><strong>统一关联规则</strong><span>项目 → 版本 → 工作事项</span><small>创建工作事项只选版本；系统自动归属项目并匹配对应月份的人力规划。</small></div>
         ${healthTotal ? `<div class="project-data-warning"><strong>数据待归属 ${healthTotal} 项</strong><span>排期 ${Number(health.unassigned_plans || 0)} · 版本 ${Number(health.unassigned_releases || 0)} · 未完成事项 ${Number(health.unassigned_tasks || 0)} · BUG ${Number(health.unassigned_bugs || 0)}</span><small>请进入对应模块补充项目关系，避免统计遗漏。</small></div>` : ''}
         <div class="project-card-grid">${cards}</div>
@@ -451,6 +542,7 @@
       }
       state.businessUnit = payload.business_unit;
       state.selectedProjectId = projectId;
+      invalidateDataCache();
       context.setBusinessUnit(payload.business_unit);
       context.showToast('项目已保存');
       context.rerender();
@@ -472,6 +564,10 @@
     state.editingProjectId = null;
   }
 
+  function invalidate() {
+    invalidateDataCache();
+  }
+
   global.HanntoQA.registerModule({
     id: 'projects',
     title: '项目总览',
@@ -481,6 +577,7 @@
     permissions: ['admin', 'qa_lead', 'tester'],
     render,
     destroy,
+    invalidate,
     openProject,
   });
 })(window);

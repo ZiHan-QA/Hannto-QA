@@ -9,7 +9,7 @@
     taskDetails: new Map(),
   };
 
-  const TASK_FIELDS = [
+  const TASK_FIELD_LIST = [
     'id',
     'title',
     'description',
@@ -17,6 +17,8 @@
     'task_type',
     'status',
     'test_round',
+    'task_series_id',
+    'source_task_id',
     'assignee_id',
     'due_date',
     'release_id',
@@ -51,22 +53,48 @@
     'testhub_effort_person_days',
     'testhub_scope_mode',
     'testhub_scope_suite_ids',
-  ].join(',');
+  ];
+  const TASK_FIELDS = TASK_FIELD_LIST.join(',');
+  const LEGACY_TASK_FIELDS = TASK_FIELD_LIST
+    .filter(field => !['task_series_id', 'source_task_id'].includes(field))
+    .join(',');
 
-  async function loadWorkspaceData(context) {
-    const taskQuery = context.sb.from('qa_tasks')
-      .select(TASK_FIELDS)
+  function isMissingTaskSeriesSchema(error) {
+    const message = String(error?.message || error || '').toLowerCase();
+    return message.includes('task_series_id') || message.includes('source_task_id');
+  }
+
+  async function loadTasksWithSchemaFallback(context) {
+    const runQuery = fields => context.sb.from('qa_tasks')
+      .select(fields)
       .order('created_at', { ascending: false })
       .limit(1000);
+    const currentResult = await runQuery(TASK_FIELDS);
+    if (!currentResult.error || !isMissingTaskSeriesSchema(currentResult.error)) {
+      return currentResult;
+    }
+    console.warn('[tasks] task series migration is not active; loading with legacy fields');
+    const legacyResult = await runQuery(LEGACY_TASK_FIELDS);
+    if (!legacyResult.error) {
+      legacyResult.data = (legacyResult.data || []).map(task => ({
+        ...task,
+        task_series_id: null,
+        source_task_id: null,
+      }));
+    }
+    return legacyResult;
+  }
+
+  async function loadWorkspaceData(context) {
     const requests = {
-      tasksResult: taskQuery,
+      tasksResult: loadTasksWithSchemaFallback(context),
       profilesResult: context.sb.from('profiles').select('id,name,resource_participant'),
       progressResult: context.sb.from('task_progress_logs')
         .select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at')
         .order('work_date', { ascending: false }),
       testHubResult: context.sb.from('task_testhub_progress')
         .select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,sync_error,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
-      assigneesResult: context.sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
+      assigneesResult: context.sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort,testhub_suite_ids,testhub_suite_names,testhub_target_cases'),
       dailyResult: context.sb.from('task_testhub_daily_execution').select('*'),
       historyResult: context.sb.from('qa_task_allocation_history')
         .select('task_id,revision,total_effort,allocation_start_date,allocation_end_date,assignments,changed_by,changed_at')
@@ -74,7 +102,7 @@
       releasesResult: context.sb.from('releases').select('id,version,name,platform,status'),
       portfolioPlansResult: context.sb.from('project_monthly_plans').select('id,project_id,project_name'),
       activityResult: context.sb.from('qa_task_activity')
-        .select('task_id,action,changed_fields,changed_by,created_at')
+        .select('task_id,action,changed_fields,new_values,changed_by,created_at')
         .order('created_at', { ascending: false })
         .limit(1000),
       requirementsResult: context.sb.from('requirements').select('id,title'),
@@ -470,7 +498,7 @@
       <td>
         <button class="task-title-button" onclick="openTaskDetailDrawer('${id}')">${escapeHtml(row.title)}</button>${row.delayBadgeHtml || ''}
         ${row.warningsHtml || ''}
-        <div class="release-meta">第 ${Number(row.testRound || 1)} 轮${row.releaseName ? ` · ${escapeHtml(row.releaseName)}` : ''}${row.portfolioName ? ` · 项目 ${escapeHtml(row.portfolioName)}` : ''}</div>
+        <div class="release-meta">第 ${Number(row.testRound || 1)} 轮${Number(row.seriesCount || 1) > 1 ? ` · 同组共 ${Number(row.seriesCount)} 轮` : ''}${row.releaseName ? ` · ${escapeHtml(row.releaseName)}` : ''}${row.portfolioName ? ` · 项目 ${escapeHtml(row.portfolioName)}` : ''}</div>
       </td>
       <td><strong class="tasks-module-assignees">${escapeHtml((row.assigneeNames || []).join('、'))}</strong><div class="release-meta">${Number(row.assignmentCount || 0)} 位负责人</div></td>
       <td>${taskStatusBadgeHtml(row.status)}</td>
@@ -514,6 +542,7 @@
         ${detail.description ? `<div class="tasks-module-description">${escapeHtml(detail.description)}</div>` : '<div class="release-meta">未填写事项说明</div>'}
         <div class="assignee-allocation-note">${relationship}</div>
         ${relatedAsset}
+        ${detail.seriesHtml ? `<div class="task-detail-series"><strong>关联测试轮次</strong>${detail.seriesHtml}</div>` : ''}
         ${detail.delayBadgeHtml || ''}
         ${detail.delayWaiverReason ? `<div class="release-meta">管理员说明：${escapeHtml(detail.delayWaiverReason)}</div>` : ''}
         ${detail.warningsHtml || ''}

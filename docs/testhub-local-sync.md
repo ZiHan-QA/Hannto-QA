@@ -20,6 +20,8 @@ PingCode Key 和短期 Supabase 会话授权只在本机隐藏输入，不写入
    `supabase/migrations/20260717_multi_assignee_execution.sql`
    最后执行：
    `supabase/migrations/20260717_task_workflow_hardening.sql`
+   多负责人需要分别指定 TestHub 模块时，再执行：
+   `supabase/migrations/20260730_assignee_testhub_module_scopes.sql`
 2. 双击 `scripts/同步TestHub.cmd`，在第一个密码框中粘贴 Hanntonb API Key 并点击 OK。
 3. 在管理平台“工作事项”页点击“复制本地同步授权”，粘贴到第二个密码框并点击 OK。
 4. 两个授权只保留在当前进程内存，随后工具自动完成验证和同步。
@@ -31,7 +33,8 @@ PingCode Key 和短期 Supabase 会话授权只在本机隐藏输入，不写入
 - 用例库：消费类 `661e31a128d44167e325552c`。
 - 计划目录：完整分页拉取，按计划 ID 去重后写入缓存。
 - 执行进度：所有进行中且已关联 TestHub 计划的工作事项。
-- 每日执行：按 PingCode 执行人 ID 和执行日期归集；通过成员管理中的 PingCode 用户 ID 映射到平台成员，未映射记录保留并提示管理员。
+- 每日执行：按 PingCode 执行人 ID 和执行日期归集；通过“账号与权限”中的 PingCode 用户 ID 映射到平台成员，未映射记录保留并提示管理员。
+- 负责人模块分工：事项选择“指定模块”后，可启用“多人时按负责人指定模块”。事项所选模块必须全部分配，且同一模块只能分给一人。同步工具会按负责人过滤模块、回写个人目标 Case 数，并只用本人负责模块计算个人进度；未启用的旧事项继续按分配人天比例计算。
 - 计划执行记录固定 `page_size=5`，按执行记录 ID 去重。
 
 只有完整拉取成功的数据才会写入。失败或中断不会把部分计划列表当作完整缓存。

@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>人员档案 UI 方案</title>
+  <style>
+    :root {
+      --bg:#fbf7f1;
+      --card:#fff;
+      --text:#261830;
+      --sub:#8d735f;
+      --line:#eee2d8;
+      --purple:#6528d7;
+      --purple-soft:#f1ebff;
+      --pink:#ff6598;
+      --teal:#0aa98f;
+      --teal-soft:#dff7f2;
+      --amber:#b87508;
+      --amber-soft:#fff1cf;
+      --shadow:0 14px 40px rgba(46,26,60,.10);
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font:13px/1.5 "Microsoft YaHei","PingFang SC",sans-serif;
+    }
+    button,input,select { font:inherit; }
+    button { cursor:pointer; }
+    .shell { min-height:100vh; }
+    .topbar {
+      align-items:center;
+      background:rgba(255,255,255,.8);
+      border-bottom:1px solid var(--line);
+      display:flex;
+      height:58px;
+      justify-content:space-between;
+      padding:0 28px;
+      position:sticky;
+      top:0;
+      z-index:3;
+      backdrop-filter:blur(10px);
+    }
+    .crumb { color:var(--sub); font-size:12px; }
+    .crumb strong { color:var(--text); font-size:15px; margin-left:8px; }
+    .user { align-items:center; display:flex; gap:9px; }
+    .user i { background:var(--purple-soft); border-radius:50%; color:var(--purple); display:grid; font-style:normal; height:32px; place-items:center; width:32px; }
+    main { padding:22px 28px 40px; }
+    .hero {
+      align-items:flex-start;
+      background:linear-gradient(120deg,#fff 5%,#fff8fb 56%,#f2ecff 100%);
+      border:1px solid var(--line);
+      border-radius:18px;
+      display:flex;
+      justify-content:space-between;
+      padding:20px 22px;
+    }
+    .eyebrow { color:var(--purple); font-size:11px; font-weight:700; letter-spacing:.08em; }
+    h1 { font-size:25px; margin:5px 0 2px; }
+    .muted { color:var(--sub); font-size:11px; }
+    .hero-actions { align-items:center; display:flex; gap:9px; }
+    .select,.search {
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:10px;
+      color:var(--text);
+      min-height:38px;
+      padding:8px 12px;
+    }
+    .select { min-width:190px; }
+    .primary,.secondary {
+      border-radius:10px;
+      min-height:38px;
+      padding:8px 14px;
+    }
+    .primary { background:var(--purple); border:1px solid var(--purple); color:#fff; }
+    .secondary { background:#fff; border:1px solid var(--line); color:var(--text); }
+    .overview {
+      align-items:center;
+      display:flex;
+      flex-wrap:wrap;
+      gap:9px;
+      margin:14px 0;
+    }
+    .metric {
+      align-items:center;
+      background:#fff;
+      border:1px solid var(--line);
+      border-radius:999px;
+      display:flex;
+      gap:7px;
+      padding:7px 12px;
+    }
+    .metric strong { font-size:15px; }
+    .metric.warning { background:var(--amber-soft); border-color:#f1d99d; color:#845209; }
+    .metric.action { margin-left:auto; background:var(--purple-soft); border-color:#dacaff; color:var(--purple); }
+    .tabs {
+      align-items:center;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      gap:22px;
+      margin-top:4px;
+    }
+    .tab {
+      background:none;
+      border:0;
+      border-bottom:3px solid transparent;
+      color:var(--sub);
+      padding:13px 2px 11px;
+    }
+    .tab.active { border-color:var(--purple); color:var(--purple); font-weight:700; }
+    .tab em { background:#eee9e4; border-radius:999px; font-size:9px; font-style:normal; margin-left:5px; padding:2px 6px; }
+    .content-grid {
+      display:grid;
+      gap:14px;
+      grid-template-columns:200px minmax(0,1fr) 330px;
+      margin-top:14px;
+    }
+    .panel {
+      background:var(--card);
+      border:1px solid var(--line);
+      border-radius:15px;
+    }
+    .side-filter { align-self:start; overflow:hidden; padding:10px; }
+    .side-title { color:var(--sub); font-size:10px; font-weight:700; padding:8px 10px; }
+    .filter-item {
+      align-items:center;
+      background:transparent;
+      border:0;
+      border-radius:9px;
+      color:var(--text);
+      display:flex;
+      justify-content:space-between;
+      padding:9px 10px;
+      text-align:left;
+      width:100%;
+    }
+    .filter-item.active { background:var(--purple-soft); color:var(--purple); font-weight:700; }
+    .filter-item span { background:#f5f1ed; border-radius:999px; font-size:9px; padding:2px 6px; }
+    .list-panel { overflow:hidden; }
+    .toolbar {
+      align-items:center;
+      border-bottom:1px solid var(--line);
+      display:flex;
+      gap:8px;
+      padding:12px;
+    }
+    .search { flex:1; min-width:170px; }
+    .toolbar .select { min-width:120px; }
+    .table-head,.person-row {
+      align-items:center;
+      display:grid;
+      gap:10px;
+      grid-template-columns:minmax(170px,1.35fr) minmax(125px,.9fr) minmax(115px,.8fr) 100px 80px;
+      padding:10px 14px;
+    }
+    .table-head { color:var(--sub); font-size:10px; }
+    .person-row {
+      border-top:1px solid #f4ece5;
+      min-height:67px;
+      position:relative;
+    }
+    .person-row:hover,.person-row.selected { background:#fcfaff; }
+    .person-row.selected:before { background:var(--purple); content:""; inset:7px auto 7px 0; position:absolute; width:3px; }
+    .person { align-items:center; display:flex; gap:10px; min-width:0; }
+    .avatar {
+      background:linear-gradient(135deg,#eee7ff,#ffe5ef);
+      border-radius:11px;
+      color:var(--purple);
+      display:grid;
+      flex:0 0 36px;
+      font-weight:700;
+      height:36px;
+      place-items:center;
+    }
+    .person strong,.person small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .person small,.cell small { color:var(--sub); font-size:10px; }
+    .cell strong,.cell small { display:block; }
+    .tag {
+      border-radius:999px;
+      display:inline-flex;
+      font-size:9px;
+      margin:2px 3px 2px 0;
+      padding:3px 7px;
+    }
+    .tag.green { background:var(--teal-soft); color:#087563; }
+    .tag.amber { background:var(--amber-soft); color:#94600a; }
+    .tag.purple { background:var(--purple-soft); color:var(--purple); }
+    .progress { background:#efeae5; border-radius:999px; height:5px; margin-top:6px; overflow:hidden; width:70px; }
+    .progress i { background:var(--purple); display:block; height:100%; width:35%; }
+    .detail {
+      align-self:start;
+      box-shadow:var(--shadow);
+      overflow:hidden;
+      position:sticky;
+      top:73px;
+    }
+    .detail-head {
+      background:linear-gradient(135deg,#fbf8ff,#fff6f9);
+      border-bottom:1px solid var(--line);
+      padding:17px;
+    }
+    .detail-head-top { align-items:flex-start; display:flex; gap:11px; }
+    .detail-head .avatar { flex-basis:44px; height:44px; }
+    .detail h2 { font-size:17px; margin:0 0 2px; }
+    .completion { align-items:center; display:flex; gap:8px; margin-top:13px; }
+    .completion .bar { background:#eae3df; border-radius:999px; flex:1; height:6px; overflow:hidden; }
+    .completion .bar i { background:linear-gradient(90deg,var(--pink),var(--purple)); display:block; height:100%; width:35%; }
+    .detail-body { max-height:570px; overflow:auto; padding:14px 16px 18px; }
+    .section { border-bottom:1px solid #f1e8e1; padding:5px 0 14px; }
+    .section:last-child { border-bottom:0; }
+    .section-title { align-items:center; display:flex; font-size:11px; font-weight:700; justify-content:space-between; margin:7px 0 10px; }
+    .fields { display:grid; gap:8px; grid-template-columns:1fr 1fr; }
+    .field { background:#faf7f4; border-radius:9px; padding:9px; }
+    .field span,.field strong { display:block; }
+    .field span { color:var(--sub); font-size:9px; margin-bottom:3px; }
+    .notice { background:var(--amber-soft); border-radius:10px; color:#7b4d08; font-size:10px; margin-top:10px; padding:9px 10px; }
+    .detail-actions {
+      background:#fff;
+      border-top:1px solid var(--line);
+      display:flex;
+      gap:8px;
+      justify-content:flex-end;
+      padding:12px 16px;
+    }
+    @media(max-width:1150px) {
+      .content-grid { grid-template-columns:180px minmax(0,1fr); }
+      .detail { display:none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="crumb">团队资源 <strong>人员档案</strong></div>
+      <div class="user"><i>王</i><div><strong>王姿翰</strong><div class="muted">系统管理员</div></div></div>
+    </header>
+    <main>
+      <section class="hero">
+        <div>
+          <div class="eyebrow">PERSONNEL DIRECTORY</div>
+          <h1>软件质量</h1>
+          <div class="muted">14 名在职员工 · 部门主管 李旭光</div>
+        </div>
+        <div class="hero-actions">
+          <select class="select"><option>软件质量</option></select>
+          <span class="tag purple">主管：李旭光</span>
+        </div>
+      </section>
+
+      <div class="overview">
+        <div class="metric"><span>在职</span><strong>14</strong></div>
+        <div class="metric warning"><span>待完善</span><strong>14</strong></div>
+        <div class="metric"><span>第三方</span><strong>4</strong></div>
+        <div class="metric"><span>供应商</span><strong>2</strong></div>
+        <button class="metric action">下一份待完善档案 →</button>
+      </div>
+
+      <nav class="tabs">
+        <button class="tab active">员工档案 <em>14</em></button>
+        <button class="tab">供应商 <em>2</em></button>
+        <button class="tab">合同与提醒 <em>后续</em></button>
+        <button class="tab">假期与审批 <em>后续</em></button>
+      </nav>
+
+      <div class="content-grid">
+        <aside class="panel side-filter">
+          <div class="side-title">快速视图</div>
+          <button class="filter-item active">全部员工 <span>14</span></button>
+          <button class="filter-item">待完善档案 <span>14</span></button>
+          <button class="filter-item">第三方供应商 <span>4</span></button>
+          <button class="filter-item">汉图正式 <span>6</span></button>
+          <button class="filter-item">Other <span>4</span></button>
+          <div class="side-title" style="margin-top:12px">状态</div>
+          <button class="filter-item">在职 <span>14</span></button>
+          <button class="filter-item">已离职 <span>0</span></button>
+        </aside>
+
+        <section class="panel list-panel">
+          <div class="toolbar">
+            <input class="search" placeholder="搜索姓名、供应商或入职项目">
+            <select class="select"><option>全部 QA 负责人</option></select>
+            <button class="secondary">清除</button>
+          </div>
+          <div class="table-head"><span>员工</span><span>类别 / 供应商</span><span>汇报关系</span><span>档案完整度</span><span>状态</span></div>
+          <article class="person-row selected">
+            <div class="person"><span class="avatar">李</span><div><strong>李宏彤</strong><small>测试工程师 · 计入资源</small></div></div>
+            <div class="cell"><strong>第三方供应商</strong><small>智立方</small></div>
+            <div class="cell"><strong>李旭光</strong><small>QA：王姿翰</small></div>
+            <div class="cell"><strong>35%</strong><div class="progress"><i></i></div></div>
+            <div><span class="tag green">在职</span><span class="tag amber">待完善</span></div>
+          </article>
+          <article class="person-row">
+            <div class="person"><span class="avatar">付</span><div><strong>付天毅</strong><small>测试工程师 · 计入资源</small></div></div>
+            <div class="cell"><strong>汉图正式</strong><small>—</small></div>
+            <div class="cell"><strong>李旭光</strong><small>QA：未设置</small></div>
+            <div class="cell"><strong>50%</strong><div class="progress"><i style="width:50%"></i></div></div>
+            <div><span class="tag green">在职</span><span class="tag amber">待完善</span></div>
+          </article>
+          <article class="person-row">
+            <div class="person"><span class="avatar">金</span><div><strong>金嘉晨</strong><small>测试工程师 · 计入资源</small></div></div>
+            <div class="cell"><strong>第三方供应商</strong><small>科锐</small></div>
+            <div class="cell"><strong>李旭光</strong><small>QA：王姿翰</small></div>
+            <div class="cell"><strong>82%</strong><div class="progress"><i style="width:82%"></i></div></div>
+            <div><span class="tag green">在职</span></div>
+          </article>
+          <article class="person-row">
+            <div class="person"><span class="avatar">王</span><div><strong>王姿翰</strong><small>系统管理员 · 不计入资源</small></div></div>
+            <div class="cell"><strong>汉图正式</strong><small>—</small></div>
+            <div class="cell"><strong>李旭光</strong><small>QA：—</small></div>
+            <div class="cell"><strong>65%</strong><div class="progress"><i style="width:65%"></i></div></div>
+            <div><span class="tag green">在职</span><span class="tag amber">待完善</span></div>
+          </article>
+          <article class="person-row">
+            <div class="person"><span class="avatar">王</span><div><strong>王译锋</strong><small>测试工程师 · 计入资源</small></div></div>
+            <div class="cell"><strong>实习生</strong><small>—</small></div>
+            <div class="cell"><strong>李旭光</strong><small>QA：王姿翰</small></div>
+            <div class="cell"><strong>70%</strong><div class="progress"><i style="width:70%"></i></div></div>
+            <div><span class="tag green">在职</span></div>
+          </article>
+        </section>
+
+        <aside class="panel detail">
+          <div class="detail-head">
+            <div class="detail-head-top">
+              <span class="avatar">李</span>
+              <div><h2>李宏彤</h2><div class="muted">测试工程师 · 第三方供应商</div><div><span class="tag green">在职</span><span class="tag purple">智立方</span></div></div>
+            </div>
+            <div class="completion"><span class="muted">档案完整度</span><div class="bar"><i></i></div><strong>38%</strong></div>
+            <div class="notice">还需完善：入职日期、入职项目、主要 QA 负责人、合同到期日</div>
+          </div>
+          <div class="detail-body">
+            <section class="section">
+              <div class="section-title"><span>任职信息</span><button class="secondary">编辑</button></div>
+              <div class="fields">
+                <div class="field"><span>员工类别</span><strong>第三方供应商</strong></div>
+                <div class="field"><span>供应商</span><strong>智立方</strong></div>
+                <div class="field"><span>汇报主管</span><strong>李旭光</strong></div>
+                <div class="field"><span>主要 QA 负责人</span><strong>未设置</strong></div>
+              </div>
+            </section>
+            <section class="section">
+              <div class="section-title"><span>入职信息</span></div>
+              <div class="fields">
+                <div class="field"><span>入职日期</span><strong>未设置</strong></div>
+                <div class="field"><span>入职项目</span><strong>未设置</strong></div>
+              </div>
+            </section>
+            <section class="section">
+              <div class="section-title"><span>第三方合同期限</span><span class="tag amber">待补充</span></div>
+              <div class="fields">
+                <div class="field"><span>首次合同开始日</span><strong>同入职日期</strong></div>
+                <div class="field"><span>合同到期日</span><strong>未设置</strong></div>
+              </div>
+              <div class="notice">合同到期日将作为后续提前 1 个月提醒的依据。</div>
+            </section>
+            <section class="section">
+              <div class="section-title"><span>账号与资源</span><button class="secondary">去账号与权限</button></div>
+              <div class="fields">
+                <div class="field"><span>系统职责</span><strong>测试工程师</strong></div>
+                <div class="field"><span>资源统计</span><strong>计入资源</strong></div>
+              </div>
+            </section>
+            <section class="section">
+              <div class="section-title"><span>最近变更</span><button class="secondary">查看全部</button></div>
+              <div class="muted">暂无变更记录</div>
+            </section>
+          </div>
+          <div class="detail-actions"><button class="secondary">关闭</button><button class="primary">编辑完整档案</button></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
