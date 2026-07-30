@@ -27,6 +27,17 @@ def main() -> None:
     projects_css = (ROOT / "src/modules/projects/styles.css").read_text(encoding="utf-8")
     tasks_js = (ROOT / "src/modules/tasks/index.js").read_text(encoding="utf-8")
     tasks_css = (ROOT / "src/modules/tasks/styles.css").read_text(encoding="utf-8")
+    releases_js = (ROOT / "src/modules/releases/index.js").read_text(encoding="utf-8")
+    releases_css = (ROOT / "src/modules/releases/styles.css").read_text(encoding="utf-8")
+    releases_readme = (ROOT / "src/modules/releases/README.md").read_text(encoding="utf-8")
+    reports_js = (ROOT / "src/modules/reports/index.js").read_text(encoding="utf-8")
+    reports_css = (ROOT / "src/modules/reports/styles.css").read_text(encoding="utf-8")
+    reports_readme = (ROOT / "src/modules/reports/README.md").read_text(encoding="utf-8")
+    departments_js = (ROOT / "src/modules/departments/index.js").read_text(encoding="utf-8")
+    departments_css = (ROOT / "src/modules/departments/styles.css").read_text(encoding="utf-8")
+    departments_readme = (ROOT / "src/modules/departments/README.md").read_text(encoding="utf-8")
+    leave_management_js = (ROOT / "src/modules/leave-management/index.js").read_text(encoding="utf-8")
+    leave_management_css = (ROOT / "src/modules/leave-management/styles.css").read_text(encoding="utf-8")
     module_guide = (ROOT / "docs/module-development-guide.md").read_text(encoding="utf-8")
     migration = (ROOT / "supabase/migrations/20260717_task_workflow_hardening.sql").read_text(encoding="utf-8")
     closure_migration = (ROOT / "supabase/migrations/20260720_task_management_closure.sql").read_text(encoding="utf-8")
@@ -53,6 +64,10 @@ def main() -> None:
     atomic_task_project_link_migration = (ROOT / "supabase/migrations/20260728_atomic_task_project_link.sql").read_text(encoding="utf-8")
     direct_task_project_link_migration = (ROOT / "supabase/migrations/20260728_task_direct_project_link.sql").read_text(encoding="utf-8")
     qa_lead_task_edit_migration = (ROOT / "supabase/migrations/20260729_qa_lead_task_edit_permissions.sql").read_text(encoding="utf-8")
+    department_migration = (ROOT / "supabase/migrations/20260730_department_management_foundation.sql").read_text(encoding="utf-8")
+    task_series_migration = (ROOT / "supabase/migrations/20260730_task_series_linking.sql").read_text(encoding="utf-8")
+    assignee_scope_migration = (ROOT / "supabase/migrations/20260730_assignee_testhub_module_scopes.sql").read_text(encoding="utf-8")
+    bulk_member_function = (ROOT / "supabase/functions/admin-bulk-create-users/index.ts").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
 
@@ -64,22 +79,48 @@ def main() -> None:
         '<link rel="stylesheet" href="src/modules/projects/styles.css">',
         '<script src="src/modules/tasks/index.js"></script>',
         '<link rel="stylesheet" href="src/modules/tasks/styles.css">',
+        '<script src="src/modules/releases/index.js"></script>',
+        '<link rel="stylesheet" href="src/modules/releases/styles.css">',
+        '<script src="src/modules/reports/index.js"></script>',
+        '<link rel="stylesheet" href="src/modules/reports/styles.css">',
+        '<script src="src/modules/departments/index.js"></script>',
+        '<link rel="stylesheet" href="src/modules/departments/styles.css">',
+        '<script src="src/modules/leave-management/index.js"></script>',
+        '<link rel="stylesheet" href="src/modules/leave-management/styles.css">',
         "window.HanntoQA.pageTitles",
         "window.HanntoQA.projectBusinessPages",
         "window.HanntoQA.projectUnitText",
         "function createModuleContext",
+        "function renderTaskSeriesOptions",
+        "复制为下一轮",
+        "link_qa_task_series",
         "function destroyActiveRegisteredModule",
         "function renderRegisteredModule",
         "renderRegisteredModule('feedback')",
         "renderRegisteredModule('projects')",
         "renderRegisteredModule('tasks')",
+        "renderRegisteredModule('releases')",
+        "renderRegisteredModule('report')",
+        "renderRegisteredModule('departments')",
+        "renderRegisteredModule('leave-management')",
         "renderTaskWorkspace: workspaceData => renderTaskRecords(workspaceData)",
+        "renderQualityWorkspace: results => renderQualityReport(results)",
+        "renderQualityResults: selection => renderQualityReportResults(selection)",
+        "taskActualProgressPoints,",
         "function refreshTaskRecords",
+        "async function loadTaskReleases(selectedId = '', requiredProjectId = '')",
+        ".eq('project_id', requiredProjectId)",
+        "await openNewTaskModal(projectId)",
         "function taskUsesTestHubProgress",
         "function renderTaskMemberDailyDetail",
         "function renderTaskMemberProgressSummary",
         "function taskMemberExecutedCases",
         "function taskMemberTargetCases",
+        "function taskMemberActualPointsBeforeDate",
+        "function taskMemberActualPointsThroughDate",
+        "function taskMemberServerActualPointsUntil",
+        "function taskMemberActualPointsOnDate",
+        "function taskDelayAdminControlHtml",
         "function taskMemberDailyPlanOnDate",
         "save_qa_task_workflow",
         "admin_risk_actions",
@@ -102,6 +143,10 @@ def main() -> None:
         "const completedCompare = (a.status === 'done'",
         "if (!taskScheduledPoints.has(dayKey))",
         "task.status !== 'cancelled'",
+        "const actualBefore = taskMemberActualPointsBeforeDate",
+        "actualToday + remainingAfter",
+        "halfDayUnits * Math.max(1, Number(assigneeCount)",
+        "恢复自动延期判断",
         "function syncProgressPercentToPoints",
         "function renderProgressBatchInputs",
         "function loadProgressBatchEntries",
@@ -118,6 +163,13 @@ def main() -> None:
         "function isSystemAdmin",
         "function canManageQa",
         "function memberDutySelectHtml",
+        "function memberBulkImportModalHtml",
+        "function previewMemberBulkImport",
+        "function submitMemberBulkImport",
+        "function normalizeMemberImportProjectName",
+        "“入职项目”可留空",
+        "admin-bulk-create-users",
+        "Hannto_QA_成员批量导入模板.xlsx",
         "function updateMemberDuty",
         "QA 负责人/项目负责人",
         "Hannto QA 管理平台",
@@ -273,12 +325,14 @@ def main() -> None:
         "qa_project_data_health",
         "showArchived",
         "TestHub 执行率",
-        "延期 / 阻塞",
-        "BUG / 漏测",
+        "待处理风险",
+        "延期 · ${blocked} 阻塞 · ${openDefects} BUG",
         "data-project-open",
         "data-project-month",
         "data-project-task-open",
         "data-project-drop-date",
+        "project-gantt-continuous-bar",
+        "--bar-start-inset",
         "data-project-save",
         "返回项目列表",
     ], "projects module")
@@ -289,6 +343,11 @@ def main() -> None:
         ".projects-module-member",
         ".project-gantt-task-button",
         ".project-gantt-drop-target",
+        ".project-gantt-continuous-bar",
+        ".project-detail-hero",
+        ".project-detail-metrics",
+        ".project-release-panel",
+        ".project-schedule-panel",
     ], "projects module styles")
     for legacy_project_function in [
         "function renderProjectHub",
@@ -569,6 +628,9 @@ def main() -> None:
         "id: 'tasks'",
         "projectAware: true",
         "loadWorkspaceData",
+        "loadTasksWithSchemaFallback",
+        "LEGACY_TASK_FIELDS",
+        "isMissingTaskSeriesSchema",
         "buildWorkspaceViewModel",
         "groupTaskAssignees",
         "context.canViewTeamTasks()",
@@ -593,6 +655,10 @@ def main() -> None:
         "function closeDetail",
         "selectedBatchTaskIds",
         "context.renderTaskWorkspace(workspaceData)",
+        "changed_fields,new_values,changed_by",
+        "'task_series_id'",
+        "'source_task_id'",
+        "同组共",
         "refresh(context = state.context)",
         "data-task-module-retry",
     ], "tasks module")
@@ -601,9 +667,86 @@ def main() -> None:
         ".tasks-module-error",
         ".task-multi-filter",
         ".task-multi-filter-menu",
+        ".task-detail-series",
+        ".task-series-links",
     ], "tasks module styles")
+    require(task_series_migration, [
+        "task_series_id",
+        "source_task_id",
+        "qa_tasks_series_round_unique_idx",
+        "link_qa_task_series",
+        "Linked rounds must belong to the same project and release",
+    ], "task series migration")
     if "if (page === 'tasks') { renderTaskRecords(); return; }" in html:
         raise AssertionError("tasks page must render through the registered module")
+    require(releases_js, [
+        "registerReleasesModule",
+        "id: 'releases'",
+        "projectAware: true",
+        "context.canManageQa()",
+        "context.businessUnit",
+        "function projectOptions",
+        "function readiness",
+        "function filterCards",
+        "async function saveRelease",
+        "async function transitionRelease",
+        "async function addReleaseCheck",
+        "async function updateReleaseCheck",
+        "transition_release_status",
+        "data-release-status-filter",
+        "data-release-platform-filter",
+    ], "releases module")
+    require(releases_css, [
+        ".releases-module",
+        ".release-grid",
+        ".release-card",
+        ".release-stats",
+        ".release-check-form",
+    ], "releases module styles")
+    require(releases_readme, [
+        "版本与发布",
+        "QA 负责人",
+        "release_checks",
+    ], "releases module README")
+    if "if (page === 'releases') { renderReleaseManagement(); return; }" in html:
+        raise AssertionError("releases page must render through the registered module")
+    require(reports_js, [
+        "registerReportsModule",
+        "id: 'report'",
+        "projectAware: true",
+        "context.renderQualityWorkspace(results)",
+        "function filterWorkspace",
+        "function readFilters",
+        "function buildSummary",
+        "function buildMemberStats",
+        "function buildMemberDetails",
+        "function buildTaskDetails",
+        "function buildDefectDetails",
+        "function buildRetrospective",
+        "function buildExternalQuality",
+        "function buildWeeklyBrief",
+        "taskRate: percent(done, tasks.length)",
+        "data-report-filter",
+        "data-report-clear",
+        "async function loadQualityData",
+        "context.sb.from('quality_defects')",
+        "context.sb.from('task_testhub_progress')",
+        "reports-module-retry",
+    ], "reports module")
+    require(reports_css, [
+        ".reports-module",
+        ".quality-metrics",
+        ".quality-section-grid",
+        ".quality-member-row",
+    ], "reports module styles")
+    require(reports_readme, [
+        "质量报表模块",
+        "renderQualityWorkspace(results)",
+        "TestHub",
+        "CSV",
+    ], "reports module README")
+    if "if (page === 'report') { renderQualityReport(); return; }" in html:
+        raise AssertionError("report page must render through the registered module")
     require(sync_script, [
         "RUN_PAGE_SIZE = 5",
         "def plan_recency_key",
@@ -622,12 +765,86 @@ def main() -> None:
         "def upsert_pingcode_user_directory",
         "def auto_map_pingcode_profiles",
         "auto_mapped_profiles",
+        "def fetch_task_assignee_scopes",
+        "def resolve_and_persist_assignee_scopes",
         "def sync_task_status_from_testhub",
         '"status": "in.(todo,in_progress,blocked)"',
         '"--plan-limit"',
         '"_liene_plan_id"',
         "on_conflict=task_id,work_date,executor_key,plan_id",
     ], "TestHub sync")
+    require(html, [
+        "enableAssigneeSuiteScopes",
+        "renderAssigneeTestHubScopeAssignments",
+        "save_qa_task_testhub_assignee_scopes",
+        "testhub_target_cases",
+        "testhub_suite_names",
+    ], "per-assignee TestHub scope UI")
+    require(assignee_scope_migration, [
+        "testhub_suite_ids text[]",
+        "testhub_suite_names text[]",
+        "testhub_target_cases integer",
+        "save_qa_task_testhub_assignee_scopes",
+        "Member suite must belong to the task suite scope",
+    ], "per-assignee TestHub scope migration")
+    require(departments_js, [
+        "registerModule({",
+        "id: 'departments'",
+        "department_members",
+        "department_suppliers",
+        "employment_change_history",
+        "third_party_supplier",
+        "仅部门主管可见",
+    ], "departments module")
+    require(departments_css, [
+        ".department-page",
+        ".department-stats",
+        ".department-table",
+        ".department-supplier-panel",
+    ], "departments styles")
+    require(departments_readme, [
+        "部门主管是独立于",
+        "供应商基础管理",
+    ], "departments README")
+    require(leave_management_js, [
+        "registerModule({",
+        "id: 'leave-management'",
+        "permissions: ['admin', 'qa_lead', 'tester']",
+        "加班记录",
+        "请假申请",
+        "审批记录",
+        "法定假日",
+    ], "leave management module")
+    require(leave_management_css, [
+        ".leave-page",
+        ".leave-hero",
+        ".leave-overview",
+    ], "leave management styles")
+    require(department_migration, [
+        "create table if not exists public.departments",
+        "create table if not exists public.department_members",
+        "create table if not exists public.department_suppliers",
+        "create table if not exists public.employment_change_history",
+        "create or replace function public.is_department_supervisor",
+        "create or replace function public.can_manage_department",
+        "Only system administrators may change the department supervisor",
+        "'软件质量'",
+        "'智立方'",
+        "'科锐'",
+    ], "department management migration")
+    require(bulk_member_function, [
+        "admin-bulk-create-users",
+        "auth.admin.createUser",
+        "auth.admin.deleteUser",
+        "department_members",
+        "resource_participant",
+        "contract_end_date",
+        "storedName === '科之锐'",
+        "supplierByName.set('科锐'",
+        "function optionalProjectName",
+        "compact === '小米bu'",
+        "compact === '消费bu'",
+    ], "bulk member Edge Function")
     require(scheduled_sync_script, [
         "--plan-limit 50",
         "--library-id '661e31a128d44167e325552c'",
@@ -670,6 +887,30 @@ def main() -> None:
     )
     subprocess.run(
         ["node", "--check", str(ROOT / "src/modules/tasks/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/modules/releases/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/modules/reports/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/modules/departments/index.js")],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
+    subprocess.run(
+        ["node", "--check", str(ROOT / "src/modules/leave-management/index.js")],
         cwd=ROOT,
         check=True,
         stdout=subprocess.DEVNULL,

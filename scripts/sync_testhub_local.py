@@ -465,6 +465,99 @@ def fetch_profile_directory(access_token: str) -> dict[str, dict[str, str]]:
     }
 
 
+def fetch_task_assignee_scopes(
+    access_token: str,
+) -> dict[str, dict[str, dict[str, set[str]]]]:
+    """Load optional per-member TestHub suite scopes for task assignments."""
+    query = urllib.parse.urlencode(
+        {"select": "task_id,member_id,testhub_suite_ids"}, safe=",.*"
+    )
+    try:
+        rows = request_json(
+            f"{SUPABASE_URL}/rest/v1/qa_task_assignees?{query}",
+            headers=supabase_headers(access_token),
+            retries=2,
+        ) or []
+    except HttpStatusError as error:
+        if error.status == 400:
+            print("  负责人模块分工尚未迁移，本次按原有比例计算", file=sys.stderr)
+            return {}
+        raise
+    scopes: dict[str, dict[str, dict[str, set[str]]]] = {}
+    for row in rows:
+        suite_ids = {
+            str(value).strip()
+            for value in (row.get("testhub_suite_ids") or [])
+            if str(value).strip()
+        }
+        if not suite_ids:
+            continue
+        task_id = str(row.get("task_id") or "")
+        member_id = str(row.get("member_id") or "")
+        if task_id and member_id:
+            scopes.setdefault(task_id, {})[member_id] = {
+                "ids": suite_ids,
+                "names": set(),
+            }
+    return scopes
+
+
+def resolve_and_persist_assignee_scopes(
+    task_id: str,
+    configured: dict[str, dict[str, set[str]]],
+    runs: list[dict[str, Any]],
+    access_token: str,
+) -> dict[str, dict[str, Any]]:
+    """Resolve equivalent suite names across plans and cache each member denominator."""
+    resolved: dict[str, dict[str, Any]] = {}
+    for member_id, scope in configured.items():
+        suite_ids = set(scope.get("ids") or set())
+        suite_names = {
+            normalize_suite_name(suite_name)
+            for run in runs
+            for suite_id, suite_name in [run_suite(run)]
+            if suite_id in suite_ids and suite_name
+        }
+        display_names = sorted({
+            suite_name
+            for run in runs
+            for suite_id, suite_name in [run_suite(run)]
+            if (
+                suite_id in suite_ids
+                or normalize_suite_name(suite_name) in suite_names
+            ) and suite_name
+        })
+        target_cases = sum(
+            1
+            for run in runs
+            if (
+                run_suite(run)[0] in suite_ids
+                or normalize_suite_name(run_suite(run)[1]) in suite_names
+            )
+        )
+        resolved[member_id] = {
+            "ids": suite_ids,
+            "names": suite_names,
+            "display_names": display_names,
+            "target_cases": target_cases,
+        }
+        query = urllib.parse.urlencode({
+            "task_id": f"eq.{task_id}",
+            "member_id": f"eq.{member_id}",
+        })
+        request_json(
+            f"{SUPABASE_URL}/rest/v1/qa_task_assignees?{query}",
+            method="PATCH",
+            headers=supabase_headers(access_token, prefer="return=minimal"),
+            body={
+                "testhub_suite_names": display_names,
+                "testhub_target_cases": target_cases,
+            },
+            retries=2,
+        )
+    return resolved
+
+
 def fetch_plan_runs(library_id: str, plan_id: str, token: str) -> list[dict[str, Any]]:
     runs: dict[str, dict[str, Any]] = {}
     for page in range(1, 5001):
@@ -692,14 +785,26 @@ def replace_daily_execution(
     runs: list[dict[str, Any]],
     profile_directory: dict[str, dict[str, str]],
     access_token: str,
+    assignee_scopes: dict[str, dict[str, Any]] | None = None,
 ) -> tuple[int, set[str], set[str]]:
     grouped: dict[tuple[str, str, str], dict[str, Any]] = {}
+    assignee_scopes = assignee_scopes or {}
     for run in runs:
         status = str(((run.get("latest_executed_status") or {}).get("name") or run.get("status") or "")).strip()
         if status.casefold() not in EXECUTED_STATUSES:
             continue
         executor_key, pingcode_user_id, executor_name, work_date = run_executor_and_date(run)
         profile = profile_directory.get(pingcode_user_id)
+        if assignee_scopes and profile:
+            member_scope = assignee_scopes.get(profile["member_id"])
+            if not member_scope:
+                continue
+            suite_id, suite_name = run_suite(run)
+            if (
+                suite_id not in member_scope["ids"]
+                and normalize_suite_name(suite_name) not in member_scope["names"]
+            ):
+                continue
         plan_id = str(run.get("_liene_plan_id") or "")
         key = (work_date, executor_key, plan_id)
         row = grouped.setdefault(key, {
@@ -768,6 +873,7 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
     upsert_url = f"{SUPABASE_URL}/rest/v1/task_testhub_progress?on_conflict=task_id"
     upsert_headers = supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal")
     profile_directory = fetch_profile_directory(access_token)
+    configured_assignee_scopes = fetch_task_assignee_scopes(access_token)
     for task in tasks:
         plan_ids = [str(value) for value in (task.get("testhub_plan_ids") or []) if value]
         legacy_id = str(task.get("testhub_plan_id") or "")
@@ -798,6 +904,12 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
             if newly_mapped:
                 auto_mapped_profiles += newly_mapped
                 profile_directory = fetch_profile_directory(access_token)
+            task_assignee_scopes = resolve_and_persist_assignee_scopes(
+                str(task["id"]),
+                configured_assignee_scopes.get(str(task["id"]), {}),
+                all_runs,
+                access_token,
+            )
             total = sum(item["total"] for item in summaries)
             executed = sum(item["executed"] for item in summaries)
             all_plans_complete = len(summaries) == len(plan_ids) and all(
@@ -840,7 +952,11 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                 task, total, executed, all_plans_complete, access_token
             )
             task_records, task_mapped, task_unmapped = replace_daily_execution(
-                str(task["id"]), all_runs, profile_directory, access_token
+                str(task["id"]),
+                all_runs,
+                profile_directory,
+                access_token,
+                task_assignee_scopes,
             )
             execution_records += task_records
             mapped_executors.update(task_mapped)
