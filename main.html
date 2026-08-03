@@ -346,8 +346,14 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 @media (max-width:760px) { .resource-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 .dashboard-modal { position: fixed; inset: 0; z-index: 1000; display: none; align-items: center; justify-content: center; padding: 20px; background: rgba(26,16,53,.46); }
 .dashboard-modal.open { display: flex; }
-.dashboard-modal-panel { width: min(520px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; border-radius: 16px; padding: 20px; background: #fff; box-shadow: 0 20px 50px rgba(26,16,53,.22); }
-.dashboard-modal-panel.task-editor-panel { width: min(760px, 100%); }
+.dashboard-modal-panel { width: min(520px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; overflow-x: hidden; border-radius: 16px; padding: 20px; background: #fff; box-shadow: 0 20px 50px rgba(26,16,53,.22); }
+.dashboard-modal-panel.task-editor-panel { width: min(920px, 100%); }
+.task-editor-panel .dashboard-form-grid > *,
+.task-editor-panel .form-group,
+.task-editor-panel .dashboard-input,
+.task-editor-panel .form-select { min-width: 0; max-width: 100%; }
+.task-editor-panel .dashboard-modal-hd { position: sticky; top: -20px; z-index: 4; margin: -20px -20px 16px; padding: 16px 20px 12px; border-bottom: 1px solid #f1e9e1; background: rgba(255,255,255,.97); backdrop-filter: blur(8px); }
+.task-editor-panel .dashboard-form-actions { position: sticky; bottom: -20px; z-index: 4; margin: 18px -20px -20px; padding: 12px 20px; border-top: 1px solid #f1e9e1; background: rgba(255,255,255,.97); backdrop-filter: blur(8px); }
 .dashboard-modal-hd { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
 .dashboard-modal-title { color: var(--text); font-size: 15px; font-weight: 600; }
 .dashboard-modal-close { border: none; background: #f5f0e8; color: var(--sub); width: 30px; height: 30px; border-radius: 8px; cursor: pointer; }
@@ -368,6 +374,13 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
   .welcome-badge { margin-left: 0; }
   .stat-grid { grid-template-columns: 1fr; }
   .dashboard-form-grid { grid-template-columns: 1fr; }
+  .dashboard-modal { padding: 8px; align-items: stretch; }
+  .dashboard-modal-panel { max-height: calc(100vh - 16px); padding: 16px; }
+  .dashboard-modal-panel.task-editor-panel { width: 100%; }
+  .task-editor-panel .dashboard-modal-hd { top: -16px; margin: -16px -16px 16px; padding: 14px 16px 11px; }
+  .task-editor-panel .dashboard-form-actions { bottom: -16px; margin: 18px -16px -16px; padding: 11px 16px; }
+  .task-editor-panel .assignee-allocation-grid,
+  .task-editor-panel .testhub-plan-grid { grid-template-columns: 1fr; }
 }
 
 /* ── 自动化模块样式 ── */
@@ -729,7 +742,13 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const { createClient } = supabase;
 const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const RESOURCE_HORIZON_WORKDAYS = 5;
-const DAILY_PROGRESS_CUTOFF_HOUR = 19;
+const DAILY_PROGRESS_CUTOFF_HOUR = 23;
+const DAILY_PROGRESS_CUTOFF_MINUTE = 59;
+function dailyProgressCutoffReached(now = new Date()) {
+  return now.getHours() > DAILY_PROGRESS_CUTOFF_HOUR
+    || (now.getHours() === DAILY_PROGRESS_CUTOFF_HOUR
+      && now.getMinutes() >= DAILY_PROGRESS_CUTOFF_MINUTE);
+}
 const TASK_TEMPLATES = {
   prd_review: { type:'prd_review', effort:0.5, placeholder:'例如：评审 Perilla 首页 PRD', description:'确认需求范围、异常场景、兼容性与可验收标准。' },
   case_design: { type:'case_design', effort:1, placeholder:'例如：设计证件照功能测试用例', description:'根据 PRD 设计主流程、异常、兼容性与回归测试用例。' },
@@ -5154,7 +5173,7 @@ function taskAllocationRangeText(task) {
 function resourceSlotClosed(slot, todayKey, now = new Date()) {
   if (slot.date < todayKey) return true;
   if (slot.date > todayKey) return false;
-  return slot.period === 'am' ? now.getHours() >= 13 : now.getHours() >= DAILY_PROGRESS_CUTOFF_HOUR;
+  return slot.period === 'am' ? now.getHours() >= 13 : dailyProgressCutoffReached(now);
 }
 
 function futureResourceWorkDates(count, calendar = dashboardWorkCalendar, startDate = dashboardResourceStartDate || dashboardTodayInputValue()) {
@@ -5216,7 +5235,7 @@ function buildOverdueCarryover(members, tasks, visibleDates, calendar = dashboar
   const result = new Map();
   if (!visibleDates.length) return result;
   const today = dashboardLocalDateKey(now);
-  const allowFutureCarryover = now.getHours() >= DAILY_PROGRESS_CUTOFF_HOUR;
+  const allowFutureCarryover = dailyProgressCutoffReached(now);
   const memberIds = new Set((members || []).map(member => member.id));
   const distributionDates = visibleDates.filter(date => isResourceWorkday(date, calendar));
   for (const task of tasks || []) {
@@ -5260,7 +5279,7 @@ function buildOverdueCarryover(members, tasks, visibleDates, calendar = dashboar
       const carryStart = addDashboardDate(task.allocation_end_date, 1);
       for (const date of distributionDates) {
         if (date < carryStart || (completedDate && date > completedDate)) continue;
-        // Before the daily 19:00 cutoff, do not consume tomorrow's capacity
+        // Before the daily 23:59 cutoff, do not consume tomorrow's capacity.
         // with unfinished work that may still be completed today.
         if (date > today && !allowFutureCarryover) continue;
         const actualBefore = taskMemberActualPointsBeforeDate(task, assignment.member_id, date, snapshot);
@@ -5502,9 +5521,9 @@ function taskDelayState(task, now = new Date()) {
   }
   const endDate = task.allocation_end_date || task.due_date?.slice(0, 10) || '';
   if (!endDate) return { delayed:false, completedLate:false, label:'' };
-  const endTime = (task.allocation_end_period || 'pm') === 'am'
-    ? '12:00:00'
-    : `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:00:00`;
+  // Half-day slots still affect capacity, but overdue status is calculated
+  // only once at the end of the calendar day.
+  const endTime = `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:${String(DAILY_PROGRESS_CUTOFF_MINUTE).padStart(2, '0')}:00`;
   const deadline = new Date(`${endDate}T${endTime}`);
   if (Number.isNaN(deadline.getTime())) return { delayed:false, completedLate:false, label:'' };
   if (task.status === 'done') {
@@ -5617,9 +5636,9 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
         && task.allocation_end_date >= todayKey)
       || task.due_date?.slice(0, 10) === todayKey
     );
-    // Today's work remains actionable until 19:00. Do not count it as a
+    // Today's work remains actionable until 23:59. Do not count it as a
     // dashboard risk while the team still has time to finish it.
-    if (scheduledToday && now.getHours() < DAILY_PROGRESS_CUTOFF_HOUR) return;
+    if (scheduledToday && !dailyProgressCutoffReached(now)) return;
     taskAssigneeList(task).forEach(assignment => {
     const member = memberMap.get(assignment.member_id);
     const memberName = member?.name || (assignment.member_id === currentUser.id ? '我' : '未命名成员');
@@ -5642,7 +5661,7 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
 
     const dueKey = task.due_date?.slice(0, 10) || task.allocation_end_date || '';
     if (due && (dueKey < todayKey
-      || (dueKey === todayKey && now.getHours() >= DAILY_PROGRESS_CUTOFF_HOUR))) {
+      || (dueKey === todayKey && dailyProgressCutoffReached(now)))) {
       risks.push({
         level: 'high',
         title: `${label} 已超过截止日期`,
@@ -7656,7 +7675,7 @@ async function saveQaTask() {
 
   button.disabled = true;
   try {
-    const due = new Date(`${dueDate}T${allocationEndPeriod === 'am' ? '12:00:00' : `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:00:00`}`);
+    const due = new Date(`${dueDate}T${allocationEndPeriod === 'am' ? '12:00:00' : `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:${String(DAILY_PROGRESS_CUTOFF_MINUTE).padStart(2, '0')}:00`}`);
     const payload = {
       title,
       description,
