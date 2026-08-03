@@ -51,7 +51,7 @@ function optionalProjectName(value: unknown) {
   if (!normalized) return null
   const compact = normalized.toLowerCase().replace(/\s+/g, '')
   // BU 是组织分类，不是具体项目；导入时按“暂不关联项目”处理。
-  if (compact === '小米bu' || compact === '消费bu') return null
+  if (compact === '小米bu' || compact === '消费bu' || compact === '新业务bu') return null
   return normalized
 }
 

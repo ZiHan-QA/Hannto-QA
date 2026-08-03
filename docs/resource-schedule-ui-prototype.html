@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>团队资源排期 UI 方案</title>
+  <style>
+    :root{
+      --bg:#fbf7f1;--card:#fff;--text:#2b1831;--sub:#8d7464;--line:#eee1d7;
+      --purple:#6728d8;--purple-soft:#f2ecff;--pink:#ff6598;
+      --green:#087965;--green-bg:#d8f6ef;--amber:#98600a;--amber-bg:#fff0ce;
+      --red:#b53030;--red-bg:#ffe1df;--gray:#f1eeeb;--shadow:0 14px 42px rgba(53,30,65,.10)
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--text);font:13px/1.45 "Microsoft YaHei","PingFang SC",sans-serif}
+    button,input,select{font:inherit} button{cursor:pointer}.page{padding:24px;min-width:1060px}
+    .top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}.eyebrow{color:var(--purple);font-weight:700;font-size:11px}.top h1{font-size:24px;margin:3px 0}.muted{color:var(--sub);font-size:11px}
+    .primary,.btn{border-radius:10px;min-height:38px;padding:8px 14px}.primary{border:1px solid var(--pink);background:var(--pink);color:#fff}.btn{border:1px solid var(--line);background:#fff;color:var(--text)}
+    .scope-bar{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);border-radius:16px;padding:13px 16px;margin-bottom:12px}
+    .bu-tabs,.view-tabs,.date-nav,.filters,.legend{display:flex;align-items:center;gap:8px}.pill{border:1px solid var(--line);background:#fff;border-radius:999px;padding:8px 18px;color:var(--sub)}.pill.active{background:var(--purple);border-color:var(--purple);color:#fff;box-shadow:0 6px 16px rgba(103,40,216,.20)}
+    .scope-note{display:flex;align-items:center;gap:8px;color:var(--sub)}.scope-note b{color:var(--text)}
+    .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}.metric{background:#fff;border:1px solid var(--line);border-radius:14px;padding:13px 15px}.metric span{display:block;color:var(--sub);font-size:10px}.metric strong{display:block;font-size:21px;margin:4px 0 1px}.metric.warning{background:#fffaf0;border-color:#f0d59e}.metric.danger{background:#fff7f7;border-color:#f0b6b3}
+    .workspace{display:grid;grid-template-columns:minmax(760px,1fr) 292px;gap:12px}.panel{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}.toolbar{padding:14px 16px;border-bottom:1px solid var(--line)}
+    .toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:12px}.toolbar-row+.toolbar-row{margin-top:11px}.date-nav input,.filter-btn{height:36px;border:1px solid var(--line);border-radius:9px;background:#fff;padding:7px 11px;color:var(--text)}.date-nav input{width:126px}.date-arrow{width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:#fff}
+    .view-tabs{background:#f5f0eb;border-radius:10px;padding:3px}.view{border:0;background:transparent;border-radius:8px;padding:7px 12px;color:var(--sub)}.view.active{background:#fff;color:var(--purple);font-weight:700;box-shadow:0 2px 8px rgba(40,20,50,.08)}
+    .filters{position:relative}.filter-btn{min-width:118px;text-align:left;display:flex;align-items:center;justify-content:space-between}.filter-btn b{font-weight:500}.count{background:var(--purple-soft);color:var(--purple);border-radius:999px;font-size:9px;padding:2px 6px}.dropdown{display:none;position:absolute;right:0;top:42px;width:220px;background:#fff;border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:8px;z-index:4}.dropdown.open{display:block}.dropdown label{display:flex;gap:8px;align-items:center;padding:8px;border-radius:8px}.dropdown label:hover{background:#faf7f4}.dropdown-foot{display:flex;justify-content:flex-end;border-top:1px solid var(--line);padding-top:7px;margin-top:5px}
+    .legend{gap:13px;color:var(--sub);font-size:10px}.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:4px;vertical-align:-1px}.lg-green{background:var(--green-bg)}.lg-amber{background:var(--amber-bg)}.lg-red{background:var(--red-bg)}.lg-purple{background:#fff;border:2px solid #8b4de9}
+    .grid-wrap{overflow:auto;max-height:560px}.resource-grid{width:100%;border-collapse:separate;border-spacing:0;min-width:900px}.resource-grid th{position:sticky;top:0;background:#fffaf6;z-index:2;color:var(--sub);font-size:10px;font-weight:500;padding:10px;border-bottom:1px solid var(--line)}.resource-grid th:first-child{left:0;z-index:3;text-align:left;width:154px}.resource-grid td{height:78px;border-bottom:1px solid #f2e9e2;padding:6px}.resource-grid td:first-child{position:sticky;left:0;background:#fff;z-index:1;padding:10px 13px}.member strong,.member small{display:block}.member small{color:var(--sub);font-size:9px;margin-top:3px}.member em{display:inline-block;background:var(--purple-soft);color:var(--purple);border-radius:999px;font-size:9px;font-style:normal;margin-top:5px;padding:2px 6px}
+    .cell{height:64px;border-radius:11px;padding:8px 9px;position:relative;overflow:hidden}.cell.normal{background:var(--green-bg);color:var(--green)}.cell.under{background:var(--amber-bg);color:var(--amber)}.cell.over{background:var(--red-bg);color:var(--red)}.cell.off{background:var(--gray);color:#aaa}.cell.delay{outline:2px solid #8b4de9;outline-offset:-2px}.cell-top{display:flex;justify-content:space-between;align-items:center}.cell-top strong{font-size:13px}.cell-top span{font-size:9px}.cell-plan{font-size:9px;opacity:.78;margin-top:2px}.actual-line{display:flex;align-items:center;gap:6px;margin-top:8px}.actual-line span{font-size:9px;white-space:nowrap}.actual-bar{height:5px;border-radius:999px;background:rgba(255,255,255,.65);flex:1;overflow:hidden}.actual-bar i{height:100%;display:block;background:currentColor}.badge{position:absolute;right:6px;bottom:6px;background:#fff;border-radius:999px;font-size:8px;padding:2px 5px}.badge.delay-badge{color:var(--purple)}.badge.ot{color:#b14f19}
+    .side{display:grid;gap:12px;align-content:start}.side-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:15px}.side-card h3{font-size:13px;margin:0 0 3px}.side-list{display:grid;gap:8px;margin-top:12px}.alert{border-radius:11px;padding:10px 11px}.alert strong,.alert span{display:block}.alert span{font-size:9px;margin-top:3px}.alert.red{background:var(--red-bg);color:var(--red)}.alert.purple{background:var(--purple-soft);color:var(--purple)}.alert.amber{background:var(--amber-bg);color:var(--amber)}
+    .rule{display:grid;grid-template-columns:10px 1fr;gap:8px;margin-top:10px;color:var(--sub);font-size:10px}.rule i{width:8px;height:8px;border-radius:50%;background:var(--purple);margin-top:3px}.rule b{display:block;color:var(--text);font-size:11px;margin-bottom:2px}
+    .footnote{padding:10px 16px;background:#fffaf6;color:var(--sub);font-size:10px;border-top:1px solid var(--line)}
+    @media(max-width:1200px){.workspace{grid-template-columns:1fr}.side{grid-template-columns:1fr 1fr}.metrics{grid-template-columns:repeat(2,1fr)}}
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header class="top">
+      <div><div class="eyebrow">团队资源 / 排期与投入</div><h1>团队资源排期</h1><div class="muted">计划看未来，实际看历史；延期和加班独立标识，不再混算。</div></div>
+      <button class="primary">导出本周资源</button>
+    </header>
+
+    <section class="scope-bar">
+      <div class="bu-tabs">
+        <button class="pill">小米</button><button class="pill active">消费</button><button class="pill">Other</button>
+      </div>
+      <div class="scope-note"><span>当前范围</span><b>消费 BU · 11 名资源成员</b><span>· 数据已更新 10:32</span></div>
+    </section>
+
+    <section class="metrics">
+      <div class="metric"><span>本周可用容量</span><strong>51.5 点</strong><span>11 人 · 扣除请假与节假日</span></div>
+      <div class="metric"><span>计划投入</span><strong>46.2 点</strong><span>整体利用率 90%</span></div>
+      <div class="metric warning"><span>延期滚动占用</span><strong>3.1 点</strong><span>涉及 4 人 · 6 个事项</span></div>
+      <div class="metric danger"><span>超载成员</span><strong>2 人</strong><span>最高单日计划 1.40 点</span></div>
+    </section>
+
+    <div class="workspace">
+      <section class="panel">
+        <div class="toolbar">
+          <div class="toolbar-row">
+            <div class="date-nav"><button class="date-arrow">‹</button><input type="date" value="2026-08-03"><button class="btn">本周</button><button class="date-arrow">›</button><span class="muted">连续 5 个工作日</span></div>
+            <div class="view-tabs"><button class="view active" data-view="plan">计划视图</button><button class="view" data-view="actual">实际视图</button><button class="view" data-view="combined">综合视图</button></div>
+          </div>
+          <div class="toolbar-row">
+            <div class="legend"><span><i class="lg-green"></i>容量满足</span><span><i class="lg-amber"></i>容量不足</span><span><i class="lg-red"></i>超载</span><span><i class="lg-purple"></i>延期滚动</span></div>
+            <div class="filters">
+              <button class="filter-btn" id="memberFilter"><b>成员</b><span class="count">3</span></button>
+              <button class="filter-btn"><b>项目</b><span>⌄</span></button>
+              <button class="filter-btn"><b>负载状态</b><span>⌄</span></button>
+              <button class="btn">清空</button>
+              <div class="dropdown" id="memberDropdown">
+                <label><input type="checkbox" checked>付天毅</label><label><input type="checkbox" checked>孙玉</label><label><input type="checkbox" checked>张猛</label><label><input type="checkbox">李宏彤</label><label><input type="checkbox">李磊</label>
+                <div class="dropdown-foot"><button class="primary" style="min-height:30px;padding:5px 11px">应用筛选</button></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-wrap">
+          <table class="resource-grid">
+            <thead><tr><th>成员 / 当日容量</th><th>08/03<br>周一</th><th>08/04<br>周二</th><th>08/05<br>周三</th><th>08/06<br>周四</th><th>08/07<br>周五</th></tr></thead>
+            <tbody>
+              <tr><td><div class="member"><strong>付天毅</strong><small>消费 · Liene Photo</small><em>容量 1.00/天</em></div></td>
+                <td><div class="cell normal"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划容量已满足</div><div class="actual-line"><span>实际 1.00</span><div class="actual-bar"><i style="width:100%"></i></div></div></div></td>
+                <td><div class="cell normal delay"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划 0.70 + 延期 0.30</div><div class="actual-line"><span>实际 0.60</span><div class="actual-bar"><i style="width:60%"></i></div></div><span class="badge delay-badge">延期 0.30</span></div></td>
+                <td><div class="cell under"><div class="cell-top"><strong>0.70</strong><span>/ 1.00</span></div><div class="cell-plan">剩余容量 0.30</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"><i style="width:0"></i></div></div></div></td>
+                <td><div class="cell normal"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划容量已满足</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"></div></div></div></td>
+                <td><div class="cell normal"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划容量已满足</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"></div></div></div></td></tr>
+              <tr><td><div class="member"><strong>孙玉</strong><small>消费 · Liene Photo</small><em>容量 1.00/天</em></div></td>
+                <td><div class="cell normal"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划容量已满足</div><div class="actual-line"><span>实际 1.00</span><div class="actual-bar"><i style="width:100%"></i></div></div><span class="badge ot">加班 2h</span></div></td>
+                <td><div class="cell over"><div class="cell-top"><strong>1.40</strong><span>/ 1.00</span></div><div class="cell-plan">计划超载 0.40</div><div class="actual-line"><span>实际 0.90</span><div class="actual-bar"><i style="width:90%"></i></div></div></div></td>
+                <td><div class="cell normal"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划容量已满足</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"></div></div></div></td>
+                <td><div class="cell under"><div class="cell-top"><strong>0.50</strong><span>/ 1.00</span></div><div class="cell-plan">剩余容量 0.50</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"></div></div></div></td>
+                <td><div class="cell off"><div class="cell-top"><strong>0.00</strong><span>/ 0.00</span></div><div class="cell-plan">全天请假</div></div></td></tr>
+              <tr><td><div class="member"><strong>张猛</strong><small>消费 · Coleus</small><em>容量 1.00/天</em></div></td>
+                <td><div class="cell under"><div class="cell-top"><strong>0.50</strong><span>/ 1.00</span></div><div class="cell-plan">剩余容量 0.50</div><div class="actual-line"><span>实际 0.50</span><div class="actual-bar"><i style="width:50%"></i></div></div></div></td>
+                <td><div class="cell normal"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划容量已满足</div><div class="actual-line"><span>实际 1.00</span><div class="actual-bar"><i style="width:100%"></i></div></div></div></td>
+                <td><div class="cell normal delay"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划 0.50 + 延期 0.50</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"></div></div><span class="badge delay-badge">延期 0.50</span></div></td>
+                <td><div class="cell normal"><div class="cell-top"><strong>1.00</strong><span>/ 1.00</span></div><div class="cell-plan">计划容量已满足</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"></div></div></div></td>
+                <td><div class="cell under"><div class="cell-top"><strong>0.30</strong><span>/ 1.00</span></div><div class="cell-plan">剩余容量 0.70</div><div class="actual-line"><span>实际 —</span><div class="actual-bar"></div></div></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="footnote">单击单元格查看当天事项明细；计划决定底色，实际使用进度条，延期只使用紫色描边，加班单独显示。</div>
+      </section>
+
+      <aside class="side">
+        <section class="side-card"><h3>本周需要处理</h3><div class="muted">按风险优先级集中展示</div><div class="side-list"><div class="alert red"><strong>2 人计划超载</strong><span>孙玉 08/04 · 1.40/1.00 点</span></div><div class="alert purple"><strong>4 人存在延期占用</strong><span>共滚动 3.10 点，点击查看事项</span></div><div class="alert amber"><strong>6 个空闲容量</strong><span>可承接 2.80 点临时任务</span></div></div></section>
+        <section class="side-card"><h3>页面口径</h3><div class="rule"><i></i><div><b>计划视图</b>用于安排未来工作，底色按计划/可用容量判断。</div></div><div class="rule"><i></i><div><b>实际视图</b>用于复盘历史投入，每人每天标准实际最多 1 点。</div></div><div class="rule"><i></i><div><b>综合视图</b>计划控制底色，实际使用进度条，不混淆两套口径。</div></div><div class="rule"><i></i><div><b>延期与加班</b>分别使用紫色边框和独立标签，不叠加进标准容量。</div></div></section>
+      </aside>
+    </div>
+  </div>
+  <script>
+    document.querySelectorAll('.pill').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.pill').forEach(x=>x.classList.remove('active'));button.classList.add('active')}));
+    document.querySelectorAll('.view').forEach(button=>button.addEventListener('click',()=>{document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));button.classList.add('active')}));
+    document.getElementById('memberFilter').addEventListener('click',event=>{event.stopPropagation();document.getElementById('memberDropdown').classList.toggle('open')});
+    document.addEventListener('click',()=>document.getElementById('memberDropdown').classList.remove('open'));
+    document.getElementById('memberDropdown').addEventListener('click',event=>event.stopPropagation());
+  </script>
+</body>
+</html>

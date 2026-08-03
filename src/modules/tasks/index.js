@@ -88,7 +88,7 @@
   async function loadWorkspaceData(context) {
     const requests = {
       tasksResult: loadTasksWithSchemaFallback(context),
-      profilesResult: context.sb.from('profiles').select('id,name,resource_participant'),
+      profilesResult: context.sb.from('profiles').select('*'),
       progressResult: context.sb.from('task_progress_logs')
         .select('id,task_id,work_date,progress_points,source,note,executor_id,reported_by,created_at')
         .order('work_date', { ascending: false }),
@@ -193,7 +193,7 @@
 
     return Object.freeze({
       profiles,
-      resourceMembers: profiles.filter(context.isResourceParticipant),
+      resourceMembers: context.businessUnitResourceMembers(profiles),
       groupedAssignees,
       projectById,
       portfolioPlanById,

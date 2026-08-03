@@ -184,6 +184,11 @@
   color: #666;
 }
 
+.department-status.departing {
+  background: #fff1d5;
+  color: #a55b08;
+}
+
 .department-status.warning {
   background: #fff0d1;
   color: #8a4b08;
@@ -704,7 +709,7 @@
   align-items: start;
   display: grid;
   gap: 12px;
-  grid-template-columns: 182px minmax(580px, 1fr) 340px;
+  grid-template-columns: 182px minmax(560px, 1fr) minmax(410px, 450px);
 }
 
 .department-quick-panel,
@@ -986,7 +991,7 @@
   border-bottom: 1px solid var(--line);
   display: flex;
   justify-content: space-between;
-  padding: 15px;
+  padding: 18px;
 }
 
 .department-profile-identity {
@@ -1000,7 +1005,7 @@
 }
 
 .department-profile-head h3 {
-  font-size: 16px;
+  font-size: 19px;
   margin: 2px 0;
 }
 
@@ -1008,7 +1013,7 @@
 .department-profile-head em {
   color: var(--sub);
   display: block;
-  font-size: 9px;
+  font-size: 11px;
   font-style: normal;
 }
 
@@ -1029,17 +1034,17 @@
   display: grid;
   gap: 10px;
   overflow-y: auto;
-  padding: 12px;
+  padding: 14px;
 }
 
 .department-profile-scroll > section {
   border: 1px solid var(--line);
   border-radius: 11px;
-  padding: 12px;
+  padding: 14px;
 }
 
 .department-profile-scroll h4 {
-  font-size: 11px;
+  font-size: 13px;
   margin: 0 0 10px;
 }
 
@@ -1089,13 +1094,14 @@
 
 .department-detail-section dt {
   color: var(--sub);
-  font-size: 8px;
+  font-size: 10px;
   margin-bottom: 3px;
 }
 
 .department-detail-section dd {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 600;
+  line-height: 1.45;
   margin: 0;
 }
 

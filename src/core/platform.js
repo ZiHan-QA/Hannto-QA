@@ -17,6 +17,7 @@
     plan: '测试计划',
     bugs: 'BUG 管理',
     departments: '部门管理',
+    resources: '资源排期',
     'leave-management': '假期管理',
     members: '账号与权限',
     settings: '系统设置',
@@ -31,12 +32,14 @@
     'portfolio',
     'releases',
     'report',
+    'resources',
     'bugs',
   ]);
 
   const projectUnits = Object.freeze({
     xiaomi: '小米',
     consumer: '消费',
+    new_business: '新业务',
     other: 'Other',
     unassigned: '待归属',
   });

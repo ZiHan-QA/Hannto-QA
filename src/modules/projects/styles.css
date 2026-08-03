@@ -158,14 +158,18 @@
   cursor: pointer;
 }
 
-.projects-module [draggable="true"] {
+.projects-module [data-project-draggable="true"] {
   cursor: grab;
 }
 
-.projects-module [draggable="true"]:active,
+.projects-module [data-project-draggable="true"]:active,
 .projects-module .dragging {
   cursor: grabbing;
   opacity: .55;
+}
+
+.projects-module .project-gantt-continuous-bar.dragging {
+  z-index: 6;
 }
 
 .projects-module .project-gantt-drop-target {
@@ -592,8 +596,12 @@
 }
 
 .project-gantt-continuous-bar {
+  position: relative;
   z-index: 3;
+  display: flex;
   align-self: center;
+  align-items: center;
+  justify-content: center;
   min-width: 12px;
   height: 28px;
   margin-right: var(--bar-end-inset, 4px);
@@ -608,7 +616,57 @@
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+  user-select: none;
+  touch-action: none;
   box-shadow: 0 2px 6px rgba(8, 122, 93, .08);
+}
+
+.project-gantt-bar-label {
+  overflow: hidden;
+  pointer-events: none;
+  text-overflow: ellipsis;
+}
+
+.project-gantt-resize-handle {
+  position: absolute;
+  z-index: 4;
+  top: 0;
+  bottom: 0;
+  width: 18px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+
+.project-gantt-resize-handle.start {
+  left: 0;
+}
+
+.project-gantt-resize-handle.end {
+  right: 0;
+}
+
+.project-gantt-resize-handle::after {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  content: '';
+  opacity: .45;
+  transition: opacity .15s ease;
+}
+
+.project-gantt-resize-handle.start::after {
+  left: 6px;
+}
+
+.project-gantt-resize-handle.end::after {
+  right: 6px;
+}
+
+.project-gantt-continuous-bar:hover .project-gantt-resize-handle::after {
+  opacity: .9;
 }
 
 .project-gantt-continuous-bar.todo {
@@ -634,11 +692,11 @@
   box-shadow: 0 3px 10px rgba(75, 31, 184, .16);
 }
 
-.project-gantt-continuous-bar[draggable="true"] {
+.project-gantt-continuous-bar[data-project-draggable="true"] {
   cursor: grab;
 }
 
-.project-gantt-continuous-bar[draggable="true"]::before {
+.project-gantt-continuous-bar[data-project-draggable="true"]::before {
   content: '⋮⋮';
   margin-right: 5px;
   opacity: .55;

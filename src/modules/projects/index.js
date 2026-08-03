@@ -14,6 +14,9 @@
     detailTasks: new Map(),
     draggingTaskId: null,
     dragAnchorDate: '',
+    dragMode: '',
+    pointerSession: null,
+    workCalendar: new Map(),
     suppressTaskClick: false,
     dataCache: null,
     dataCacheKey: '',
@@ -70,6 +73,44 @@
     return Math.round((parse(to) - parse(from)) / 86400000);
   }
 
+  function scheduleIsWorkday(dateKey) {
+    const override = state.workCalendar.get(dateKey);
+    if (override) return override.is_workday === true;
+    const [year, month, day] = String(dateKey).split('-').map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    return weekday !== 0 && weekday !== 6;
+  }
+
+  function nextScheduleWorkday(dateKey, direction) {
+    let cursor = dateKey;
+    for (let guard = 0; guard < 370; guard += 1) {
+      cursor = shiftDate(cursor, direction < 0 ? -1 : 1);
+      if (scheduleIsWorkday(cursor)) return cursor;
+    }
+    return cursor;
+  }
+
+  function scheduleWorkdayOffset(from, to) {
+    if (from === to) return 0;
+    const direction = from < to ? 1 : -1;
+    let cursor = from;
+    let offset = 0;
+    for (let guard = 0; guard < 370 && cursor !== to; guard += 1) {
+      cursor = nextScheduleWorkday(cursor, direction);
+      offset += direction;
+    }
+    return offset;
+  }
+
+  function shiftScheduleWorkdays(dateKey, offset) {
+    let cursor = dateKey;
+    const direction = offset < 0 ? -1 : 1;
+    for (let index = 0; index < Math.abs(offset); index += 1) {
+      cursor = nextScheduleWorkday(cursor, direction);
+    }
+    return cursor;
+  }
+
   function monthDays(month, calendarRows) {
     const [year, number] = String(month).split('-').map(Number);
     const calendar = new Map(calendarRows.map(item => [item.work_date, item]));
@@ -121,7 +162,7 @@
         </div>
         <div class="dashboard-form-grid">
           <div class="form-group"><label class="form-label">项目名称 *</label><input class="dashboard-input" id="qaProjectName" maxlength="120" placeholder="例如：米家照片打印"></div>
-          <div class="form-group"><label class="form-label">所属分类 *</label><select class="form-select" id="qaProjectUnit"><option value="xiaomi">小米</option><option value="consumer">消费</option><option value="other">Other</option></select></div>
+          <div class="form-group"><label class="form-label">所属分类 *</label><select class="form-select" id="qaProjectUnit"><option value="xiaomi">小米</option><option value="consumer">消费</option><option value="new_business">新业务</option><option value="other">Other</option></select></div>
           <div class="form-group"><label class="form-label">生命周期</label><select class="form-select" id="qaProjectStatus"><option value="planned">筹备中</option><option value="active">进行中</option><option value="paused">已暂停</option><option value="closed">已结束</option><option value="archived">已归档</option></select></div>
           <div class="form-group"><label class="form-label">项目负责人</label><select class="form-select" id="qaProjectOwner"><option value="">暂不指定</option></select></div>
         </div>
@@ -136,7 +177,9 @@
     const context = state.context;
     const escapeHtml = context.escapeHtml;
     state.detailMonth ||= monthKey();
-    const memberships = state.members.filter(item => item.project_id === project.id);
+    const memberships = state.members.filter(item =>
+      item.project_id === project.id
+      && context.profileMatchesBusinessUnit(state.profiles.get(item.member_id), project.business_unit));
     const memberNames = memberships.map(item => `${escapeHtml(state.profiles.get(item.member_id)?.name || '未命名成员')}${item.is_owner ? '（负责人）' : ''}`);
     const projectPlans = plans.filter(item => item.project_id === project.id);
     const planIds = new Set(projectPlans.map(item => item.id));
@@ -175,6 +218,7 @@
       return sum + (logsByTask.get(task.id) || []).reduce((subtotal, log) => subtotal + Number(log.progress_points || 0), 0);
     }, 0);
     const days = monthDays(state.detailMonth, calendarRows);
+    state.workCalendar = new Map(calendarRows.map(item => [item.work_date, item]));
     const monthStart = days[0]?.key || `${state.detailMonth}-01`;
     const monthEnd = days.at(-1)?.key || monthStart;
     const projectTasks = tasks.filter(item =>
@@ -205,18 +249,22 @@
       const endIndex = Math.max(startIndex, days.findIndex(day => day.key === visibleEnd));
       const startsAfternoon = visibleStart === task.allocation_start_date && task.allocation_start_period === 'pm';
       const endsMorning = visibleEnd === task.allocation_end_date && task.allocation_end_period === 'am';
-      const slots = days.map((day, dayIndex) => `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" style="grid-row:${row};grid-column:${dayIndex + 2};" data-project-drop-date="${day.key}" data-project-workday="${day.isWorkday ? 'true' : 'false'}"></div>`).join('');
+      const slots = days.map((day, dayIndex) => `<div class="project-gantt-cell project-gantt-slot ${day.isWorkday ? '' : 'weekend'} ${day.key === today ? 'project-gantt-today' : ''}" style="grid-row:${row};grid-column:${dayIndex + 2};" data-project-drop-date="${day.key}" data-project-workday="${day.isWorkday ? 'true' : 'false'}" data-project-row="${row}" data-project-day-index="${dayIndex}"></div>`).join('');
       const delayBadge = context.taskDelayBadgeHtml ? context.taskDelayBadgeHtml(task) : '';
       const movable = context.canManageQa();
       const durationText = `${task.allocation_start_date} ${context.taskAllocationPeriodText(task.allocation_start_period)} → ${task.allocation_end_date} ${context.taskAllocationPeriodText(task.allocation_end_period)}`;
       const barText = `${Number(task.effort_person_days || 0).toFixed(1)} 人天`;
-      return `<div class="project-gantt-cell project-gantt-task" style="grid-row:${row};grid-column:1;"><button type="button" class="project-gantt-task-button" data-project-task-open="${task.id}"><strong>${escapeHtml(task.title || '未命名事项')}${delayBadge}</strong><span class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</span><span class="project-card-meta">${escapeHtml(durationText)}</span></button></div>${slots}<button type="button" class="project-gantt-continuous-bar ${taskBarClass(task.status)}" style="grid-row:${row};grid-column:${startIndex + 2} / ${endIndex + 3};--bar-start-inset:${startsAfternoon ? '50%' : '4px'};--bar-end-inset:${endsMorning ? '50%' : '4px'};" data-project-task-open="${task.id}" data-project-slot-date="${visibleStart}" ${movable ? 'draggable="true"' : ''} title="${escapeHtml(`${task.title} · ${durationText}${movable ? ' · 拖动可整体改期' : ' · 点击查看详情'}`)}"><span>${escapeHtml(barText)}</span></button>`;
+      const resizeHandles = movable
+        ? `${visibleStart === task.allocation_start_date ? `<span class="project-gantt-resize-handle start" data-project-resize="start" data-project-resize-task="${task.id}" title="向左或向右拉伸开始日期"></span>` : ''}${visibleEnd === task.allocation_end_date ? `<span class="project-gantt-resize-handle end" data-project-resize="end" data-project-resize-task="${task.id}" title="向左或向右拉伸结束日期"></span>` : ''}`
+        : '';
+      return `<div class="project-gantt-cell project-gantt-task" style="grid-row:${row};grid-column:1;"><button type="button" class="project-gantt-task-button" data-project-task-open="${task.id}"><strong>${escapeHtml(task.title || '未命名事项')}${delayBadge}</strong><span class="project-card-meta">${escapeHtml(names)} · 第 ${Number(task.test_round || 1)} 轮 · ${context.taskStatusText(task.status)}</span><span class="project-card-meta">${escapeHtml(durationText)}</span></button></div>${slots}<div role="button" tabindex="0" class="project-gantt-continuous-bar ${taskBarClass(task.status)}" style="grid-row:${row};grid-column:${startIndex + 2} / ${endIndex + 3};--bar-start-inset:${startsAfternoon ? '50%' : '4px'};--bar-end-inset:${endsMorning ? '50%' : '4px'};" data-project-task-open="${task.id}" data-project-slot-date="${visibleStart}" data-project-row="${row}" ${movable ? 'data-project-draggable="true"' : ''} title="${escapeHtml(`${task.title} · ${durationText}${movable ? ' · 拖动中间移动，拖动两侧调整日期' : ' · 点击查看详情'}`)}">${resizeHandles}<span class="project-gantt-bar-label">${escapeHtml(barText)}</span></div>`;
     }).join('') : `<div class="project-gantt-cell project-gantt-task">本月暂无工作事项</div><div class="project-gantt-cell projects-module-empty-gantt" style="grid-column:span ${days.length};">可先在工作事项中关联该项目排期</div>`;
     const completed = allProjectTasks.filter(item => item.status === 'done' || item.status === 'completed').length;
     const completionRate = allProjectTasks.length ? Math.round(completed / allProjectTasks.length * 100) : 0;
     const executionRate = testHubTotal ? Math.round(testHubExecuted / testHubTotal * 100) : 0;
     const effortRate = plannedPoints ? Math.round(actualPoints / plannedPoints * 100) : 0;
     const activeReleases = projectReleases.filter(item => item.status === 'active');
+    const availableReleases = projectReleases.filter(item => item.status !== 'archived');
     const riskCount = overdue + blocked + openDefects;
     return `<div class="projects-module project-detail-page">
       <section class="project-detail-hero">
@@ -257,7 +305,7 @@
         </article>
         <article>
           <span class="project-metric-icon blue"><i class="ti ti-rocket"></i></span>
-          <div><small>当前版本</small><strong>${activeReleases.length}</strong><p>共 ${projectReleases.length} 个版本</p></div>
+          <div><small>可用版本</small><strong>${availableReleases.length}</strong><p>${activeReleases.length} 个当前 · 共 ${projectReleases.length} 个版本</p></div>
         </article>
         <article>
           <span class="project-metric-icon mint"><i class="ti ti-users-group"></i></span>
@@ -273,7 +321,7 @@
       <section class="project-schedule-panel">
         <div class="project-schedule-head">
           <div><span class="project-section-icon"><i class="ti ti-calendar-stats"></i></span><strong>月度工作排期</strong><small>${projectTasks.length} 个事项覆盖 ${state.detailMonth}</small></div>
-          <span class="project-gantt-hint">${context.canManageQa() ? '点击事项编辑，拖动可调整排期' : '点击事项查看详情'}</span>
+          <span class="project-gantt-hint">${context.canManageQa() ? '拖动中间移动整段，拖动左右边缘调整日期；松手自动保存' : '点击事项查看详情'}</span>
         </div>
         <div class="project-detail-toolbar projects-module-toolbar">
           <div class="project-month-nav"><button class="btn-secondary" type="button" data-project-month-shift="-1" title="上个月"><i class="ti ti-chevron-left"></i></button><input class="dashboard-filter" type="month" value="${state.detailMonth}" data-project-month><button class="btn-secondary project-current-month" type="button" data-project-current-month>回到本月</button><button class="btn-secondary" type="button" data-project-month-shift="1" title="下个月"><i class="ti ti-chevron-right"></i></button></div>
@@ -316,6 +364,9 @@
     });
     root.querySelectorAll('[data-project-close]').forEach(button => button.addEventListener('click', closeEditor));
     root.querySelector('[data-project-save]')?.addEventListener('click', saveProject);
+    root.querySelector('#qaProjectUnit')?.addEventListener('change', event => {
+      renderProjectMemberChoices(event.target.value, new Set(), '');
+    });
     root.querySelector('[data-project-month]')?.addEventListener('change', event => {
       state.detailMonth = event.target.value || monthKey();
       render(state.context);
@@ -333,65 +384,154 @@
         if (state.suppressTaskClick) return;
         state.context.openTask?.(button.dataset.projectTaskOpen, 'edit');
       });
-      button.addEventListener('dragstart', event => {
-        if (!state.context.canManageQa() || !button.draggable) {
+      button.addEventListener('keydown', event => {
+        if ((event.key === 'Enter' || event.key === ' ') && !event.target.closest?.('[data-project-resize]')) {
           event.preventDefault();
-          return;
+          state.context.openTask?.(button.dataset.projectTaskOpen, 'edit');
         }
-        state.draggingTaskId = button.dataset.projectTaskOpen;
-        state.dragAnchorDate = button.dataset.projectSlotDate;
-        state.suppressTaskClick = true;
-        event.dataTransfer.effectAllowed = 'move';
-        event.dataTransfer.setData('text/plain', state.draggingTaskId);
-        button.classList.add('dragging');
-      });
-      button.addEventListener('dragend', () => {
-        button.classList.remove('dragging');
-        root.querySelectorAll('.project-gantt-drop-target').forEach(cell => cell.classList.remove('project-gantt-drop-target'));
-        state.draggingTaskId = null;
-        state.dragAnchorDate = '';
-        setTimeout(() => { state.suppressTaskClick = false; }, 80);
       });
     });
-    root.querySelectorAll('[data-project-drop-date]').forEach(cell => {
-      cell.addEventListener('dragover', event => {
-        if (!state.draggingTaskId || cell.dataset.projectWorkday !== 'true') return;
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
+
+    const clearSchedulePointer = bar => {
+      bar?.classList.remove('dragging');
+      root.querySelectorAll('.project-gantt-drop-target').forEach(cell => cell.classList.remove('project-gantt-drop-target'));
+      state.pointerSession = null;
+      state.draggingTaskId = null;
+      state.dragAnchorDate = '';
+      state.dragMode = '';
+    };
+    const targetCellForPointer = (row, clientX) => {
+      const cells = [...root.querySelectorAll(`[data-project-row="${row}"][data-project-workday="true"]`)];
+      return cells.reduce((nearest, cell) => {
+        const rect = cell.getBoundingClientRect();
+        const distance = Math.abs(clientX - (rect.left + rect.width / 2));
+        return !nearest || distance < nearest.distance ? { cell, distance } : nearest;
+      }, null)?.cell || null;
+    };
+    const startSchedulePointer = (event, bar, mode) => {
+      if (event.button !== 0 || !state.context.canManageQa() || bar.dataset.projectDraggable !== 'true') return;
+      const task = state.detailTasks.get(bar.dataset.projectTaskOpen);
+      if (!task) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const anchorDate = mode === 'start'
+        ? task.allocation_start_date
+        : mode === 'end'
+          ? task.allocation_end_date
+          : bar.dataset.projectSlotDate;
+      state.draggingTaskId = task.id;
+      state.dragAnchorDate = anchorDate;
+      state.dragMode = mode;
+      state.pointerSession = {
+        pointerId: event.pointerId,
+        bar,
+        row: bar.dataset.projectRow,
+        startX: event.clientX,
+        targetDate: anchorDate,
+        moved: false,
+      };
+      bar.setPointerCapture?.(event.pointerId);
+      bar.classList.add('dragging');
+    };
+
+    root.querySelectorAll('[data-project-draggable="true"]').forEach(bar => {
+      bar.addEventListener('pointerdown', event => {
+        const handle = event.target.closest?.('[data-project-resize]');
+        startSchedulePointer(event, bar, handle?.dataset.projectResize || 'move');
+      });
+      bar.addEventListener('pointermove', event => {
+        const session = state.pointerSession;
+        if (!session || session.bar !== bar || session.pointerId !== event.pointerId) return;
+        if (Math.abs(event.clientX - session.startX) >= 4) session.moved = true;
+        const cell = targetCellForPointer(session.row, event.clientX);
+        if (!cell) return;
+        session.targetDate = cell.dataset.projectDropDate;
+        root.querySelectorAll('.project-gantt-drop-target').forEach(item => item.classList.remove('project-gantt-drop-target'));
         cell.classList.add('project-gantt-drop-target');
       });
-      cell.addEventListener('dragleave', () => cell.classList.remove('project-gantt-drop-target'));
-      cell.addEventListener('drop', async event => {
-        event.preventDefault();
-        cell.classList.remove('project-gantt-drop-target');
-        await moveTaskSchedule(state.draggingTaskId, state.dragAnchorDate, cell.dataset.projectDropDate);
+      bar.addEventListener('pointerup', async event => {
+        const session = state.pointerSession;
+        if (!session || session.bar !== bar || session.pointerId !== event.pointerId) return;
+        const { moved, targetDate } = session;
+        const taskId = state.draggingTaskId;
+        const mode = state.dragMode;
+        const anchorDate = state.dragAnchorDate;
+        clearSchedulePointer(bar);
+        if (!moved || !targetDate || targetDate === anchorDate) return;
+        state.suppressTaskClick = true;
+        await updateTaskScheduleByDrag(taskId, mode, anchorDate, targetDate);
+        setTimeout(() => { state.suppressTaskClick = false; }, 120);
+      });
+      bar.addEventListener('pointercancel', () => clearSchedulePointer(bar));
+      bar.querySelectorAll('[data-project-resize]').forEach(handle => {
+        handle.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+        });
       });
     });
   }
 
-  async function moveTaskSchedule(taskId, anchorDate, targetDate) {
+  async function updateTaskScheduleByDrag(taskId, mode, anchorDate, targetDate) {
     const context = state.context;
     const task = state.detailTasks.get(taskId);
     if (!context.canManageQa() || !task || !anchorDate || !targetDate) return;
-    const offset = dateOffset(anchorDate, targetDate);
-    if (!offset) return;
-    const nextStart = shiftDate(task.allocation_start_date, offset);
-    const nextEnd = shiftDate(task.allocation_end_date, offset);
-    if (!window.confirm(`确认将“${task.title}”整体移动 ${Math.abs(offset)} 天至 ${nextStart}—${nextEnd}？`)) return;
+    let nextStart = task.allocation_start_date;
+    let nextEnd = task.allocation_end_date;
+    if (mode === 'start') nextStart = targetDate;
+    else if (mode === 'end') nextEnd = targetDate;
+    else {
+      const offset = scheduleWorkdayOffset(anchorDate, targetDate);
+      if (!offset) return;
+      nextStart = shiftScheduleWorkdays(task.allocation_start_date, offset);
+      nextEnd = shiftScheduleWorkdays(task.allocation_end_date, offset);
+    }
+    if (nextStart === task.allocation_start_date && nextEnd === task.allocation_end_date) return;
+    if (nextStart > nextEnd) {
+      context.showToast(mode === 'start' ? '开始日期不能晚于结束日期' : '结束日期不能早于开始日期', 'error');
+      return;
+    }
     try {
       const cutoff = task.allocation_end_period === 'am' ? '12:00:00' : '19:00:00';
       const due = new Date(`${nextEnd}T${cutoff}`).toISOString();
-      const { error } = await context.sb.from('qa_tasks').update({
-        allocation_start_date: nextStart,
-        allocation_end_date: nextEnd,
-        due_date: due,
-      }).eq('id', task.id);
-      if (error) throw error;
-      context.showToast(`排期已更新为 ${nextStart} — ${nextEnd}`);
+      let savedTask = null;
+      const rpcResult = await context.sb.rpc('update_qa_task_schedule', {
+        target_task_id: task.id,
+        next_start_date: nextStart,
+        next_end_date: nextEnd,
+      });
+      if (!rpcResult.error) {
+        savedTask = rpcResult.data;
+      } else if (rpcResult.error.code === 'PGRST202' || /update_qa_task_schedule/i.test(rpcResult.error.message || '')) {
+        // Compatibility fallback while the schedule RPC migration is being applied.
+        // Returning the row is important: RLS can otherwise turn an unauthorized
+        // UPDATE into a silent zero-row success.
+        const fallbackResult = await context.sb.from('qa_tasks').update({
+          allocation_start_date: nextStart,
+          allocation_end_date: nextEnd,
+          due_date: due,
+        }).eq('id', task.id).select('id,allocation_start_date,allocation_end_date,due_date').maybeSingle();
+        if (fallbackResult.error) throw fallbackResult.error;
+        savedTask = fallbackResult.data;
+      } else {
+        throw rpcResult.error;
+      }
+      if (!savedTask) {
+        throw new Error('排期未写入数据库，请执行最新迁移或检查 QA 负责人权限');
+      }
+      task.allocation_start_date = savedTask.allocation_start_date || nextStart;
+      task.allocation_end_date = savedTask.allocation_end_date || nextEnd;
+      task.due_date = savedTask.due_date || due;
+      const successText = mode === 'start'
+        ? `开始日期已更新为 ${nextStart}`
+        : mode === 'end'
+          ? `结束日期已更新为 ${nextEnd}`
+          : `排期已整体移动至 ${nextStart} — ${nextEnd}`;
+      context.showToast(`${successText}，已自动保存`);
       invalidateDataCache();
       context.rerender();
     } catch (error) {
-      context.showToast(`移动排期失败：${error.message}`, 'error');
+      context.showToast(`排期保存失败，已保留原日期：${error.message}`, 'error');
     }
   }
 
@@ -413,7 +553,7 @@
         results = await Promise.all([
           context.sb.from('qa_projects').select('*').order('status').order('name'),
           context.sb.from('qa_project_members').select('*'),
-          context.sb.from('profiles').select('id,name,role,resource_participant').order('name'),
+          context.sb.from('profiles').select('*').order('name'),
           context.sb.from('project_monthly_plans').select('id,project_id,project_name,plan_month,end_month,status'),
           context.sb.from('qa_tasks').select('id,title,project_id,portfolio_plan_id,release_id,status,test_round,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,completed_at,delay_recorded_at,delay_waived_at,delay_waived_by,delay_waiver_reason').neq('status', 'cancelled'),
           context.sb.from('qa_task_assignees').select('task_id,member_id'),
@@ -454,7 +594,9 @@
         && (state.showArchived || item.status !== 'archived')
       );
       const cards = visible.length ? visible.map(project => {
-        const memberships = state.members.filter(item => item.project_id === project.id);
+        const memberships = state.members.filter(item =>
+          item.project_id === project.id
+          && context.profileMatchesBusinessUnit(state.profiles.get(item.member_id), project.business_unit));
         const owners = memberships.filter(item => item.is_owner).map(item => state.profiles.get(item.member_id)?.name).filter(Boolean);
         const projectPlans = plans.filter(item => item.project_id === project.id);
         const planIds = new Set(projectPlans.map(item => item.id));
@@ -481,6 +623,19 @@
     }
   }
 
+  function renderProjectMemberChoices(projectUnit, selected = new Set(), owner = '') {
+    const context = state.context;
+    const profiles = [...state.profiles.values()].filter(profile =>
+      context.profileMatchesBusinessUnit(profile, projectUnit));
+    const ownerSelect = context.content.querySelector('#qaProjectOwner');
+    const memberChoices = context.content.querySelector('#qaProjectMemberChoices');
+    if (!ownerSelect || !memberChoices) return;
+    ownerSelect.innerHTML = `<option value="">暂不指定</option>${profiles.map(item => `<option value="${item.id}" ${owner === item.id ? 'selected' : ''}>${context.escapeHtml(item.name || item.id)}</option>`).join('')}`;
+    memberChoices.innerHTML = profiles.length
+      ? profiles.map(item => `<label class="feature-mini-stat projects-module-member"><input type="checkbox" name="qaProjectMember" value="${item.id}" ${selected.has(item.id) ? 'checked' : ''}><span><strong>${context.escapeHtml(item.name || '未命名成员')}</strong><small>${context.dutyText(item.role)}${context.isResourceParticipant(item) ? ' · 计入资源' : ''}</small></span></label>`).join('')
+      : '<div class="empty">该 BU 暂无已归属成员，请先在部门管理中设置成员 BU。</div>';
+  }
+
   function openEditor(id = '') {
     const context = state.context;
     state.editingProjectId = id;
@@ -494,9 +649,8 @@
     context.content.querySelector('#qaProjectDescription').value = project?.description || '';
     const selected = new Set(state.members.filter(item => item.project_id === id).map(item => item.member_id));
     const owner = state.members.find(item => item.project_id === id && item.is_owner)?.member_id || '';
-    const profiles = [...state.profiles.values()];
-    context.content.querySelector('#qaProjectOwner').innerHTML = `<option value="">暂不指定</option>${profiles.map(item => `<option value="${item.id}" ${owner === item.id ? 'selected' : ''}>${context.escapeHtml(item.name || item.id)}</option>`).join('')}`;
-    context.content.querySelector('#qaProjectMemberChoices').innerHTML = profiles.map(item => `<label class="feature-mini-stat projects-module-member"><input type="checkbox" name="qaProjectMember" value="${item.id}" ${selected.has(item.id) ? 'checked' : ''}><span><strong>${context.escapeHtml(item.name || '未命名成员')}</strong><small>${context.dutyText(item.role)}${context.isResourceParticipant(item) ? ' · 计入资源' : ''}</small></span></label>`).join('');
+    const projectUnit = project?.business_unit || context.businessUnit;
+    renderProjectMemberChoices(projectUnit, selected, owner);
     modal.classList.add('open');
   }
 

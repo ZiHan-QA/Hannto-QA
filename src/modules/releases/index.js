@@ -76,6 +76,7 @@
     const groups = [
       ['xiaomi', '小米'],
       ['consumer', '消费'],
+      ['new_business', '新业务'],
       ['other', 'Other'],
     ].map(([unit, label]) => {
       const options = visible
@@ -284,7 +285,7 @@
         : await context.sb.from('releases').insert({ ...payload, created_by: context.currentUser.id }).select('id').single();
       if (result.error) throw result.error;
       const unit = projectSelect.selectedOptions[0]?.dataset.businessUnit;
-      if (['xiaomi', 'consumer', 'other'].includes(unit)) context.setBusinessUnit(unit);
+      if (['xiaomi', 'consumer', 'new_business', 'other'].includes(unit)) context.setBusinessUnit(unit);
       closeEditor();
       context.showToast(editing ? '版本已更新' : '版本已创建');
       context.rerender();
