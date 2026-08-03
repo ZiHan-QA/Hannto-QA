@@ -64,8 +64,11 @@ def main() -> None:
     atomic_task_project_link_migration = (ROOT / "supabase/migrations/20260728_atomic_task_project_link.sql").read_text(encoding="utf-8")
     direct_task_project_link_migration = (ROOT / "supabase/migrations/20260728_task_direct_project_link.sql").read_text(encoding="utf-8")
     qa_lead_task_edit_migration = (ROOT / "supabase/migrations/20260729_qa_lead_task_edit_permissions.sql").read_text(encoding="utf-8")
+    project_gantt_schedule_migration = (ROOT / "supabase/migrations/20260803_project_gantt_schedule_rpc.sql").read_text(encoding="utf-8")
     department_migration = (ROOT / "supabase/migrations/20260730_department_management_foundation.sql").read_text(encoding="utf-8")
     task_series_migration = (ROOT / "supabase/migrations/20260730_task_series_linking.sql").read_text(encoding="utf-8")
+    task_series_fix_migration = (ROOT / "supabase/migrations/20260730_fix_task_series_rpc_ambiguity.sql").read_text(encoding="utf-8")
+    profile_business_unit_migration = (ROOT / "supabase/migrations/20260730_profile_business_unit.sql").read_text(encoding="utf-8")
     assignee_scope_migration = (ROOT / "supabase/migrations/20260730_assignee_testhub_module_scopes.sql").read_text(encoding="utf-8")
     bulk_member_function = (ROOT / "supabase/functions/admin-bulk-create-users/index.ts").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
@@ -87,10 +90,15 @@ def main() -> None:
         '<link rel="stylesheet" href="src/modules/departments/styles.css">',
         '<script src="src/modules/leave-management/index.js"></script>',
         '<link rel="stylesheet" href="src/modules/leave-management/styles.css">',
+        "TestHub 当日 ${executedCases} Case / 个人目标",
+        "当日实际 ${actualToday.toFixed(2)} 点",
+        "计算依据：${escapeDashboardHtml(actualBasis)}",
         "window.HanntoQA.pageTitles",
         "window.HanntoQA.projectBusinessPages",
         "window.HanntoQA.projectUnitText",
         "function createModuleContext",
+        "尚未设置所属 BU",
+        "businessUnitResourceMembers",
         "function renderTaskSeriesOptions",
         "复制为下一轮",
         "link_qa_task_series",
@@ -110,7 +118,10 @@ def main() -> None:
         "function refreshTaskRecords",
         "async function loadTaskReleases(selectedId = '', requiredProjectId = '')",
         ".eq('project_id', requiredProjectId)",
+        "release.project_id === requiredProjectId",
         "await openNewTaskModal(projectId)",
+        "release.status !== 'archived'",
+        "return availableReleases || []",
         "function taskUsesTestHubProgress",
         "function renderTaskMemberDailyDetail",
         "function renderTaskMemberProgressSummary",
@@ -120,7 +131,14 @@ def main() -> None:
         "function taskMemberActualPointsThroughDate",
         "function taskMemberServerActualPointsUntil",
         "function taskMemberActualPointsOnDate",
+        "if (log?.work_date) return log.work_date;",
+        "手工完成点按最早未填工作日依次回填",
+        "历史工时（点击记录即可修改）",
         "function taskDelayAdminControlHtml",
+        "const DAILY_PROGRESS_CUTOFF_HOUR = 23;",
+        "const DAILY_PROGRESS_CUTOFF_MINUTE = 59;",
+        "function dailyProgressCutoffReached",
+        ".dashboard-modal-panel.task-editor-panel { width: min(920px, 100%); }",
         "function taskMemberDailyPlanOnDate",
         "save_qa_task_workflow",
         "admin_risk_actions",
@@ -131,6 +149,10 @@ def main() -> None:
         "function rememberTaskExpansion",
         "function renderTaskDataWarnings",
         "function setResourceCapacityFilters",
+        "onclick=\"nav(this,'resources')\"",
+        "async function renderResourceSchedule()",
+        "if (page === 'resources') { renderResourceSchedule(); return; }",
+        "navTo('resources');",
         "function refreshDashboardSyncStatus",
         "function applyTaskTemplate",
         "function resourceCapacityTableHtml",
@@ -145,6 +167,8 @@ def main() -> None:
         "task.status !== 'cancelled'",
         "const actualBefore = taskMemberActualPointsBeforeDate",
         "actualToday + remainingAfter",
+        "inferredCompletionActual",
+        "延期完成 ${cell.carryoverPoints.toFixed(2)}",
         "halfDayUnits * Math.max(1, Number(assigneeCount)",
         "恢复自动延期判断",
         "function syncProgressPercentToPoints",
@@ -317,8 +341,13 @@ def main() -> None:
         "async function render",
         "function renderDetail",
         "function monthDays",
+        "function scheduleIsWorkday",
+        "function scheduleWorkdayOffset",
+        "function shiftScheduleWorkdays",
         "function taskSlotLabel",
-        "async function moveTaskSchedule",
+        "async function updateTaskScheduleByDrag",
+        "context.sb.rpc('update_qa_task_schedule'",
+        "select('id,allocation_start_date,allocation_end_date,due_date').maybeSingle()",
         "function openEditor",
         "async function saveProject",
         "function openProject",
@@ -331,10 +360,15 @@ def main() -> None:
         "data-project-month",
         "data-project-task-open",
         "data-project-drop-date",
+        "data-project-resize",
+        "data-project-draggable",
+        "addEventListener('pointerdown'",
+        "addEventListener('pointermove'",
         "project-gantt-continuous-bar",
         "--bar-start-inset",
         "data-project-save",
         "返回项目列表",
+        "context.profileMatchesBusinessUnit",
     ], "projects module")
     require(projects_css, [
         ".projects-module",
@@ -344,6 +378,7 @@ def main() -> None:
         ".project-gantt-task-button",
         ".project-gantt-drop-target",
         ".project-gantt-continuous-bar",
+        ".project-gantt-resize-handle",
         ".project-detail-hero",
         ".project-detail-metrics",
         ".project-release-panel",
@@ -361,6 +396,8 @@ def main() -> None:
         "initializeHanntoQAPlatform",
         "const pageTitles",
         "const projectBusinessPages",
+        "resources: '资源排期'",
+        "'resources'",
         "'bugs'",
         "const projectUnits",
         "function projectUnitText",
@@ -604,6 +641,14 @@ def main() -> None:
         "unassigned_bugs",
         "notify pgrst, 'reload schema'",
     ], "project data hub migration")
+    require(project_gantt_schedule_migration, [
+        "create or replace function public.update_qa_task_schedule(",
+        "coalesce(caller_role, 'tester') not in ('admin', 'qa_lead')",
+        "allocation_start_date = next_start_date",
+        "allocation_end_date = next_end_date",
+        "grant execute on function public.update_qa_task_schedule(uuid, date, date) to authenticated",
+        "notify pgrst, 'reload schema'",
+    ], "project Gantt schedule migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
@@ -677,6 +722,12 @@ def main() -> None:
         "link_qa_task_series",
         "Linked rounds must belong to the same project and release",
     ], "task series migration")
+    require(task_series_fix_migration, [
+        "create or replace function public.link_qa_task_series",
+        "where id = $1",
+        "where id = $2",
+        "notify pgrst, 'reload schema'",
+    ], "task series ambiguity fix migration")
     if "if (page === 'tasks') { renderTaskRecords(); return; }" in html:
         raise AssertionError("tasks page must render through the registered module")
     require(releases_js, [
@@ -795,6 +846,13 @@ def main() -> None:
         "employment_change_history",
         "third_party_supplier",
         "仅部门主管可见",
+        "business_unit",
+        "memberMatchesKeyword",
+        "compositionstart",
+        "if (searchComposing)",
+        'lang="zh-CN"',
+        "memberMissingFields(item).length > 0",
+        "所属 BU *",
     ], "departments module")
     require(departments_css, [
         ".department-page",
@@ -805,7 +863,15 @@ def main() -> None:
     require(departments_readme, [
         "部门主管是独立于",
         "供应商基础管理",
+        "员工固定 BU",
     ], "departments README")
+    require(profile_business_unit_migration, [
+        "add column if not exists business_unit text",
+        "profiles_business_unit_check",
+        "profiles_business_unit_resource_idx",
+        "Only system administrators may change a member business unit",
+        "profiles_business_unit_admin_guard",
+    ], "profile business unit migration")
     require(leave_management_js, [
         "registerModule({",
         "id: 'leave-management'",
@@ -932,8 +998,8 @@ const tableRows = {
     { id:'other', title:'他人事项', assignee_id:'user-2', status:'done', effort_person_days:1, project_id:'project-other', portfolio_plan_id:null }
   ],
   profiles: [
-    { id:'user-1', name:'成员一', resource_participant:true },
-    { id:'user-2', name:'成员二', resource_participant:true }
+    { id:'user-1', name:'成员一', resource_participant:true, business_unit:'other' },
+    { id:'user-2', name:'成员二', resource_participant:true, business_unit:'other' }
   ],
   qa_task_assignees: [],
   project_monthly_plans: [],
@@ -964,6 +1030,7 @@ registeredModule.render({
   canViewTeamTasks: () => false,
   isSystemAdmin: () => false,
   isResourceParticipant: profile => profile.resource_participant,
+  businessUnitResourceMembers: profiles => profiles.filter(profile => profile.business_unit === 'other' && profile.resource_participant),
   todayKey: () => '2026-07-28',
   escapeHtml: String,
   showToast() {},

@@ -309,7 +309,7 @@
     const results = await Promise.all([
       context.sb.from('releases').select('id,version,name,platform,status,project_id,planned_release_date').order('created_at', { ascending: false }),
       context.sb.from('qa_tasks').select('id,title,status,test_round,prd_id,requirement_id,release_id,project_id,portfolio_plan_id,due_date,created_at,updated_at,completed_at,completion_note,assignee_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,delay_recorded_at,delay_waived_at,delay_waived_by,delay_waiver_reason'),
-      context.sb.from('profiles').select('id,name,resource_participant').eq('resource_participant', true).order('name'),
+      context.sb.from('profiles').select('*').eq('resource_participant', true).order('name'),
       context.sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       context.sb.from('task_progress_logs').select('task_id,work_date,progress_points,source,executor_id'),
       context.sb.from('task_testhub_progress').select('task_id,plan_id,plan_ids,total_cases,executed_cases,progress_ratio,status_counts,sync_status,synced_at,scope_mode,scope_suite_ids,scope_suite_names'),
@@ -321,6 +321,7 @@
     ]);
     const error = results.find(result => result.error)?.error;
     if (error) throw error;
+    results[2].data = context.businessUnitResourceMembers(results[2].data || []);
     return results;
   }
 

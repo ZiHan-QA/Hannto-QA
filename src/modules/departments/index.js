@@ -12,11 +12,21 @@
     meijie_technology: '美捷科技',
     intern: '实习生',
   });
+  const businessUnitLabels = Object.freeze({
+    xiaomi: '小米',
+    consumer: '消费',
+    new_business: '新业务',
+    other: 'Other',
+  });
 
   let state = null;
   let clickHandler = null;
   let changeHandler = null;
   let inputHandler = null;
+  let compositionStartHandler = null;
+  let compositionEndHandler = null;
+  let searchTimer = null;
+  let searchComposing = false;
 
   function option(value, label, selectedValue) {
     return `<option value="${value}" ${String(selectedValue || '') === String(value) ? 'selected' : ''}>${label}</option>`;
@@ -24,6 +34,31 @@
 
   function formatDate(value) {
     return value ? String(value).slice(0, 10) : '';
+  }
+
+  function localTodayKey() {
+    if (state?.context?.localDateKey) return state.context.localDateKey(new Date());
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().slice(0, 10);
+  }
+
+  function memberEmploymentState(member) {
+    const departureDate = formatDate(member?.departure_date);
+    if (departureDate) {
+      if (departureDate >= localTodayKey()) return 'departing';
+      return 'departed';
+    }
+    return member?.employment_status === 'departed' ? 'departed' : 'active';
+  }
+
+  function memberEmploymentLabel(member) {
+    const status = memberEmploymentState(member);
+    if (status === 'departed') return '已离职';
+    if (status === 'departing') {
+      return formatDate(member.departure_date) === localTodayKey() ? '今日离职' : '即将离职';
+    }
+    return '在职';
   }
 
   function activeDepartment() {
@@ -55,6 +90,8 @@
 
   function memberMissingFields(member) {
     const missing = [];
+    const profile = state.profileMap.get(member.member_id) || {};
+    if (!profile.business_unit) missing.push('所属 BU');
     if (!member.employee_category) missing.push('员工类别');
     if (!member.reports_to_id) missing.push('汇报主管');
     if (!member.primary_qa_lead_id) missing.push('QA 负责人');
@@ -68,7 +105,7 @@
   }
 
   function memberCompletion(member) {
-    const total = member.employee_category === 'third_party_supplier' ? 7 : 5;
+    const total = member.employee_category === 'third_party_supplier' ? 8 : 6;
     return Math.round(((total - memberMissingFields(member).length) / total) * 100);
   }
 
@@ -79,7 +116,8 @@
     if (state.quickView === 'other') {
       return ['hannto_contract', 'unigroup_hannto', 'meijie_technology', 'intern'].includes(member.employee_category);
     }
-    if (state.quickView === 'departed') return member.employment_status === 'departed';
+    if (state.quickView === 'departing') return memberEmploymentState(member) === 'departing';
+    if (state.quickView === 'departed') return memberEmploymentState(member) === 'departed';
     return true;
   }
 
@@ -88,7 +126,7 @@
     if (state.quickView === 'supplier') return ['员工', '供应商', '合同期限', 'QA 负责人', '状态', ''];
     if (state.quickView === 'regular') return ['员工', '入职项目', '入职日期', 'QA 负责人', '状态', ''];
     if (state.quickView === 'other') return ['员工', '员工类别', '归属项目', '入职日期', '状态', ''];
-    if (state.quickView === 'departed') return ['员工', '员工类别', '离职日期', '离职原因', '状态', ''];
+    if (state.quickView === 'departing' || state.quickView === 'departed') return ['员工', '员工类别', '离职日期', '离职原因', '状态', ''];
     return ['员工', '类别 / 项目', '负责人', '完整度', '状态', ''];
   }
 
@@ -108,18 +146,53 @@
     const supplier = supplierById(member.supplier_id);
     return [
       profile.name,
+      profile.email,
+      businessUnitLabels[profile.business_unit],
       categoryLabels[member.employee_category],
       supplier?.name,
       profileName(member.reports_to_id),
       profileName(member.primary_qa_lead_id),
       projectName(member.onboarding_project_id),
-    ].filter(Boolean).join(' ').toLowerCase();
+    ].filter(Boolean).join(' ');
+  }
+
+  function normalizeSearchText(value) {
+    return String(value || '')
+      .normalize('NFKC')
+      .toLocaleLowerCase('zh-CN')
+      .replace(/[\s\-_/·，,。.;；:：()（）]+/g, ' ')
+      .trim();
+  }
+
+  function fuzzyContains(haystack, needle) {
+    if (!needle) return true;
+    if (haystack.includes(needle)) return true;
+    if (needle.length < 2) return false;
+    let cursor = 0;
+    for (const character of haystack) {
+      if (character === needle[cursor]) cursor += 1;
+      if (cursor === needle.length) return true;
+    }
+    return false;
+  }
+
+  function memberMatchesKeyword(member, keyword) {
+    const haystack = normalizeSearchText(memberSearchText(member));
+    const terms = normalizeSearchText(keyword).split(' ').filter(Boolean);
+    return terms.every(term => fuzzyContains(haystack, term));
   }
 
   function memberCategorySelect(member) {
     return `<select class="department-input" data-field="employee_category">
       <option value="">请选择员工类别</option>
       ${Object.entries(categoryLabels).map(([value, label]) => option(value, label, member.employee_category)).join('')}
+    </select>`;
+  }
+
+  function memberBusinessUnitSelect(profile) {
+    return `<select class="department-input" data-field="business_unit">
+      <option value="">请选择所属 BU</option>
+      ${Object.entries(businessUnitLabels).map(([value, label]) => option(value, label, profile.business_unit)).join('')}
     </select>`;
   }
 
@@ -164,7 +237,8 @@
     const completion = memberCompletion(member);
     const renewals = state.renewals.filter(item => item.department_member_id === member.id);
     const [contractEnd, contractHint] = contractExpiryText(member);
-    const statusCell = `${member.employment_status === 'departed' ? '<em class="department-status departed">已离职</em>' : '<em class="department-status active">在职</em>'}${missing.length ? '<em class="department-status warning">待完善</em>' : ''}`;
+    const employmentState = memberEmploymentState(member);
+    const statusCell = `<em class="department-status ${employmentState}">${memberEmploymentLabel(member)}</em>${missing.length ? '<em class="department-status warning">待完善</em>' : ''}`;
     const completionCell = `<span class="department-completeness-cell"><span><strong>${completion}%</strong><small>${missing.length ? `缺 ${missing.length} 项` : '档案完整'}</small></span><i><b style="width:${completion}%"></b></i></span>`;
     let focusCells = `
       <span><strong>${categoryLabels[member.employee_category] || '待完善'}</strong><small>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : state.context.escapeHtml(projectName(member.onboarding_project_id))}</small></span>
@@ -186,7 +260,7 @@
       focusCells = `<span><strong>${categoryLabels[member.employee_category] || '待完善'}</strong><small>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : '非第三方员工'}</small></span>
         <span><strong>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</strong><small>QA：${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</small></span>
         <span><strong>${formatDate(member.hire_date) || '待补充'}</strong><small>${profile.resource_participant === false ? '不计入资源' : '计入资源'}</small></span>`;
-    } else if (state.quickView === 'departed') {
+    } else if (state.quickView === 'departing' || state.quickView === 'departed') {
       focusCells = `<span><strong>${categoryLabels[member.employee_category] || '未设置'}</strong><small>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</small></span>
         <span><strong>${formatDate(member.departure_date) || '未登记'}</strong><small>原入职：${formatDate(member.hire_date) || '-'}</small></span>
         <span><strong>${state.context.escapeHtml(member.departure_reason || '未填写')}</strong><small>离职档案</small></span>`;
@@ -282,6 +356,7 @@
         </div>
         <div class="department-profile-scroll">
           <section><h4>任职信息</h4><div class="department-form-grid">
+            <label><span>所属 BU *</span>${memberBusinessUnitSelect(profile)}</label>
             <label><span>员工类别 *</span>${memberCategorySelect(member)}</label>
             <label><span>第三方供应商</span>${supplierSelect(member)}</label>
             <label><span>汇报主管</span>${profileSelect('reports_to_id', member.reports_to_id)}</label>
@@ -320,7 +395,8 @@
         </section>
         <section class="department-detail-section">
           <h4>任职关系</h4>
-          <dl><div><dt>员工类别</dt><dd>${categoryLabels[member.employee_category] || '待完善'}</dd></div>
+          <dl><div><dt>所属 BU</dt><dd>${businessUnitLabels[profile.business_unit] || '待归属'}</dd></div>
+          <div><dt>员工类别</dt><dd>${categoryLabels[member.employee_category] || '待完善'}</dd></div>
           <div><dt>供应商</dt><dd>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : '-'}</dd></div>
           <div><dt>汇报主管</dt><dd>${state.context.escapeHtml(profileName(member.reports_to_id))}</dd></div>
           <div><dt>QA 负责人</dt><dd>${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</dd></div></dl>
@@ -329,7 +405,7 @@
           <h4>入离职信息</h4>
           <dl><div><dt>入职日期</dt><dd>${formatDate(member.hire_date) || '-'}</dd></div>
           <div><dt>入职项目</dt><dd>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</dd></div>
-          <div><dt>当前状态</dt><dd>${member.employment_status === 'departed' ? '已离职' : '在职'}</dd></div>
+          <div><dt>当前状态</dt><dd><span class="department-status ${memberEmploymentState(member)}">${memberEmploymentLabel(member)}</span></dd></div>
           <div><dt>离职日期</dt><dd>${formatDate(member.departure_date) || '-'}</dd></div></dl>
         </section>
         ${member.employee_category === 'third_party_supplier' ? `<section class="department-detail-section department-contract-summary">
@@ -370,15 +446,18 @@
       .filter(item => item.department_id === department.id)
       .filter(memberMatchesQuickView)
       .filter(item => {
-        const keyword = state.filter.keyword.trim().toLowerCase();
-        if (keyword && !memberSearchText(item).includes(keyword)) return false;
+        const keyword = state.filter.keyword.trim();
+        if (keyword && !memberMatchesKeyword(item, keyword)) return false;
         if (state.filter.category && item.employee_category !== state.filter.category) return false;
-        if (state.filter.status && item.employment_status !== state.filter.status) return false;
+        if (state.filter.status && memberEmploymentState(item) !== state.filter.status) return false;
         return true;
       });
     const departmentMembers = state.members.filter(item => item.department_id === department.id);
-    const activeCount = departmentMembers.filter(item => item.employment_status === 'active').length;
-    const incompleteCount = departmentMembers.filter(item => !item.employee_category || !item.hire_date).length;
+    const activeCount = departmentMembers.filter(item => memberEmploymentState(item) !== 'departed').length;
+    // Keep the metric, quick view, row badge and “next incomplete” action on
+    // exactly the same definition. Previously the metric checked only two
+    // fields while the list checked the full archive, so the numbers diverged.
+    const incompleteCount = departmentMembers.filter(item => memberMissingFields(item).length > 0).length;
     const manager = canManage(department);
     const departmentSuppliers = state.suppliers.filter(item => item.department_id === department.id && item.status === 'active');
     if (state.view === 'suppliers' && !manager) state.view = 'members';
@@ -392,7 +471,8 @@
       ['supplier', '第三方员工', departmentMembers.filter(item => item.employee_category === 'third_party_supplier').length, 'ti-building-store'],
       ['regular', '正式员工', departmentMembers.filter(item => item.employee_category === 'hannto_regular').length, 'ti-user-check'],
       ['other', 'Other', departmentMembers.filter(item => ['hannto_contract', 'unigroup_hannto', 'meijie_technology', 'intern'].includes(item.employee_category)).length, 'ti-category-2'],
-      ['departed', '已离职', departmentMembers.filter(item => item.employment_status === 'departed').length, 'ti-user-off'],
+      ['departing', '即将离职', departmentMembers.filter(item => memberEmploymentState(item) === 'departing').length, 'ti-calendar-time'],
+      ['departed', '已离职', departmentMembers.filter(item => memberEmploymentState(item) === 'departed').length, 'ti-user-off'],
     ];
 
     content.style.padding = '24px';
@@ -431,9 +511,9 @@
           <div class="department-list-toolbar">
             <div><h3>员工档案</h3><p>共 ${members.length} 人 · 点击员工在右侧查看详情</p></div>
             <div class="department-filters">
-              <label class="department-search"><i class="ti ti-search"></i><input id="departmentKeyword" value="${escapeHtml(state.filter.keyword)}" placeholder="搜索姓名、项目、供应商"></label>
+              <label class="department-search"><i class="ti ti-search"></i><input id="departmentKeyword" type="search" lang="zh-CN" inputmode="search" enterkeyhint="search" autocomplete="off" value="${escapeHtml(state.filter.keyword)}" placeholder="搜索姓名、项目、供应商"></label>
               <select class="department-input" id="departmentCategoryFilter"><option value="">全部类别</option>${Object.entries(categoryLabels).map(([value, label]) => option(value, label, state.filter.category)).join('')}</select>
-              <select class="department-input" id="departmentStatusFilter">${option('', '全部状态', state.filter.status)}${option('active', '在职', state.filter.status)}${option('departed', '已离职', state.filter.status)}</select>
+              <select class="department-input" id="departmentStatusFilter">${option('', '全部状态', state.filter.status)}${option('active', '在职', state.filter.status)}${option('departing', '即将离职', state.filter.status)}${option('departed', '已离职', state.filter.status)}</select>
             </div>
           </div>
           <div class="department-compact-head">${memberListHeaders().map(label => `<span>${escapeHtml(label)}</span>`).join('')}</div>
@@ -450,7 +530,7 @@
     const [departmentsResult, membersResult, profilesResult, suppliersResult, projectsResult, historiesResult, renewalsResult] = await Promise.all([
       context.sb.from('departments').select('*').eq('status', 'active').order('name'),
       context.sb.from('department_members').select('*').order('created_at'),
-      context.sb.from('profiles').select('id,name,role,resource_participant').order('name'),
+      context.sb.from('profiles').select('*').order('name'),
       context.sb.from('department_suppliers').select('*').order('name'),
       context.sb.from('qa_projects').select('id,name,business_unit').eq('status', 'active').order('name'),
       context.sb.from('employment_change_history').select('*').order('effective_date', { ascending: false }),
@@ -503,6 +583,12 @@
       departure_date: read('departure_date'),
       departure_reason: read('departure_reason') || '',
     };
+    next.employment_status = next.departure_date && next.departure_date < localTodayKey() ? 'departed' : 'active';
+    const businessUnit = read('business_unit');
+    if (!businessUnit) {
+      state.context.showToast('请选择成员所属 BU', 'error');
+      return;
+    }
     if (!next.employee_category) {
       state.context.showToast('请选择员工类别', 'error');
       return;
@@ -533,6 +619,10 @@
     }
     const { error } = await state.context.sb.from('department_members').update(next).eq('id', memberId);
     if (error) throw error;
+    const profileResult = await state.context.sb.from('profiles')
+      .update({ business_unit: businessUnit })
+      .eq('id', current.member_id);
+    if (profileResult.error) throw profileResult.error;
 
     const history = [];
     if (!current.hire_date && next.hire_date) {
@@ -568,8 +658,10 @@
         change_type: 'departure',
         effective_date: next.departure_date,
         previous_values: { employment_status: current.employment_status },
-        new_values: { employment_status: 'departed', departure_reason: next.departure_reason },
-        notes: next.departure_reason || '员工离职',
+        new_values: { employment_status: next.employment_status, departure_reason: next.departure_reason },
+        notes: next.departure_date >= localTodayKey()
+          ? `计划于 ${next.departure_date} 离职${next.departure_reason ? `：${next.departure_reason}` : ''}`
+          : (next.departure_reason || '员工离职'),
       });
     }
     if (history.length) {
@@ -670,6 +762,27 @@
       row.classList.toggle('selected', row.dataset.memberId === state.selectedMemberId);
     });
     refreshMemberDetail();
+  }
+
+  function scheduleKeywordRender(input, immediate = false) {
+    if (searchTimer) clearTimeout(searchTimer);
+    const cursor = input?.selectionStart ?? String(state.filter.keyword || '').length;
+    searchTimer = setTimeout(() => {
+      searchTimer = null;
+      // A pending render may have been scheduled just before an IME session
+      // starts. Replacing the input during composition drops the selected
+      // Chinese candidate, so wait until compositionend has fully settled.
+      if (searchComposing) {
+        scheduleKeywordRender(state.context.content.querySelector('#departmentKeyword'));
+        return;
+      }
+      render();
+      const keyword = state.context.content.querySelector('#departmentKeyword');
+      if (!keyword) return;
+      keyword.focus({ preventScroll: true });
+      const nextCursor = Math.min(cursor, keyword.value.length);
+      keyword.setSelectionRange(nextCursor, nextCursor);
+    }, immediate ? 80 : 260);
   }
 
   function bindEvents() {
@@ -810,15 +923,27 @@
       }
       if (event.target.id !== 'departmentKeyword') return;
       state.filter.keyword = event.target.value;
-      const cursor = event.target.selectionStart;
-      render();
-      const keyword = document.getElementById('departmentKeyword');
-      keyword?.focus();
-      keyword?.setSelectionRange(cursor, cursor);
+      // Never replace the input while a Chinese IME is composing text. Doing
+      // so cancels the composition and makes the field appear English-only.
+      if (searchComposing || event.isComposing) return;
+      scheduleKeywordRender(event.target);
+    };
+    compositionStartHandler = event => {
+      if (event.target.id === 'departmentKeyword') searchComposing = true;
+    };
+    compositionEndHandler = event => {
+      if (event.target.id !== 'departmentKeyword') return;
+      searchComposing = false;
+      state.filter.keyword = event.target.value;
+      // Do not redraw synchronously here. Chromium commits the final Chinese
+      // character in a trailing input event after compositionend.
+      scheduleKeywordRender(event.target);
     };
     content.addEventListener('click', clickHandler);
     content.addEventListener('change', changeHandler);
     content.addEventListener('input', inputHandler);
+    content.addEventListener('compositionstart', compositionStartHandler);
+    content.addEventListener('compositionend', compositionEndHandler);
   }
 
   platform.registerModule({
@@ -833,7 +958,10 @@
         state.context.content.removeEventListener('click', clickHandler);
         state.context.content.removeEventListener('change', changeHandler);
         state.context.content.removeEventListener('input', inputHandler);
+        state.context.content.removeEventListener('compositionstart', compositionStartHandler);
+        state.context.content.removeEventListener('compositionend', compositionEndHandler);
       }
+      if (searchTimer) clearTimeout(searchTimer);
       try {
         await load(context);
         bindEvents();
@@ -847,10 +975,17 @@
         state.context.content.removeEventListener('click', clickHandler);
         state.context.content.removeEventListener('change', changeHandler);
         state.context.content.removeEventListener('input', inputHandler);
+        state.context.content.removeEventListener('compositionstart', compositionStartHandler);
+        state.context.content.removeEventListener('compositionend', compositionEndHandler);
       }
+      if (searchTimer) clearTimeout(searchTimer);
       clickHandler = null;
       changeHandler = null;
       inputHandler = null;
+      compositionStartHandler = null;
+      compositionEndHandler = null;
+      searchTimer = null;
+      searchComposing = false;
     },
   });
 })(window);

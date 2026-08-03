@@ -1,21 +1,7 @@
--- Link repeated QA execution rounds without merging their independent progress.
+-- Fix ambiguous source_task_id references in the task-series RPC.
+-- This migration is safe to execute after 20260730_task_series_linking.sql.
 
 begin;
-
-alter table public.qa_tasks
-  add column if not exists task_series_id uuid,
-  add column if not exists source_task_id uuid references public.qa_tasks(id) on delete set null;
-
-update public.qa_tasks
-set task_series_id = id
-where task_series_id is null;
-
-alter table public.qa_tasks
-  alter column task_series_id set default gen_random_uuid(),
-  alter column task_series_id set not null;
-
-create unique index if not exists qa_tasks_series_round_unique_idx
-  on public.qa_tasks(task_series_id, test_round);
 
 create or replace function public.link_qa_task_series(
   target_task_id uuid,
@@ -89,13 +75,6 @@ $$;
 
 revoke all on function public.link_qa_task_series(uuid, uuid) from public;
 grant execute on function public.link_qa_task_series(uuid, uuid) to authenticated;
-
-comment on column public.qa_tasks.task_series_id is
-  'Stable group identifier shared by repeated QA execution rounds';
-comment on column public.qa_tasks.source_task_id is
-  'Task copied or selected as the source of this round';
-comment on function public.link_qa_task_series(uuid, uuid) is
-  'Links or unlinks independent QA task rounds after validating project, release and caller permission';
 
 notify pgrst, 'reload schema';
 
