@@ -587,8 +587,81 @@ def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
     return {"total": total, "executed": executed, "ratio": executed / total if total else 0, "counts": counts}
 
 
+def run_suite_payload(run: dict[str, Any]) -> dict[str, Any]:
+    run_suite = run.get("suite")
+    case = run.get("case") if isinstance(run.get("case"), dict) else {}
+    case_suite = case.get("suite")
+    candidates = [
+        suite for suite in (run_suite, case_suite)
+        if isinstance(suite, dict) and suite
+    ]
+    if not candidates:
+        return {}
+
+    # The proxy does not always return the same suite projection for every plan:
+    # run.suite can contain only id/name while case.suite contains the full ancestry.
+    # Prefer the richest projection, then fill only missing fields from the other one.
+    richest = max(
+        candidates,
+        key=lambda suite: (
+            len(normalize_suite_path(suite)),
+            bool(str(suite.get("id") or "").strip()),
+            bool(str(suite.get("name") or "").strip()),
+        ),
+    )
+    merged = dict(richest)
+    for suite in candidates:
+        for key, value in suite.items():
+            if merged.get(key) in (None, "", [], {}):
+                merged[key] = value
+
+    richest_path = max(
+        (normalize_suite_path(suite) for suite in candidates),
+        key=len,
+        default=[],
+    )
+    if richest_path:
+        # Store the normalized path explicitly so a short run.suite projection cannot
+        # erase the parent nodes supplied by case.suite.
+        merged["paths"] = richest_path
+        merged["name"] = richest_path[-1]
+    return merged
+
+
+def normalize_suite_path(suite: dict[str, Any]) -> list[str]:
+    """Return the TestHub suite ancestry as names, including the current suite."""
+    suite_name = str(suite.get("name") or "").strip()
+    raw_paths = suite.get("paths") or suite.get("path") or suite.get("ancestors") or []
+    if isinstance(raw_paths, str):
+        value = raw_paths.strip()
+        try:
+            decoded = json.loads(value) if value.startswith(("[", "{")) else value
+        except json.JSONDecodeError:
+            decoded = value
+        if isinstance(decoded, str):
+            separator = " > " if " > " in decoded else "/"
+            raw_paths = [part.strip() for part in decoded.split(separator) if part.strip()]
+        else:
+            raw_paths = decoded
+    if isinstance(raw_paths, dict):
+        raw_paths = raw_paths.get("values") or raw_paths.get("items") or [raw_paths]
+
+    names: list[str] = []
+    for entry in raw_paths if isinstance(raw_paths, list) else []:
+        if isinstance(entry, dict):
+            name = entry.get("name") or entry.get("title") or entry.get("label")
+        else:
+            name = entry
+        normalized = str(name or "").strip().strip("/")
+        if normalized and (not names or names[-1] != normalized):
+            names.append(normalized)
+    if suite_name and (not names or names[-1] != suite_name):
+        names.append(suite_name)
+    return names
+
+
 def run_suite(run: dict[str, Any]) -> tuple[str, str]:
-    suite = run.get("suite") or (run.get("case") or {}).get("suite") or {}
+    suite = run_suite_payload(run)
     if not isinstance(suite, dict):
         return "", ""
     return str(suite.get("id") or "").strip(), str(suite.get("name") or "未命名模块").strip()
@@ -599,20 +672,37 @@ def cache_plan_suites(
     plan_id: str,
     runs: list[dict[str, Any]],
     access_token: str,
+    suite_path_hints: dict[str, list[str]] | None = None,
 ) -> None:
     suites: dict[str, dict[str, Any]] = {}
     for run in runs:
+        suite_payload = run_suite_payload(run)
         suite_id, suite_name = run_suite(run)
         if not suite_id:
             continue
+        suite_path = normalize_suite_path(suite_payload)
+        hints = suite_path_hints or {}
+        hinted_paths = [
+            hints.get(f"id:{suite_id}") or [],
+            hints.get(f"name:{normalize_suite_name(suite_name)}") or [],
+        ]
+        hinted_path = max(hinted_paths, key=len, default=[])
+        if len(hinted_path) > len(suite_path):
+            suite_path = list(hinted_path)
         row = suites.setdefault(suite_id, {
             "library_id": library_id,
             "plan_id": plan_id,
             "suite_id": suite_id,
             "suite_name": suite_name,
+            "suite_path": suite_path,
             "case_count": 0,
             "synced_at": datetime.now(timezone.utc).isoformat(),
         })
+        # A plan can return a sparse suite object first and the complete ancestry on
+        # a later run. Keep the most complete path instead of freezing the first row.
+        if len(suite_path) > len(row.get("suite_path") or []):
+            row["suite_path"] = suite_path
+            row["suite_name"] = suite_name
         row["case_count"] += 1
     delete_query = urllib.parse.urlencode({"library_id": f"eq.{library_id}", "plan_id": f"eq.{plan_id}"})
     request_json(
@@ -622,13 +712,30 @@ def cache_plan_suites(
         retries=2,
     )
     if suites:
-        request_json(
-            f"{SUPABASE_URL}/rest/v1/testhub_plan_suite_cache?on_conflict=library_id,plan_id,suite_id",
-            method="POST",
-            headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
-            body=list(suites.values()),
-            retries=2,
-        )
+        cache_url = f"{SUPABASE_URL}/rest/v1/testhub_plan_suite_cache?on_conflict=library_id,plan_id,suite_id"
+        try:
+            request_json(
+                cache_url,
+                method="POST",
+                headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
+                body=list(suites.values()),
+                retries=2,
+            )
+        except HttpStatusError as error:
+            # Keep older databases usable until the hierarchy migration is applied.
+            if error.status != 400 or "suite_path" not in str(error):
+                raise
+            legacy_rows = [
+                {key: value for key, value in row.items() if key != "suite_path"}
+                for row in suites.values()
+            ]
+            request_json(
+                cache_url,
+                method="POST",
+                headers=supabase_headers(access_token, prefer="resolution=merge-duplicates,return=minimal"),
+                body=legacy_rows,
+                retries=2,
+            )
 
 
 def filter_runs_for_task_scope(task: dict[str, Any], runs: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -887,7 +994,31 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
             for plan_id in plan_ids:
                 plan_runs = fetch_plan_runs(library_id, plan_id, pingcode_token)
                 plan_runs_by_id[plan_id] = plan_runs
-                cache_plan_suites(library_id, plan_id, plan_runs, access_token)
+            # Plans from the same library can expose different suite projections.
+            # Build a shared path dictionary before caching so a complete plan can
+            # repair the hierarchy of a sparse plan without changing case counts.
+            suite_path_hints: dict[str, list[str]] = {}
+            for plan_runs in plan_runs_by_id.values():
+                for run in plan_runs:
+                    suite_payload = run_suite_payload(run)
+                    suite_id, suite_name = run_suite(run)
+                    suite_path = normalize_suite_path(suite_payload)
+                    if not suite_path:
+                        continue
+                    for key in (
+                        f"id:{suite_id}" if suite_id else "",
+                        f"name:{normalize_suite_name(suite_name)}" if suite_name else "",
+                    ):
+                        if key and len(suite_path) > len(suite_path_hints.get(key) or []):
+                            suite_path_hints[key] = suite_path
+            for plan_id, plan_runs in plan_runs_by_id.items():
+                cache_plan_suites(
+                    library_id,
+                    plan_id,
+                    plan_runs,
+                    access_token,
+                    suite_path_hints=suite_path_hints,
+                )
             scoped_runs_by_id = filter_plan_runs_for_shared_scope(task, plan_runs_by_id)
             summaries: list[dict[str, Any]] = []
             all_runs: list[dict[str, Any]] = []

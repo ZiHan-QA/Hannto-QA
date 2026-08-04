@@ -157,6 +157,12 @@
     const groupedAssignees = groupTaskAssignees(workspaceData.assigneesResult.data);
     const projectById = new Map(projects.map(project => [project.id, project]));
     const portfolioPlanById = new Map(portfolioPlans.map(plan => [plan.id, plan]));
+    const members = typeof context.businessUnitMembers === 'function'
+      ? context.businessUnitMembers(profiles)
+      : profiles.filter(profile => {
+        const unit = String(profile?.business_unit || profile?.business_unit_code || '').trim().toLowerCase();
+        return context.businessUnit === 'unassigned' ? !unit : unit === context.businessUnit;
+      });
     const unitTasks = tasks.filter(task => {
       const plan = portfolioPlanById.get(task.portfolio_plan_id);
       const project = projectById.get(task.project_id || plan?.project_id);
@@ -193,6 +199,7 @@
 
     return Object.freeze({
       profiles,
+      members,
       resourceMembers: context.businessUnitResourceMembers(profiles),
       groupedAssignees,
       projectById,
@@ -247,7 +254,7 @@
           : `已选 ${values.length} 项`;
     };
     update('member', filters.members, '全部成员',
-      Object.fromEntries((state.viewModel?.resourceMembers || []).map(item => [item.id, item.name || '未命名成员'])));
+      Object.fromEntries((state.viewModel?.members || []).map(item => [item.id, item.name || '未命名成员'])));
     update('status', filters.statuses, '全部状态', {
       active:'未完成任务', mine:'我的事项', due_soon:'未来 3 天截止',
       todo:'待处理', in_progress:'进行中', blocked:'已阻塞',
@@ -432,7 +439,7 @@
       ? `<details class="task-multi-filter">
           <summary data-task-filter-summary="member">全部成员</summary>
           <div class="task-multi-filter-menu">
-            ${(state.viewModel?.resourceMembers || []).map(profile => `<label><input type="checkbox" value="${profile.id}" data-task-filter="member" onchange="filterTeamTaskRows()"> ${escapeHtml(profile.name || '未命名成员')}</label>`).join('')}
+            ${(state.viewModel?.members || []).map(profile => `<label><input type="checkbox" value="${profile.id}" data-task-filter="member" onchange="filterTeamTaskRows()"> ${escapeHtml(profile.name || '未命名成员')}</label>`).join('')}
           </div>
         </details>`
       : '';
