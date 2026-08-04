@@ -65,11 +65,14 @@ def main() -> None:
     direct_task_project_link_migration = (ROOT / "supabase/migrations/20260728_task_direct_project_link.sql").read_text(encoding="utf-8")
     qa_lead_task_edit_migration = (ROOT / "supabase/migrations/20260729_qa_lead_task_edit_permissions.sql").read_text(encoding="utf-8")
     project_gantt_schedule_migration = (ROOT / "supabase/migrations/20260803_project_gantt_schedule_rpc.sql").read_text(encoding="utf-8")
+    task_delay_cutoff_migration = (ROOT / "supabase/migrations/20260804_task_delay_end_of_day_cutoff.sql").read_text(encoding="utf-8")
     department_migration = (ROOT / "supabase/migrations/20260730_department_management_foundation.sql").read_text(encoding="utf-8")
+    conversion_schedule_migration = (ROOT / "supabase/migrations/20260804_third_party_conversion_scheduling.sql").read_text(encoding="utf-8")
     task_series_migration = (ROOT / "supabase/migrations/20260730_task_series_linking.sql").read_text(encoding="utf-8")
     task_series_fix_migration = (ROOT / "supabase/migrations/20260730_fix_task_series_rpc_ambiguity.sql").read_text(encoding="utf-8")
     profile_business_unit_migration = (ROOT / "supabase/migrations/20260730_profile_business_unit.sql").read_text(encoding="utf-8")
     assignee_scope_migration = (ROOT / "supabase/migrations/20260730_assignee_testhub_module_scopes.sql").read_text(encoding="utf-8")
+    suite_hierarchy_migration = (ROOT / "supabase/migrations/20260804_testhub_suite_hierarchy.sql").read_text(encoding="utf-8")
     bulk_member_function = (ROOT / "supabase/functions/admin-bulk-create-users/index.ts").read_text(encoding="utf-8")
     sync_script = (ROOT / "scripts/sync_testhub_local.py").read_text(encoding="utf-8")
     scheduled_sync_script = (ROOT / "scripts/run_scheduled_testhub_sync.ps1").read_text(encoding="utf-8")
@@ -86,8 +89,8 @@ def main() -> None:
         '<link rel="stylesheet" href="src/modules/releases/styles.css">',
         '<script src="src/modules/reports/index.js"></script>',
         '<link rel="stylesheet" href="src/modules/reports/styles.css">',
-        '<script src="src/modules/departments/index.js"></script>',
-        '<link rel="stylesheet" href="src/modules/departments/styles.css">',
+        '<script src="src/modules/departments/index.js?v=20260804-3"></script>',
+        '<link rel="stylesheet" href="src/modules/departments/styles.css?v=20260804-3">',
         '<script src="src/modules/leave-management/index.js"></script>',
         '<link rel="stylesheet" href="src/modules/leave-management/styles.css">',
         "TestHub 当日 ${executedCases} Case / 个人目标",
@@ -649,6 +652,12 @@ def main() -> None:
         "grant execute on function public.update_qa_task_schedule(uuid, date, date) to authenticated",
         "notify pgrst, 'reload schema'",
     ], "project Gantt schedule migration")
+    require(task_delay_cutoff_migration, [
+        "time '23:59:59'",
+        "create or replace function public.maintain_qa_task_delay_marker()",
+        "new.delay_recorded_at := null",
+        "create or replace function public.update_qa_task_schedule(",
+    ], "end-of-day task delay cutoff migration")
     require(prd_html, [
         "function requirementDelivery",
         "function createTaskForRequirement",
@@ -806,6 +815,9 @@ def main() -> None:
         "task_testhub_daily_execution",
         "def acquire_sync_lock",
         "def cache_plan_suites",
+        "richest = max(",
+        "case_suite = case.get(\"suite\")",
+        "def normalize_suite_path",
         "def filter_runs_for_task_scope",
         "def filter_plan_runs_for_shared_scope",
         "all_plans_complete",
@@ -827,6 +839,8 @@ def main() -> None:
     require(html, [
         "enableAssigneeSuiteScopes",
         "renderAssigneeTestHubScopeAssignments",
+        "buildTestHubSuiteTree",
+        "renderTestHubSuiteTreeNode",
         "save_qa_task_testhub_assignee_scopes",
         "testhub_target_cases",
         "testhub_suite_names",
@@ -838,6 +852,22 @@ def main() -> None:
         "save_qa_task_testhub_assignee_scopes",
         "Member suite must belong to the task suite scope",
     ], "per-assignee TestHub scope migration")
+    require(suite_hierarchy_migration, [
+        "add column if not exists suite_path text[]",
+        "TestHub module ancestry from suite.paths",
+    ], "TestHub suite hierarchy migration")
+    require(html, [
+        "node.ownCases = ownCases",
+        "（本层用例）",
+        "data-suite-branch onclick",
+    ], "TestHub hierarchical suite counting UI")
+    require(html, [
+        "const taskScopeMode = String(task?.testhub_scope_mode || 'all')",
+        "const snapshotScopeMode = String(snapshot?.scope_mode || 'all')",
+        "snapshot?.scope_suite_ids",
+        "cachedScopedTotal",
+        "planModuleCount",
+    ], "TestHub scoped snapshot and case-count display")
     require(departments_js, [
         "registerModule({",
         "id: 'departments'",
@@ -853,6 +883,13 @@ def main() -> None:
         'lang="zh-CN"',
         "memberMissingFields(item).length > 0",
         "所属 BU *",
+        "qa_project_members",
+        "memberCurrentProjectText",
+        "memberPendingConversion",
+        "转正安排",
+        "待转正",
+        "schedule_department_member_conversion",
+        "apply_due_department_member_conversions",
     ], "departments module")
     require(departments_css, [
         ".department-page",
@@ -864,6 +901,8 @@ def main() -> None:
         "部门主管是独立于",
         "供应商基础管理",
         "员工固定 BU",
+        "三方转正",
+        "生效日前仍按第三方员工管理",
     ], "departments README")
     require(profile_business_unit_migration, [
         "add column if not exists business_unit text",
@@ -898,6 +937,15 @@ def main() -> None:
         "'智立方'",
         "'科锐'",
     ], "department management migration")
+    require(conversion_schedule_migration, [
+        "conversion_effective_date date",
+        "create or replace function public.schedule_department_member_conversion",
+        "create or replace function public.cancel_department_member_conversion",
+        "create or replace function public.apply_due_department_member_conversions",
+        "dm.conversion_effective_date <= effective_today",
+        "Asia/Shanghai",
+        "'conversion'",
+    ], "third-party conversion scheduling migration")
     require(bulk_member_function, [
         "admin-bulk-create-users",
         "auth.admin.createUser",

@@ -353,6 +353,8 @@
       button.disabled = true;
       try {
         await state.context.createTaskForProject?.(button.dataset.projectTaskNew);
+      } catch (error) {
+        console.error('[projects] create task action failed', error);
       } finally {
         if (button.isConnected) button.disabled = false;
       }

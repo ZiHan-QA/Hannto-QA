@@ -11,17 +11,18 @@
 <link rel="stylesheet" href="src/modules/tasks/styles.css">
 <link rel="stylesheet" href="src/modules/releases/styles.css">
 <link rel="stylesheet" href="src/modules/reports/styles.css">
-<link rel="stylesheet" href="src/modules/departments/styles.css">
+<link rel="stylesheet" href="src/modules/departments/styles.css?v=20260804-3">
 <link rel="stylesheet" href="src/modules/leave-management/styles.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="src/shared/resource-accounting.js"></script>
 <script src="src/core/platform.js"></script>
 <script src="src/modules/feedback/index.js"></script>
 <script src="src/modules/projects/index.js"></script>
 <script src="src/modules/tasks/index.js"></script>
 <script src="src/modules/releases/index.js"></script>
 <script src="src/modules/reports/index.js"></script>
-<script src="src/modules/departments/index.js"></script>
+<script src="src/modules/departments/index.js?v=20260804-3"></script>
 <script src="src/modules/leave-management/index.js"></script>
 <style>
 :root {
@@ -525,6 +526,51 @@ body { font-family: 'Noto Sans SC', sans-serif; background: var(--cream); displa
 .testhub-plan-badge.ios { background: #eee8ff; color: #6d28d9; }
 .testhub-plan-badge.version { background: #fff1bd; color: #7a5a00; }
 .testhub-plan-empty { grid-column: 1 / -1; padding: 24px; text-align: center; color: var(--sub); font-size: 11px; }
+.testhub-suite-tree {
+  display: block; max-height: 360px; overflow: auto; padding: 8px;
+  border: 1px solid var(--line); border-radius: 12px; background: #fff;
+}
+.testhub-suite-root-head,
+.testhub-suite-plan-summary,
+.testhub-suite-leaf {
+  display: flex; align-items: center; gap: 8px; min-width: 0;
+}
+.testhub-suite-root-head {
+  position: sticky; top: -8px; z-index: 2; padding: 10px 9px;
+  border-bottom: 1px solid var(--line); background: #fff;
+}
+.testhub-suite-root-head strong { flex: 1; min-width: 0; font-size: 12px; }
+.testhub-suite-tree input[type="checkbox"] { accent-color: var(--pink); }
+.testhub-suite-plan { border-bottom: 1px solid #f1ebe5; }
+.testhub-suite-plan:last-child { border-bottom: 0; }
+.testhub-suite-plan > summary,
+.testhub-suite-branch > summary {
+  list-style: none; cursor: pointer; padding: 9px 8px; background: #fffdfb;
+}
+.testhub-suite-plan > summary::-webkit-details-marker,
+.testhub-suite-branch > summary::-webkit-details-marker { display: none; }
+.testhub-suite-plan > summary::before,
+.testhub-suite-branch > summary::before {
+  content: '›'; width: 14px; color: var(--sub); font-size: 17px; line-height: 1;
+  transform: rotate(0deg); transition: transform .15s;
+}
+.testhub-suite-plan[open] > summary::before,
+.testhub-suite-branch[open] > summary::before { transform: rotate(90deg); }
+.testhub-suite-plan-title { flex: 1; min-width: 0; font-size: 11px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.testhub-suite-count { flex: 0 0 auto; color: var(--sub); font-size: 10px; }
+.testhub-suite-children { padding: 0 8px 7px 26px; }
+.testhub-suite-branch { border-left: 1px solid #eee6df; }
+.testhub-suite-branch > summary { padding: 7px 8px; border-radius: 8px; }
+.testhub-suite-branch > summary:hover { background: #fff5f9; }
+.testhub-suite-branch > summary.selected { background: #f4efff; color: #5124a6; }
+.testhub-suite-branch > .testhub-suite-children { padding-left: 24px; }
+.testhub-suite-leaf {
+  padding: 7px 8px; border-radius: 8px; cursor: pointer; color: var(--text); font-size: 11px;
+}
+.testhub-suite-leaf:hover { background: #fff5f9; }
+.testhub-suite-leaf.selected { background: #f4efff; color: #5124a6; }
+.testhub-suite-leaf-name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.testhub-suite-tree-empty { padding: 20px 10px; text-align: center; color: var(--sub); font-size: 11px; }
 .assignee-section { grid-column: 1 / -1; }
 .assignee-allocation-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; margin-top: 8px; }
 .assignee-allocation-item { display: flex; align-items: center; gap: 7px; padding: 7px 9px; border-radius: 10px; background: #fffaf6; }
@@ -745,9 +791,11 @@ const RESOURCE_HORIZON_WORKDAYS = 5;
 const DAILY_PROGRESS_CUTOFF_HOUR = 23;
 const DAILY_PROGRESS_CUTOFF_MINUTE = 59;
 function dailyProgressCutoffReached(now = new Date()) {
-  return now.getHours() > DAILY_PROGRESS_CUTOFF_HOUR
-    || (now.getHours() === DAILY_PROGRESS_CUTOFF_HOUR
-      && now.getMinutes() >= DAILY_PROGRESS_CUTOFF_MINUTE);
+  return window.HanntoQAResourceAccounting.isDailyCutoffReached(
+    now,
+    DAILY_PROGRESS_CUTOFF_HOUR,
+    DAILY_PROGRESS_CUTOFF_MINUTE,
+  );
 }
 const TASK_TEMPLATES = {
   prd_review: { type:'prd_review', effort:0.5, placeholder:'例如：评审 Perilla 首页 PRD', description:'确认需求范围、异常场景、兼容性与可验收标准。' },
@@ -781,6 +829,7 @@ let taskScheduledPeriodPoints = new Map();
 let pingCodeDirectoryCache = new Map();
 let testHubPlanChoiceCache = new Map();
 let testHubSuiteChoiceCache = new Map();
+let testHubSuiteTreeRows = [];
 let testHubPlanDirectoryCache = new Map();
 let taskReleaseLinkCache = new Map();
 let taskPortfolioLinkCache = new Map();
@@ -832,9 +881,12 @@ function profileMatchesBusinessUnit(profile, unit = projectHubUnit) {
   return unit === 'unassigned' ? !memberUnit : memberUnit === unit;
 }
 
+function businessUnitMembers(profiles, unit = projectHubUnit) {
+  return (profiles || []).filter(profile => profileMatchesBusinessUnit(profile, unit));
+}
+
 function businessUnitResourceMembers(profiles, unit = projectHubUnit) {
-  return (profiles || []).filter(profile =>
-    isResourceParticipant(profile) && profileMatchesBusinessUnit(profile, unit));
+  return businessUnitMembers(profiles, unit).filter(isResourceParticipant);
 }
 
 function normalizeDuty(role) {
@@ -1152,6 +1204,7 @@ function createModuleContext() {
     dutyText,
     isResourceParticipant,
     profileMatchesBusinessUnit,
+    businessUnitMembers,
     businessUnitResourceMembers,
     memberBusinessUnitText,
     renderTaskWorkspace: workspaceData => renderTaskRecords(workspaceData),
@@ -1335,7 +1388,17 @@ function testHubSnapshotMatchesTask(task, snapshot) {
     ...(Array.isArray(snapshot.plan_ids) ? snapshot.plan_ids : []),
     snapshot.plan_id
   ].filter(Boolean).map(String))].sort();
-  return taskIds.length === snapshotIds.length && taskIds.every((id, index) => id === snapshotIds[index]);
+  const plansMatch = taskIds.length === snapshotIds.length
+    && taskIds.every((id, index) => id === snapshotIds[index]);
+  if (!plansMatch) return false;
+  const taskScopeMode = String(task?.testhub_scope_mode || 'all');
+  const snapshotScopeMode = String(snapshot?.scope_mode || 'all');
+  if (taskScopeMode !== snapshotScopeMode) return false;
+  if (taskScopeMode !== 'suite') return true;
+  const taskSuiteIds = [...new Set((task?.testhub_scope_suite_ids || []).map(String).filter(Boolean))].sort();
+  const snapshotSuiteIds = [...new Set((snapshot?.scope_suite_ids || []).map(String).filter(Boolean))].sort();
+  return taskSuiteIds.length === snapshotSuiteIds.length
+    && taskSuiteIds.every((id, index) => id === snapshotSuiteIds[index]);
 }
 
 function testHubPlanProgressItems(snapshot) {
@@ -1611,7 +1674,7 @@ async function renderMemberMappings() {
             <span class="card-tag" style="background:#EDE8FF;color:var(--purple);">${directory.length} 个候选</span>
           </div>
         </div>
-        <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">职责分为系统管理员、QA 负责人/项目负责人和测试工程师；“计入资源”仅影响负责人候选、人力容量、进度与风险统计，不会改变账号权限。</div>
+        <div style="color:var(--sub);font-size:11px;margin-bottom:12px;">职责分为系统管理员、QA 负责人/项目负责人和测试工程师；“计入资源”仅影响人力容量、负载、排期与利用率统计，不影响成员展示、负责人候选或账号权限。</div>
         <datalist id="pingcodeUserOptions">${options}</datalist>
         <div style="overflow-x:auto;"><table class="history-table"><thead><tr><th>平台成员</th><th>PingCode 用户 ID</th><th>当前显示名</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="4">暂无成员</td></tr>'}</tbody></table></div>
       </div>${memberPasswordResetModalHtml()}${memberBulkImportModalHtml()}`;
@@ -2058,7 +2121,7 @@ async function toggleMemberResourceParticipation(profileId, enabled) {
       .update({ resource_participant: Boolean(enabled) })
       .eq('id', profileId);
     if (error) throw error;
-    showToast(enabled ? '已计入负责人候选和资源统计' : '已移出资源统计，账号职责权限保持不变');
+    showToast(enabled ? '已计入资源容量与负载统计' : '已移出资源统计；成员仍可查看并可被分配事项');
     await renderMemberMappings();
   } catch (error) {
     console.error('[members] resource participation update failed:', error);
@@ -2118,7 +2181,7 @@ function taskEditorModalHtml() {
           <div class="form-group"><label class="form-label" for="newTaskTestHubLibrary">TestHub 用例库（选填）</label><select class="form-select" id="newTaskTestHubLibrary"><option value="">不关联</option><option value="661e31a128d44167e325552c">消费类</option><option value="6214acdba2fa0b097f549d45">打印机</option><option value="6746eb4a87e7da0dbd43c027">PC</option></select></div>
           <div class="form-group"><label class="form-label" for="newTaskTestHubSearch">计划关键词</label><div style="display:flex;gap:6px;"><input class="dashboard-input" id="newTaskTestHubSearch" placeholder="可留空查看最近计划"><button class="btn-secondary" type="button" onclick="loadTestHubPlans(this)" style="white-space:nowrap;">查询缓存</button></div></div>
           <div class="form-group testhub-plan-section"><label class="form-label">TestHub 计划（可多选）</label><div class="testhub-plan-summary"><span id="testHubPlanSummary">未选择计划</span><button class="btn-secondary" type="button" onclick="clearTestHubPlanSelection()">清空选择</button></div><div class="assignee-allocation-note">关联计划后自动按 TestHub 已执行用例数 ÷ 总用例数计算；不关联时才使用手工填报。</div><div id="testHubPlanOptions" class="testhub-plan-grid"><span class="testhub-plan-empty">查询后选择 Android / iOS 计划</span></div><details style="margin-top:7px;"><summary style="color:var(--sub);font-size:10px;cursor:pointer;">高级：手动添加计划 ID</summary><div style="display:flex;gap:6px;margin-top:6px;"><input class="dashboard-input" id="manualTestHubPlanId" placeholder="缓存未同步时填写计划 ID"><button class="btn-secondary" type="button" onclick="addManualTestHubPlan()" style="white-space:nowrap;">添加 ID</button></div></details><div id="testHubPlanHint" style="color:var(--sub);font-size:10px;margin-top:4px;">请先运行本地同步工具，再查询缓存</div></div>
-          <div class="form-group testhub-plan-section"><label class="form-label" for="newTaskTestHubScopeMode">进度计算范围</label><select class="form-select" id="newTaskTestHubScopeMode" onchange="toggleTestHubScopeFields()"><option value="all">整个计划</option><option value="suite">指定模块 / 套件</option></select><div id="testHubSuiteScopeWrap" style="display:none;margin-top:9px;"><div class="testhub-plan-summary"><span id="testHubSuiteSummary">尚未选择模块</span><button class="btn-secondary" type="button" onclick="loadTestHubSuitesForSelection()">读取模块</button></div><div id="testHubSuiteOptions" class="testhub-plan-grid"><span class="testhub-plan-empty">选择计划后读取已同步模块</span></div><div class="assignee-allocation-note">只统计所选模块中的用例；模块来自本地 TestHub 同步缓存。</div><div id="testHubAssigneeScopeWrap" class="assignee-suite-scope" style="display:none;"><label class="assignee-suite-toggle"><input id="enableAssigneeSuiteScopes" type="checkbox" onchange="renderAssigneeTestHubScopeAssignments()"> 多人时按负责人指定模块</label><div class="assignee-allocation-note">启用后，每位负责人只统计本人模块；事项所选模块必须全部分配，且同一模块只能分给一人。</div><div id="testHubAssigneeScopeOptions"></div></div></div></div>
+          <div class="form-group testhub-plan-section"><label class="form-label" for="newTaskTestHubScopeMode">进度计算范围</label><select class="form-select" id="newTaskTestHubScopeMode" onchange="toggleTestHubScopeFields()"><option value="all">整个计划</option><option value="suite">指定模块 / 套件</option></select><div id="testHubSuiteScopeWrap" style="display:none;margin-top:9px;"><div class="testhub-plan-summary"><span id="testHubSuiteSummary">尚未选择模块</span><button class="btn-secondary" type="button" onclick="loadTestHubSuitesForSelection()">读取模块</button></div><div id="testHubSuiteOptions" class="testhub-suite-tree"><span class="testhub-plan-empty">选择计划后读取已同步模块</span></div><div class="assignee-allocation-note">按用例库 → 计划 → 模块展开；可勾选整组，也可只选叶子模块。</div><div id="testHubAssigneeScopeWrap" class="assignee-suite-scope" style="display:none;"><label class="assignee-suite-toggle"><input id="enableAssigneeSuiteScopes" type="checkbox" onchange="renderAssigneeTestHubScopeAssignments()"> 多人时按负责人指定模块</label><div class="assignee-allocation-note">启用后，每位负责人只统计本人模块；事项所选模块必须全部分配，且同一模块只能分给一人。</div><div id="testHubAssigneeScopeOptions"></div></div></div></div>
         </div>
         <div class="dashboard-form-actions"><button class="btn-secondary" onclick="closeNewTaskModal()">取消</button><button class="btn-primary" id="saveTaskBtn" onclick="saveQaTask()"><i class="ti ti-check"></i><span id="saveTaskBtnText">保存修改</span></button></div>
       </div>
@@ -2882,6 +2945,33 @@ function portfolioTaskServerActualPoints(task, activities, calendar, now = new D
   );
 }
 
+function portfolioTaskScheduledPointsForMonth(task, assignments, month, calendar) {
+  const slots = resourceTaskWorkSlots(task, calendar);
+  if (!slots.length) return 0;
+  const monthSlots = slots.filter(slot => slot.date.startsWith(month)).length;
+  if (!monthSlots) return 0;
+  const assignedEffort = (assignments || []).reduce((sum, assignment) => sum + Math.max(0, Number(assignment.allocated_effort) || 0), 0);
+  const totalEffort = assignedEffort > 0 ? assignedEffort : Math.max(0, Number(task.effort_person_days) || 0);
+  return totalEffort * monthSlots / slots.length;
+}
+
+function portfolioTaskServerActualPointsForMonth(task, activities, calendar, month, now = new Date(), assigneeCount = 1) {
+  const hasStatusHistory = (activities || []).some(activity => activity.new_values?.status);
+  if (!hasStatusHistory && task.status === 'done' && task.completed_at) {
+    return dashboardLocalDateKey(new Date(task.completed_at)).startsWith(month)
+      ? Math.max(0, Number(task.effort_person_days) || 0)
+      : 0;
+  }
+  const monthStart = new Date(`${month}T00:00:00`);
+  const nextMonth = new Date(monthStart);
+  nextMonth.setMonth(nextMonth.getMonth() + 1);
+  const clipped = portfolioTaskActiveIntervals(task, activities, now)
+    .map(([start, end]) => [new Date(Math.max(start.getTime(), monthStart.getTime())), new Date(Math.min(end.getTime(), nextMonth.getTime()))])
+    .filter(([start, end]) => end > start);
+  const halfDayUnits = portfolioIntervalHalfDayUnits(clipped, calendar);
+  return Math.max(0, halfDayUnits * Math.max(1, Number(assigneeCount) || 1) / 2);
+}
+
 function portfolioTypeText(value) {
   return ({ app:'APP', pad:'Pad', pc:'PC', device:'设备项目', other:'其他' })[value] || '其他';
 }
@@ -3071,7 +3161,7 @@ async function renderPortfolioPlanning() {
       sb.from('profiles').select('*').eq('resource_participant', true).order('name'),
       sb.from('work_calendar').select('work_date,is_workday,name'),
       sb.from('qa_tasks').select('id,title,assignee_id,portfolio_plan_id,status,created_at,completed_at,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,delay_recorded_at,delay_waived_at,delay_waived_by,delay_waiver_reason').not('portfolio_plan_id','is',null).neq('status','cancelled'),
-      sb.from('qa_task_assignees').select('task_id,member_id'),
+      sb.from('qa_task_assignees').select('task_id,member_id,allocated_effort'),
       sb.from('qa_task_activity').select('task_id,new_values,created_at').order('created_at', { ascending:true }).limit(10000),
       sb.rpc('qa_server_now'),
       sb.from('qa_projects').select('id,name,business_unit,status')
@@ -3095,17 +3185,21 @@ async function renderPortfolioPlanning() {
     });
     const memberNameById = new Map(members.map(member => [member.id, member.name || '未命名成员']));
     const assigneeIdsByTask = new Map();
+    const assignmentsByTask = new Map();
     (assigneesResult.data || []).forEach(item => {
       const ids = assigneeIdsByTask.get(item.task_id) || [];
       if (!ids.includes(item.member_id)) ids.push(item.member_id);
       assigneeIdsByTask.set(item.task_id, ids);
+      const assignments = assignmentsByTask.get(item.task_id) || [];
+      assignments.push(item);
+      assignmentsByTask.set(item.task_id, assignments);
     });
     const actualByPlan = new Map();
     const serverTimeFallback = Boolean(serverTimeResult.error || !serverTimeResult.data);
     if (serverTimeFallback) console.warn('[portfolio] qa_server_now unavailable, temporarily using browser time:', serverTimeResult.error);
     const serverNow = serverTimeFallback ? new Date() : new Date(serverTimeResult.data);
     (tasksResult.data || []).forEach(task => {
-      const summary = actualByPlan.get(task.portfolio_plan_id) || { points:0, taskCount:0, tasks:[] };
+      const summary = actualByPlan.get(task.portfolio_plan_id) || { points:0, scheduledByMonth:new Map(), actualByMonth:new Map(), taskCount:0, tasks:[] };
       const assigneeIds = assigneeIdsByTask.get(task.id) || (task.assignee_id ? [task.assignee_id] : []);
       const actualPoints = portfolioTaskServerActualPoints(
         task,
@@ -3115,6 +3209,12 @@ async function renderPortfolioPlanning() {
         assigneeIds.length || 1,
       );
       const assigneeNames = assigneeIds.map(id => memberNameById.get(id)).filter(Boolean);
+      months.forEach(month => {
+        const scheduledPoints = portfolioTaskScheduledPointsForMonth(task, assignmentsByTask.get(task.id) || [], month, calendar);
+        const monthlyActualPoints = portfolioTaskServerActualPointsForMonth(task, activityByTask.get(task.id) || [], calendar, month, serverNow, assigneeIds.length || 1);
+        summary.scheduledByMonth.set(month, Number(summary.scheduledByMonth.get(month) || 0) + scheduledPoints);
+        summary.actualByMonth.set(month, Number(summary.actualByMonth.get(month) || 0) + monthlyActualPoints);
+      });
       summary.points += actualPoints;
       summary.taskCount += 1;
       summary.tasks.push({
@@ -3132,35 +3232,48 @@ async function renderPortfolioPlanning() {
       const monthPlans = plans.filter(item => portfolioPlanCoversMonth(item, month));
       const demand = monthPlans.reduce((sum, item) => sum + portfolioPlanMonthlyDemand(item, month), 0);
       const workdays = portfolioMonthWorkdays(month, calendar);
+      const scheduledPoints = monthPlans.reduce((sum, plan) => sum + Number(actualByPlan.get(plan.id)?.scheduledByMonth?.get(month) || 0), 0);
+      const actualPoints = monthPlans.reduce((sum, plan) => sum + Number(actualByPlan.get(plan.id)?.actualByMonth?.get(month) || 0), 0);
+      const scheduled = workdays > 0 ? scheduledPoints / workdays : 0;
+      const actual = workdays > 0 ? actualPoints / workdays : 0;
       const utilization = capacityPersonMonths > 0 ? demand / capacityPersonMonths * 100 : 0;
-      return { month, monthPlans, demand, workdays, utilization, gap:capacityPersonMonths - demand };
+      return { month, monthPlans, demand, scheduled, actual, scheduledPoints, actualPoints, workdays, utilization, gap:capacityPersonMonths - demand };
     });
     const selected = monthSummaries[0];
-    const selectedActualPoints = selected.monthPlans.reduce((sum, plan) => sum + Number(actualByPlan.get(plan.id)?.points || 0), 0);
     const cards = monthSummaries.map(item => `<article class="portfolio-month-card ${item.gap < -0.001 ? 'over' : ''} ${item.month === portfolioMonthKey() ? 'current' : ''}">
       <div class="portfolio-month-title"><span>${portfolioMonthLabel(item.month)}</span><span>${item.gap < -0.001 ? `超 ${Math.abs(item.gap).toFixed(1)}` : `余 ${item.gap.toFixed(1)}`}</span></div>
-      <div class="portfolio-month-numbers"><strong>${item.demand.toFixed(1)}</strong> / ${capacityPersonMonths.toFixed(1)} 人月<br>${item.workdays} 个工作日 · ${item.monthPlans.length} 个项目</div>
+      <div class="portfolio-month-numbers"><strong>需 ${item.demand.toFixed(1)}</strong> · 排 ${item.scheduled.toFixed(1)} · 实 ${item.actual.toFixed(1)} 人月<br>${item.workdays} 个工作日 · ${item.monthPlans.length} 个项目</div>
       <div class="portfolio-progress"><i style="width:${Math.min(100, item.utilization).toFixed(1)}%"></i></div>
     </article>`).join('');
     const ganttRows = plans.filter(item => item.status !== 'cancelled').map(item => {
       const endMonth = item.end_month || item.plan_month;
-      const slots = months.map(month => portfolioPlanCoversMonth(item, month)
-        ? `<div class="portfolio-gantt-cell portfolio-gantt-slot"><div class="portfolio-gantt-bar ${item.project_type}">${portfolioPlanMonthlyDemand(item, month).toFixed(1)} 人月</div></div>`
-        : '<div class="portfolio-gantt-cell portfolio-gantt-slot"><div class="portfolio-gantt-empty">—</div></div>'
-      ).join('');
+      const slots = months.map(month => {
+        const workdays = portfolioMonthWorkdays(month, calendar);
+        const planSummary = actualByPlan.get(item.id);
+        const scheduled = workdays > 0 ? Number(planSummary?.scheduledByMonth?.get(month) || 0) / workdays : 0;
+        const actualMonth = workdays > 0 ? Number(planSummary?.actualByMonth?.get(month) || 0) / workdays : 0;
+        return portfolioPlanCoversMonth(item, month)
+          ? `<div class="portfolio-gantt-cell portfolio-gantt-slot"><div class="portfolio-gantt-bar ${item.project_type}" title="需求 / 已排 / 实际">需 ${portfolioPlanMonthlyDemand(item, month).toFixed(1)} · 排 ${scheduled.toFixed(1)} · 实 ${actualMonth.toFixed(1)}</div></div>`
+          : '<div class="portfolio-gantt-cell portfolio-gantt-slot"><div class="portfolio-gantt-empty">—</div></div>';
+      }).join('');
       const actual = actualByPlan.get(item.id) || { points:0, taskCount:0, tasks:[] };
       const linkedTasks = actual.tasks.map(task => `<div class="portfolio-linked-task"><strong title="${escapeDashboardHtml(task.title)}">${escapeDashboardHtml(task.title)}${taskDelayBadgeHtml(task)}</strong><span>${escapeDashboardHtml(task.assigneeNames.join('、') || '未指定负责人')} · ${escapeDashboardHtml(taskStatusText(task.status))} · 实际 ${task.actualPoints.toFixed(1)} 点</span></div>`).join('');
       return `<div class="portfolio-gantt-cell portfolio-gantt-project"><button class="risk-action" style="font-size:12px;font-weight:700;padding:0;" onclick="openQaProjectFromPortfolio('${item.id}')" title="打开项目逐日甘特图">${escapeDashboardHtml(item.project_name)} <i class="ti ti-external-link"></i></button><small>${portfolioTypeText(item.project_type)} · 共 ${Number(item.required_person_months).toFixed(1)} 人月<br>${portfolioMonthLabel(item.plan_month)}—${portfolioMonthLabel(endMonth)}<br>实际投入 ${actual.points.toFixed(1)} 点 · ${actual.taskCount} 个事项</small>${actual.taskCount ? `<details class="portfolio-linked-tasks"><summary>查看关联事项（${actual.taskCount}）</summary><div class="portfolio-linked-task-list">${linkedTasks}</div></details>` : '<div class="release-meta" style="margin-top:5px;">暂无关联事项</div>'}${userRole === 'admin' ? `<button class="portfolio-gantt-edit" onclick="openPortfolioPlanEditor('${item.id}')"><i class="ti ti-edit"></i> 编辑月度人力</button>` : ''}</div>${slots}`;
     }).join('');
     const ganttHeader = `<div class="portfolio-gantt-cell portfolio-gantt-header">项目 / 总投入</div>${months.map(month => `<div class="portfolio-gantt-cell portfolio-gantt-header">${portfolioMonthLabel(month)}</div>`).join('')}`;
-    const rows = selected.monthPlans.map(item => `<div class="portfolio-demand">
+    const rows = selected.monthPlans.map(item => {
+      const planSummary = actualByPlan.get(item.id);
+      const scheduledPoints = Number(planSummary?.scheduledByMonth?.get(selected.month) || 0);
+      const actualPoints = Number(planSummary?.actualByMonth?.get(selected.month) || 0);
+      return `<div class="portfolio-demand">
       <div><strong>${escapeDashboardHtml(item.project_name)}</strong><br><span class="release-meta">${portfolioTypeText(item.project_type)}${item.owner_name ? ` · ${escapeDashboardHtml(item.owner_name)}` : ''}<br>${portfolioMonthLabel(item.plan_month)}—${portfolioMonthLabel(item.end_month || item.plan_month)}${item.notes ? `<br>${escapeDashboardHtml(item.notes)}` : ''}</span></div>
       <strong>${portfolioPlanMonthlyDemand(item, selected.month).toFixed(1)}<br><span class="release-meta">总 ${Number(item.required_person_months).toFixed(1)}</span></strong>
       <span>${portfolioStatusText(item.status)}</span>
-      <span>${(portfolioPlanMonthlyDemand(item, selected.month) * selected.workdays).toFixed(1)} 点</span>
-      <strong>${Number(actualByPlan.get(item.id)?.points || 0).toFixed(1)} 点<br><span class="release-meta">${Number(actualByPlan.get(item.id)?.taskCount || 0)} 个关联事项</span></strong>
+      <span>${scheduledPoints.toFixed(1)} 点<br><span class="release-meta">${selected.workdays ? (scheduledPoints / selected.workdays).toFixed(1) : '0.0'} 人月</span></span>
+      <strong>${actualPoints.toFixed(1)} 点<br><span class="release-meta">${selected.workdays ? (actualPoints / selected.workdays).toFixed(1) : '0.0'} 人月 · ${Number(planSummary?.taskCount || 0)} 个事项</span></strong>
       <div>${userRole === 'admin' ? `<button class="btn-secondary" onclick="openPortfolioPlanEditor('${item.id}')">编辑</button> <button class="btn-secondary" onclick="deletePortfolioPlan('${item.id}')">删除</button>` : '-'}</div>
-    </div>`).join('');
+    </div>`;
+    }).join('');
     const gapTone = selected.gap < -0.001 ? '#d9414b' : '#0F6E56';
     content.innerHTML = `<div class="history-card">
       <div class="card-hd"><div><span class="card-title">🗓️ 项目总排期</span><div class="release-meta">当前展示“${projectUnitText(projectHubUnit)}”项目；按月汇总所需人月并对比 ${members.length} 位资源成员。</div></div>${userRole === 'admin' ? '<button class="btn-primary" onclick="openPortfolioPlanEditor()"><i class="ti ti-plus"></i> 新增项目需求</button>' : ''}</div>
@@ -3168,10 +3281,11 @@ async function renderPortfolioPlanning() {
       <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:14px 0;"><button class="btn-secondary" onclick="shiftPortfolioMonth(-1)">上个月</button><input class="dashboard-filter" type="month" value="${firstMonth.slice(0,7)}" onchange="changePortfolioMonth(this.value)"><button class="btn-secondary" onclick="changePortfolioMonth(portfolioMonthKey().slice(0,7))">本月</button><button class="btn-secondary" onclick="shiftPortfolioMonth(1)">下个月</button><span class="release-meta">向后展示 6 个月</span></div>
       <div class="quality-metrics">
         ${qualityMetricHtml('可用人力',`${capacityPersonMonths.toFixed(1)} 人月`,`${members.length} 位资源成员`,null)}
-        ${qualityMetricHtml('项目需求',`${selected.demand.toFixed(1)} 人月`,`${selected.monthPlans.length} 个项目`,null)}
+        ${qualityMetricHtml('需求人力',`${selected.demand.toFixed(1)} 人月`,`${selected.monthPlans.length} 个项目 · 人工基线`,null)}
+        ${qualityMetricHtml('已排人力',`${selected.scheduled.toFixed(1)} 人月`,`${selected.scheduledPoints.toFixed(1)} 点 · 工作事项自动汇总`,null,'var(--teal)')}
         ${qualityMetricHtml('人力余量',`${selected.gap.toFixed(1)} 人月`,selected.gap < 0 ? '当前项目需求超过现有人力' : '当前人力可以覆盖',null,gapTone)}
         ${qualityMetricHtml('利用率',`${selected.utilization.toFixed(0)}%`,`${selected.workdays} 个工作日 · ${(capacityPersonMonths * selected.workdays).toFixed(1)} 可用点`,Math.min(100,selected.utilization),selected.gap < 0 ? '#d9414b' : 'var(--teal)')}
-        ${qualityMetricHtml('实际投入',`${selectedActualPoints.toFixed(1)} 点`,'按服务器状态时间自动计算',null,'var(--purple)')}
+        ${qualityMetricHtml('实际投入',`${selected.actual.toFixed(1)} 人月`,`${selected.actualPoints.toFixed(1)} 点 · 按服务器状态时间自动计算`,null,'var(--purple)')}
       </div>
       ${serverTimeFallback ? '<div class="feature-change-alert" style="margin:12px 0;"><strong>服务器时间函数尚未安装</strong><div style="margin-top:4px;">页面已临时使用浏览器时间展示；执行最新项目排期 SQL 后会自动恢复服务器时间计算。</div></div>' : ''}
       ${selected.gap < -0.001 ? `<div class="feature-change-alert" style="margin:12px 0;"><strong>人力超载 ${Math.abs(selected.gap).toFixed(1)} 人月</strong><div style="margin-top:4px;">建议调整项目月份、减少范围，或补充临时资源。</div></div>` : ''}
@@ -3181,8 +3295,8 @@ async function renderPortfolioPlanning() {
       </div>
     </div>
     <div class="history-card" style="margin-top:14px;">
-      <div class="card-hd"><div><span class="card-title">${portfolioMonthLabel(selected.month)} 项目明细</span><div class="release-meta">本月分摊人月 × 当月工作日 = 预计投入点数</div></div><span class="card-tag">${selected.demand.toFixed(1)} / ${capacityPersonMonths.toFixed(1)} 人月</span></div>
-      <div class="portfolio-demand portfolio-demand-head"><span>项目 / 排期</span><span>本月人月</span><span>状态</span><span>预计点数</span><span>实际投入</span><span>操作</span></div>
+      <div class="card-hd"><div><span class="card-title">${portfolioMonthLabel(selected.month)} 项目明细</span><div class="release-meta">需求为人工预算基线；已排和实际均由关联工作事项按本月工作日自动换算。</div></div><span class="card-tag">需 ${selected.demand.toFixed(1)} · 排 ${selected.scheduled.toFixed(1)} · 实 ${selected.actual.toFixed(1)} 人月</span></div>
+      <div class="portfolio-demand portfolio-demand-head"><span>项目 / 排期</span><span>需求人月</span><span>状态</span><span>已排人力</span><span>实际投入</span><span>操作</span></div>
       ${rows || '<div class="dashboard-empty">该月份暂无项目需求</div>'}
     </div>${portfolioPlanModalHtml()}`;
   } catch (error) {
@@ -4556,7 +4670,8 @@ async function renderTaskRecords(workspaceData) {
       viewModel,
       renderListPage,
     } = workspaceData;
-    dashboardMembers = viewModel.resourceMembers;
+    // 成员展示/负责人候选与资源统计资格是两套规则：不计资源的成员仍可查看和被分配事项。
+    dashboardMembers = viewModel.members;
     taskProgressByTask = new Map();
     (progressResult.data || []).forEach(log => {
       const logs = taskProgressByTask.get(log.task_id) || [];
@@ -4611,7 +4726,7 @@ async function renderTaskRecords(workspaceData) {
     taskSeriesGroups.forEach(group => group.sort((a, b) =>
       Number(a.test_round || 1) - Number(b.test_round || 1)
       || String(a.created_at || '').localeCompare(String(b.created_at || ''))));
-    rebuildTaskSchedule(dashboardMembers, unitTasks, dashboardWorkCalendar);
+    rebuildTaskSchedule(viewModel.resourceMembers, unitTasks, dashboardWorkCalendar);
 
     const taskDetails = new Map();
     const rows = visibleTasks.map(task => {
@@ -4651,7 +4766,7 @@ async function renderTaskRecords(workspaceData) {
         : '';
       const testHubText = testHubPlanCount
         ? !snapshotMatches
-          ? ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} · 计划已变更，待同步 Case 数`
+          ? ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText}${cachedScopedTotal > 0 ? ` · 已选范围 ${cachedScopedTotal} Case` : ''} · 范围已变更，待同步执行数`
           : ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} · 已执行 ${executedCases} / 总 Case ${displayedTotalCases}${perPlanProgressText}${scopeAwaitingSync ? '（范围待同步）' : ''}`
         : '';
       const canEdit = canCurrentUserEditTask(task);
@@ -5523,13 +5638,18 @@ function taskDelayState(task, now = new Date()) {
   if (!endDate) return { delayed:false, completedLate:false, label:'' };
   // Half-day slots still affect capacity, but overdue status is calculated
   // only once at the end of the calendar day.
-  const endTime = `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:${String(DAILY_PROGRESS_CUTOFF_MINUTE).padStart(2, '0')}:00`;
+  const endTime = `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:${String(DAILY_PROGRESS_CUTOFF_MINUTE).padStart(2, '0')}:59`;
   const deadline = new Date(`${endDate}T${endTime}`);
   if (Number.isNaN(deadline.getTime())) return { delayed:false, completedLate:false, label:'' };
   if (task.status === 'done') {
     const completedAt = task.completed_at ? new Date(task.completed_at) : null;
-    const completedLate = Boolean(task.delay_recorded_at)
-      || Boolean(completedAt && !Number.isNaN(completedAt.getTime()) && completedAt > deadline);
+    // completed_at is the authoritative source when present. Older database
+    // triggers used the AM/PM capacity boundary (12:00/19:00) and could leave
+    // a stale delay_recorded_at even though the task finished before 23:59.
+    const hasValidCompletionTime = Boolean(completedAt && !Number.isNaN(completedAt.getTime()));
+    const completedLate = hasValidCompletionTime
+      ? completedAt > deadline
+      : Boolean(task.delay_recorded_at);
     return { delayed:completedLate, completedLate, label:completedLate ? '延期完成' : '' };
   }
   const delayed = ['todo','in_progress','blocked'].includes(task.status) && now > deadline;
@@ -5641,7 +5761,10 @@ function buildTaskScheduleRisks(tasks, members, progressLogs, testHubSnapshots, 
     if (scheduledToday && !dailyProgressCutoffReached(now)) return;
     taskAssigneeList(task).forEach(assignment => {
     const member = memberMap.get(assignment.member_id);
-    const memberName = member?.name || (assignment.member_id === currentUser.id ? '我' : '未命名成员');
+    const memberName = member?.name
+      || member?.pingcode_display_name
+      || member?.email
+      || (assignment.member_id === currentUser.id ? '我' : `未知成员（${String(assignment.member_id || '').slice(-6) || '无ID'}）`);
     const due = task.due_date ? new Date(task.due_date) : null;
     const label = `${memberName} · ${task.title}`;
     const logs = progressLogs.filter(log => log.task_id === task.id && log.executor_id === assignment.member_id && log.work_date <= todayKey);
@@ -6110,9 +6233,9 @@ async function loadDashboardData(token) {
     sb.from('device_configs').select('id,model_name,platform,is_online'),
     sb.from('consumables').select('id,name,brand,quantity,threshold,unit'),
     sb.from('release_checks').select('id,release_id,check_name,severity,status').in('status',['failed','unavailable']),
-    userRole === 'admin'
-      ? sb.from('profiles').select('*').eq('resource_participant', true).order('name')
-      : sb.from('profiles').select('*').eq('id', currentUser.id).eq('resource_participant', true),
+    canViewTeamTasks()
+      ? sb.from('profiles').select('*').order('name')
+      : sb.from('profiles').select('*').eq('id', currentUser.id),
     sb.from('qa_tasks').select('id,title,priority,assignee_id,status,created_at,completed_at,due_date,project_id,portfolio_plan_id,effort_person_days,allocation_start_date,allocation_end_date,allocation_start_period,allocation_end_period,testhub_library_id,testhub_plan_id,testhub_plan_ids,testhub_effort_person_days,testhub_scope_mode,testhub_scope_suite_ids,blocked_reason,blocked_owner_id,blocked_until,delay_recorded_at,delay_waived_at,delay_waived_by,delay_waiver_reason').in('status',['todo','in_progress','blocked','done']),
     sb.from('work_calendar').select('work_date,is_workday,name'),
     sb.from('task_progress_logs').select('id,task_id,work_date,progress_points,source,executor_id,created_at').lte('work_date', dashboardTodayInputValue()).limit(2000),
@@ -6140,8 +6263,12 @@ async function loadDashboardData(token) {
   const devicesResult = dashboardQueryResult(results[3], []);
   const consumablesResult = dashboardQueryResult(results[4], []);
   const checksResult = dashboardQueryResult(results[5], []);
-  const resourceMembersResult = dashboardQueryResult(results[6], []);
-  resourceMembersResult.data = businessUnitResourceMembers(resourceMembersResult.data || []);
+  // 姓名解析使用全部可见成员；容量计算才应用 resource_participant 过滤。
+  const visibleMembersResult = dashboardQueryResult(results[6], []);
+  const resourceMembersResult = {
+    ...visibleMembersResult,
+    data: businessUnitResourceMembers(visibleMembersResult.data || []),
+  };
   const resourceTasksResult = dashboardQueryResult(results[7], []);
   const workCalendarResult = dashboardQueryResult(results[8], []);
   const progressResult = dashboardQueryResult(results[9], []);
@@ -6223,9 +6350,9 @@ async function loadDashboardData(token) {
   const resource = userRole === 'admin'
     ? buildResourceCapacity(resourceMembersResult.data, resourceTasksResult.data, dashboardWorkCalendar)
     : { dates: [], rows: [], risks: [] };
-  const scheduleTasks = (userRole === 'admin' ? resourceTasksResult.data : myAssignedTasks)
+  const scheduleTasks = (canViewTeamTasks() ? resourceTasksResult.data : myAssignedTasks)
     .filter(task => ['todo', 'in_progress', 'blocked'].includes(task.status));
-  const taskScheduleRisks = buildTaskScheduleRisks(scheduleTasks, resourceMembersResult.data, progressResult.data, testHubProgressResult.data, now, dashboardWorkCalendar);
+  const taskScheduleRisks = buildTaskScheduleRisks(scheduleTasks, visibleMembersResult.data, progressResult.data, testHubProgressResult.data, now, dashboardWorkCalendar);
   const testHubSnapshotMap = new Map(testHubProgressResult.data.map(snapshot => [snapshot.task_id, snapshot]));
   const memberPlannedToday = myAssignedTasks
     .filter(task => todayIsWorkday && task.allocation_start_date <= todayKey && task.allocation_end_date >= todayKey)
@@ -6347,6 +6474,10 @@ async function loadDashboardData(token) {
 async function openNewTaskModal(requiredProjectId = '') {
   const modal = document.getElementById('newTaskModal');
   if (!modal) return;
+  // Open the editor immediately. Assignees, releases and portfolio plans are
+  // loaded afterwards and may involve network requests; waiting for all of
+  // them before showing the modal made the button appear unresponsive.
+  modal.classList.add('open');
   editingQaTaskId = null;
   editingQaTaskPrdId = null;
   editingQaTaskRequirementId = null;
@@ -6390,6 +6521,7 @@ async function openNewTaskModal(requiredProjectId = '') {
     delete assigneeScopeToggle.dataset.initialized;
   }
   testHubSuiteChoiceCache = new Map();
+  testHubSuiteTreeRows = [];
   renderTestHubSuiteChoices([], []);
   toggleTestHubScopeFields();
   await loadTaskAssignees([currentUser.id], [{ member_id:currentUser.id, allocated_effort:1 }]);
@@ -6406,35 +6538,43 @@ async function openNewTaskModal(requiredProjectId = '') {
   if (testHubOptions) testHubOptions.innerHTML = '<span class="testhub-plan-empty">查询后选择 Android / iOS 计划</span>';
   updateTestHubPlanSummary();
   if (testHubHint) testHubHint.textContent = '请先运行本地同步工具，再查询缓存';
-  modal.classList.add('open');
   setTimeout(() => document.getElementById('newTaskTitle')?.focus(), 0);
   return availableReleases || [];
 }
 
 async function openNewTaskForProject(projectId) {
-  const loadedReleases = await openNewTaskModal(projectId);
-  const statusRank = { active:0, planned:1, released:2 };
-  const releases = (loadedReleases.length ? loadedReleases : [...taskReleaseLinkCache.values()])
-    .filter(release => release.project_id === projectId && release.status !== 'archived')
-    .sort((a, b) => {
-      const rank = (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9);
-      if (rank) return rank;
-      return String(b.planned_release_date || b.created_at || '').localeCompare(String(a.planned_release_date || a.created_at || ''));
-    });
-  const release = releases[0];
-  if (!release) {
-    showToast('当前项目暂无可用版本，请先在“版本与发布”中创建并归属版本', 'error');
-    return;
+  try {
+    const loadedReleases = await openNewTaskModal(projectId);
+    const statusRank = { active:0, planned:1, released:2 };
+    const releaseSource = Array.isArray(loadedReleases) && loadedReleases.length
+      ? loadedReleases
+      : [...taskReleaseLinkCache.values()];
+    const releases = releaseSource
+      .filter(release => release.project_id === projectId && release.status !== 'archived')
+      .sort((a, b) => {
+        const rank = (statusRank[a.status] ?? 9) - (statusRank[b.status] ?? 9);
+        if (rank) return rank;
+        return String(b.planned_release_date || b.created_at || '').localeCompare(String(a.planned_release_date || a.created_at || ''));
+      });
+    const release = releases[0];
+    if (!release) {
+      showToast('当前项目暂无可用版本，请先在“版本与发布”中创建并归属版本', 'error');
+      return;
+    }
+    const releaseSelect = document.getElementById('newTaskRelease');
+    if (releaseSelect) {
+      releaseSelect.value = release.id;
+      syncTaskProjectLink();
+      renderTaskSeriesOptions();
+    }
+    const title = document.getElementById('taskModalTitle');
+    if (title) title.textContent = `为 ${release.project_name || '当前项目'} 创建事项`;
+    setTimeout(() => document.getElementById('newTaskTitle')?.focus(), 0);
+  } catch (error) {
+    console.error('[projects] failed to open project task editor', error);
+    showToast(`新建事项加载失败：${error?.message || '请刷新后重试'}`, 'error');
+    throw error;
   }
-  const releaseSelect = document.getElementById('newTaskRelease');
-  if (releaseSelect) {
-    releaseSelect.value = release.id;
-    syncTaskProjectLink();
-    renderTaskSeriesOptions();
-  }
-  const title = document.getElementById('taskModalTitle');
-  if (title) title.textContent = `为 ${release.project_name || '当前项目'} 创建事项`;
-  setTimeout(() => document.getElementById('newTaskTitle')?.focus(), 0);
 }
 
 async function openEditQaTask(id, mode = 'full') {
@@ -7019,16 +7159,21 @@ function updateTestHubPlanSummary() {
 }
 
 function getSelectedTestHubSuiteIds() {
-  return [...document.querySelectorAll('#testHubSuiteOptions input[type="checkbox"]:checked')]
-    .map(input => input.value)
-    .filter(Boolean);
+  return [...new Set([...document.querySelectorAll('#testHubSuiteOptions input[data-suite-id]:checked')]
+    .map(input => input.dataset.suiteId)
+    .filter(Boolean))];
 }
 
 function updateTestHubSuiteSummary() {
   const summary = document.getElementById('testHubSuiteSummary');
   if (!summary) return;
-  const count = getSelectedTestHubSuiteIds().length;
-  summary.textContent = count ? `已选择 ${count} 个模块` : '尚未选择模块';
+  const uniqueCount = getSelectedTestHubSuiteIds().length;
+  const planModuleCount = document.querySelectorAll('#testHubSuiteOptions .testhub-suite-plan input[data-suite-id]:checked').length;
+  summary.textContent = uniqueCount
+    ? planModuleCount > uniqueCount
+      ? `已选择 ${planModuleCount} 个计划模块（${uniqueCount} 类）`
+      : `已选择 ${uniqueCount} 个模块`
+    : '尚未选择模块';
 }
 
 function toggleTestHubScopeFields() {
@@ -7095,6 +7240,181 @@ function getAssigneeTestHubScopes() {
   }));
 }
 
+function syncTestHubSuiteLeafState(suiteId, checked) {
+  document.querySelectorAll('#testHubSuiteOptions input[data-suite-id]').forEach(input => {
+    if (input.dataset.suiteId !== String(suiteId)) return;
+    input.checked = checked;
+    input.closest('.testhub-suite-leaf')?.classList.toggle('selected', checked);
+  });
+}
+
+function refreshTestHubSuiteBranchState() {
+  const container = document.getElementById('testHubSuiteOptions');
+  if (!container) return;
+  [...container.querySelectorAll('.testhub-suite-branch')].reverse().forEach(branch => {
+    const children = [...branch.querySelectorAll('input[data-suite-id]')];
+    const checked = children.filter(input => input.checked).length;
+    const parent = branch.querySelector(':scope > summary input[data-suite-branch]');
+    if (!parent) return;
+    parent.checked = children.length > 0 && checked === children.length;
+    parent.indeterminate = checked > 0 && checked < children.length;
+    parent.closest('summary')?.classList.toggle('selected', checked > 0);
+  });
+  container.querySelectorAll('.testhub-suite-plan').forEach(branch => {
+    const children = [...branch.querySelectorAll('input[data-suite-id]')];
+    const checked = children.filter(input => input.checked).length;
+    const parent = branch.querySelector(':scope > summary input[data-suite-branch]');
+    if (!parent) return;
+    parent.checked = children.length > 0 && checked === children.length;
+    parent.indeterminate = checked > 0 && checked < children.length;
+  });
+  const leaves = [...container.querySelectorAll('input[data-suite-id]')];
+  const uniqueIds = [...new Set(leaves.map(input => input.dataset.suiteId).filter(Boolean))];
+  const checkedIds = new Set(leaves.filter(input => input.checked).map(input => input.dataset.suiteId));
+  const root = container.querySelector('input[data-suite-root]');
+  if (root) {
+    root.checked = uniqueIds.length > 0 && checkedIds.size === uniqueIds.length;
+    root.indeterminate = checkedIds.size > 0 && checkedIds.size < uniqueIds.length;
+  }
+}
+
+function handleTestHubSuiteSelectionChange(input) {
+  syncTestHubSuiteLeafState(input.dataset.suiteId, input.checked);
+  refreshTestHubSuiteBranchState();
+  updateTestHubSuiteSummary();
+  renderAssigneeTestHubScopeAssignments();
+}
+
+function toggleTestHubSuiteBranch(input, root = false) {
+  const scope = root ? document.getElementById('testHubSuiteOptions') : input.closest('.testhub-suite-branch, .testhub-suite-plan');
+  const suiteIds = [...new Set([...scope.querySelectorAll('input[data-suite-id]')].map(item => item.dataset.suiteId).filter(Boolean))];
+  suiteIds.forEach(id => syncTestHubSuiteLeafState(id, input.checked));
+  refreshTestHubSuiteBranchState();
+  updateTestHubSuiteSummary();
+  renderAssigneeTestHubScopeAssignments();
+}
+
+function testHubSuitePlanLabel(planId) {
+  if (planId === '__saved__') return '已保存模块';
+  const plan = testHubPlanChoiceCache.get(String(planId));
+  return plan?.name || `TestHub 计划 · ${String(planId || '').slice(-8)}`;
+}
+
+function renderTestHubSuiteChoicesLegacy(suites, selectedIds = []) {
+  const container = document.getElementById('testHubSuiteOptions');
+  if (!container) return;
+  const selected = new Set((selectedIds || []).map(String));
+  for (const suite of suites || []) {
+    if (suite?.suite_id) testHubSuiteChoiceCache.set(String(suite.suite_id), suite);
+  }
+  for (const id of selected) {
+    if (!testHubSuiteChoiceCache.has(id)) {
+      testHubSuiteChoiceCache.set(id, { suite_id:id, suite_name:`已保存模块 · ${id.slice(-8)}`, case_count:0, plan_id:'__saved__' });
+    }
+  }
+
+  const rows = testHubSuiteTreeRows.length
+    ? testHubSuiteTreeRows.slice()
+    : [...testHubSuiteChoiceCache.values()];
+  const knownIds = new Set(rows.map(item => String(item.suite_id || '')).filter(Boolean));
+  for (const id of selected) {
+    if (!knownIds.has(id)) rows.push(testHubSuiteChoiceCache.get(id));
+  }
+  const groups = new Map();
+  for (const suite of rows) {
+    if (!suite?.suite_id) continue;
+    const key = String(suite.plan_id || '__saved__');
+    const list = groups.get(key) || [];
+    list.push(suite);
+    groups.set(key, list);
+  }
+  if (!groups.size) {
+    container.innerHTML = '<div class="testhub-suite-tree-empty">尚无模块缓存；保存事项并运行一次本地 TestHub 同步后再选择</div>';
+    updateTestHubSuiteSummary();
+    renderAssigneeTestHubScopeAssignments();
+    return;
+  }
+
+  const librarySelect = document.getElementById('newTaskTestHubLibrary');
+  const libraryName = librarySelect?.selectedOptions?.[0]?.textContent?.trim() || 'TestHub 用例库';
+  const totalCases = rows.reduce((sum, item) => sum + Number(item.case_count || 0), 0);
+  const planOrder = getSelectedTestHubPlanIds();
+  const orderedGroups = [...groups.entries()].sort((a, b) => {
+    const aIndex = planOrder.indexOf(a[0]);
+    const bIndex = planOrder.indexOf(b[0]);
+    if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? 9999 : aIndex) - (bIndex < 0 ? 9999 : bIndex);
+    return testHubSuitePlanLabel(a[0]).localeCompare(testHubSuitePlanLabel(b[0]), 'zh-CN');
+  });
+  container.innerHTML = `<div class="testhub-suite-root-head"><input type="checkbox" data-suite-root onclick="event.stopPropagation()" onchange="toggleTestHubSuiteBranch(this,true)"><i class="ti ti-folders"></i><strong>${escapeDashboardHtml(libraryName)}</strong><span class="testhub-suite-count">${Number(totalCases)} 条用例 · ${groups.size} 个计划</span></div>${orderedGroups.map(([planId, planSuites]) => {
+    const uniqueSuites = [...new Map(planSuites.map(item => [String(item.suite_id), item])).values()]
+      .sort((a, b) => String(a.suite_name || '').localeCompare(String(b.suite_name || ''), 'zh-CN'));
+    const planCases = uniqueSuites.reduce((sum, item) => sum + Number(item.case_count || 0), 0);
+    return `<details class="testhub-suite-plan" open><summary class="testhub-suite-plan-summary"><input type="checkbox" data-suite-branch onclick="event.stopPropagation()" onchange="toggleTestHubSuiteBranch(this)"><i class="ti ti-folders"></i><span class="testhub-suite-plan-title" title="${escapeDashboardHtml(testHubSuitePlanLabel(planId))}">${escapeDashboardHtml(testHubSuitePlanLabel(planId))}</span><span class="testhub-suite-count">${planCases} 条</span></summary><div class="testhub-suite-children">${uniqueSuites.map(suite => {
+      const id = String(suite.suite_id || '');
+      const checked = selected.has(id);
+      return `<label class="testhub-suite-leaf ${checked ? 'selected' : ''}"><input type="checkbox" data-suite-id="${escapeDashboardHtml(id)}" ${checked ? 'checked' : ''} onchange="handleTestHubSuiteSelectionChange(this)"><i class="ti ti-hierarchy-2"></i><span class="testhub-suite-leaf-name">${escapeDashboardHtml(suite.suite_name || '未命名模块')}</span><span class="testhub-suite-count">${Number(suite.case_count || 0)} 条</span></label>`;
+    }).join('')}</div></details>`;
+  }).join('')}`;
+  refreshTestHubSuiteBranchState();
+  updateTestHubSuiteSummary();
+  renderAssigneeTestHubScopeAssignments();
+}
+
+function normalizeCachedSuitePath(suite, planId = '') {
+  let rawPath = suite?.suite_path;
+  if (typeof rawPath === 'string') {
+    try { rawPath = JSON.parse(rawPath); } catch (_) {
+      rawPath = rawPath.split(rawPath.includes(' > ') ? ' > ' : '/');
+    }
+  }
+  const names = (Array.isArray(rawPath) ? rawPath : [])
+    .map(item => typeof item === 'object' ? (item?.name || item?.title || item?.label || '') : item)
+    .map(item => String(item || '').trim().replace(/^\/+|\/+$/g, ''))
+    .filter(Boolean)
+    .filter((item, index, items) => index === 0 || item !== items[index - 1]);
+  const suiteName = String(suite?.suite_name || '未命名模块').trim();
+  if (!names.length || names[names.length - 1] !== suiteName) names.push(suiteName);
+  const planLabel = testHubSuitePlanLabel(planId).trim();
+  while (names.length > 1 && names[0] === planLabel) names.shift();
+  return names;
+}
+
+function buildTestHubSuiteTree(planSuites, planId) {
+  const root = { name:'', children:new Map(), suite:null, ownCases:0, totalCases:0 };
+  for (const suite of planSuites) {
+    let node = root;
+    for (const name of normalizeCachedSuitePath(suite, planId)) {
+      if (!node.children.has(name)) {
+        node.children.set(name, { name, children:new Map(), suite:null, ownCases:0, totalCases:0 });
+      }
+      node = node.children.get(name);
+    }
+    node.suite = suite;
+  }
+  const sumCases = node => {
+    const ownCases = Number(node.suite?.case_count || 0);
+    node.ownCases = ownCases;
+    node.totalCases = ownCases + [...node.children.values()].reduce((sum, child) => sum + sumCases(child), 0);
+    return node.totalCases;
+  };
+  sumCases(root);
+  return root;
+}
+
+function renderTestHubSuiteTreeNode(node, selected, depth = 0) {
+  const children = [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+  const suiteId = String(node.suite?.suite_id || '');
+  const checked = suiteId ? selected.has(suiteId) : false;
+  if (!children.length) {
+    return `<label class="testhub-suite-leaf ${checked ? 'selected' : ''}"><input type="checkbox" data-suite-id="${escapeDashboardHtml(suiteId)}" ${checked ? 'checked' : ''} onchange="handleTestHubSuiteSelectionChange(this)"><i class="ti ti-hierarchy-2"></i><span class="testhub-suite-leaf-name">${escapeDashboardHtml(node.name)}</span><span class="testhub-suite-count">${Number(node.totalCases)} 条</span></label>`;
+  }
+  const directCases = Number(node.ownCases || 0);
+  const directLeaf = suiteId && directCases > 0
+    ? `<label class="testhub-suite-leaf ${checked ? 'selected' : ''}"><input type="checkbox" data-suite-id="${escapeDashboardHtml(suiteId)}" ${checked ? 'checked' : ''} onchange="handleTestHubSuiteSelectionChange(this)"><i class="ti ti-hierarchy-2"></i><span class="testhub-suite-leaf-name">${escapeDashboardHtml(node.name)}（本层用例）</span><span class="testhub-suite-count">${directCases} 条</span></label>`
+    : '';
+  return `<details class="testhub-suite-branch" data-suite-depth="${depth}"><summary class="testhub-suite-plan-summary"><input type="checkbox" data-suite-branch onclick="event.stopPropagation()" onchange="toggleTestHubSuiteBranch(this)"><i class="ti ti-folders"></i><span class="testhub-suite-plan-title" title="${escapeDashboardHtml(node.name)}">${escapeDashboardHtml(node.name)}</span><span class="testhub-suite-count">${Number(node.totalCases)} 条</span></summary><div class="testhub-suite-children">${directLeaf}${children.map(child => renderTestHubSuiteTreeNode(child, selected, depth + 1)).join('')}</div></details>`;
+}
+
 function renderTestHubSuiteChoices(suites, selectedIds = []) {
   const container = document.getElementById('testHubSuiteOptions');
   if (!container) return;
@@ -7104,15 +7424,45 @@ function renderTestHubSuiteChoices(suites, selectedIds = []) {
   }
   for (const id of selected) {
     if (!testHubSuiteChoiceCache.has(id)) {
-      testHubSuiteChoiceCache.set(id, { suite_id:id, suite_name:`已保存模块 · ${id.slice(-8)}`, case_count:0 });
+      testHubSuiteChoiceCache.set(id, { suite_id:id, suite_name:`已保存模块 · ${id.slice(-8)}`, suite_path:[], case_count:0, plan_id:'__saved__' });
     }
   }
-  container.innerHTML = [...testHubSuiteChoiceCache.values()]
-    .sort((a, b) => String(a.suite_name || '').localeCompare(String(b.suite_name || ''), 'zh-CN'))
-    .map(suite => {
-      const id = String(suite.suite_id || '');
-      return `<label class="testhub-plan-card ${selected.has(id) ? 'selected' : ''}"><input type="checkbox" value="${escapeDashboardHtml(id)}" ${selected.has(id) ? 'checked' : ''} onchange="this.closest('.testhub-plan-card')?.classList.toggle('selected',this.checked);updateTestHubSuiteSummary();renderAssigneeTestHubScopeAssignments()"><div class="testhub-plan-title">${escapeDashboardHtml(suite.suite_name || '未命名模块')}</div><div class="testhub-plan-meta"><span class="testhub-plan-badge">${Number(suite.case_count || 0)} 条用例</span></div></label>`;
-    }).join('') || '<span class="testhub-plan-empty">尚无模块缓存；保存任务并运行一次本地 TestHub 同步后再选择</span>';
+  const rows = testHubSuiteTreeRows.length ? testHubSuiteTreeRows.slice() : [...testHubSuiteChoiceCache.values()];
+  const knownIds = new Set(rows.map(item => String(item?.suite_id || '')).filter(Boolean));
+  for (const id of selected) if (!knownIds.has(id)) rows.push(testHubSuiteChoiceCache.get(id));
+
+  const groups = new Map();
+  for (const suite of rows) {
+    if (!suite?.suite_id) continue;
+    const key = String(suite.plan_id || '__saved__');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(suite);
+  }
+  if (!groups.size) {
+    container.innerHTML = '<div class="testhub-suite-tree-empty">尚无模块缓存；保存事项并运行一次本地 TestHub 同步后再选择</div>';
+    updateTestHubSuiteSummary();
+    renderAssigneeTestHubScopeAssignments();
+    return;
+  }
+
+  const librarySelect = document.getElementById('newTaskTestHubLibrary');
+  const libraryName = librarySelect?.selectedOptions?.[0]?.textContent?.trim() || 'TestHub 用例库';
+  const totalCases = rows.reduce((sum, item) => sum + Number(item.case_count || 0), 0);
+  const planOrder = getSelectedTestHubPlanIds();
+  const orderedGroups = [...groups.entries()].sort((a, b) => {
+    const aIndex = planOrder.indexOf(a[0]);
+    const bIndex = planOrder.indexOf(b[0]);
+    if (aIndex >= 0 || bIndex >= 0) return (aIndex < 0 ? 9999 : aIndex) - (bIndex < 0 ? 9999 : bIndex);
+    return testHubSuitePlanLabel(a[0]).localeCompare(testHubSuitePlanLabel(b[0]), 'zh-CN');
+  });
+  const plansHtml = orderedGroups.map(([planId, planSuites]) => {
+    const uniqueSuites = [...new Map(planSuites.map(item => [String(item.suite_id), item])).values()];
+    const tree = buildTestHubSuiteTree(uniqueSuites, planId);
+    const children = [...tree.children.values()].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+    return `<details class="testhub-suite-plan" open><summary class="testhub-suite-plan-summary"><input type="checkbox" data-suite-branch onclick="event.stopPropagation()" onchange="toggleTestHubSuiteBranch(this)"><i class="ti ti-folders"></i><span class="testhub-suite-plan-title" title="${escapeDashboardHtml(testHubSuitePlanLabel(planId))}">${escapeDashboardHtml(testHubSuitePlanLabel(planId))}</span><span class="testhub-suite-count">${Number(tree.totalCases)} 条</span></summary><div class="testhub-suite-children">${children.map(child => renderTestHubSuiteTreeNode(child, selected)).join('')}</div></details>`;
+  }).join('');
+  container.innerHTML = `<div class="testhub-suite-root-head"><input type="checkbox" data-suite-root onclick="event.stopPropagation()" onchange="toggleTestHubSuiteBranch(this,true)"><i class="ti ti-folders"></i><strong>${escapeDashboardHtml(libraryName)}</strong><span class="testhub-suite-count">${Number(totalCases)} 条用例 · ${groups.size} 个计划</span></div>${plansHtml}`;
+  refreshTestHubSuiteBranchState();
   updateTestHubSuiteSummary();
   renderAssigneeTestHubScopeAssignments();
 }
@@ -7123,17 +7473,26 @@ async function loadTestHubSuitesForSelection(selectedIds = null, notify = true) 
   const preserved = selectedIds === null ? getSelectedTestHubSuiteIds() : selectedIds;
   if (!libraryId || !planIds.length) {
     testHubSuiteChoiceCache = new Map();
+    testHubSuiteTreeRows = [];
     renderTestHubSuiteChoices([], preserved || []);
     if (notify) showToast('请先选择 TestHub 用例库和计划', 'error');
     return;
   }
   try {
-    const { data, error } = await sb.from('testhub_plan_suite_cache')
-      .select('suite_id,suite_name,case_count,plan_id,synced_at')
+    let { data, error } = await sb.from('testhub_plan_suite_cache')
+      .select('suite_id,suite_name,suite_path,case_count,plan_id,synced_at')
       .eq('library_id', libraryId)
       .in('plan_id', planIds)
       .order('suite_name');
+    if (error && /suite_path|column/i.test(String(error.message || error))) {
+      ({ data, error } = await sb.from('testhub_plan_suite_cache')
+        .select('suite_id,suite_name,case_count,plan_id,synced_at')
+        .eq('library_id', libraryId)
+        .in('plan_id', planIds)
+        .order('suite_name'));
+    }
     if (error) throw error;
+    testHubSuiteTreeRows = (data || []).map(item => ({ ...item }));
     const merged = new Map();
     for (const suite of data || []) {
       const id = String(suite.suite_id || '');
@@ -7147,6 +7506,7 @@ async function loadTestHubSuitesForSelection(selectedIds = null, notify = true) 
     if (notify) showToast(merged.size ? `已读取 ${merged.size} 个 TestHub 模块` : '尚无模块缓存，请先运行本地同步', merged.size ? 'success' : 'error');
   } catch (error) {
     console.error('[testhub] suite cache load failed:', error);
+    testHubSuiteTreeRows = [];
     renderTestHubSuiteChoices([], preserved || []);
     if (notify) showToast('模块缓存读取失败，请先执行新迁移', 'error');
   }
@@ -7165,6 +7525,7 @@ function clearTestHubPlanSelection() {
   });
   updateTestHubPlanSummary();
   testHubSuiteChoiceCache = new Map();
+  testHubSuiteTreeRows = [];
   renderTestHubSuiteChoices([], []);
 }
 
@@ -7487,10 +7848,10 @@ async function loadTaskAssignees(selectedIds = null, allocations = null) {
     let data = dashboardMembers;
     if (userRole === 'admin' || !data.length) {
       const result = userRole === 'admin'
-        ? await sb.from('profiles').select('*').eq('resource_participant', true).order('name')
+        ? await sb.from('profiles').select('*').order('name')
         : { data:[{ id:currentUser.id, name:document.getElementById('userName')?.textContent || '我', role:userRole }], error:null };
       if (result.error) throw result.error;
-      data = businessUnitResourceMembers(result.data || []);
+      data = businessUnitMembers(result.data || []);
       dashboardMembers = data;
     }
     select.innerHTML = dashboardMembers.map(member =>
@@ -7675,7 +8036,9 @@ async function saveQaTask() {
 
   button.disabled = true;
   try {
-    const due = new Date(`${dueDate}T${allocationEndPeriod === 'am' ? '12:00:00' : `${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:${String(DAILY_PROGRESS_CUTOFF_MINUTE).padStart(2, '0')}:00`}`);
+    // AM/PM controls capacity allocation only. Every task remains actionable
+    // until the end-of-day overdue cutoff on its scheduled end date.
+    const due = new Date(`${dueDate}T${String(DAILY_PROGRESS_CUTOFF_HOUR).padStart(2, '0')}:${String(DAILY_PROGRESS_CUTOFF_MINUTE).padStart(2, '0')}:59`);
     const payload = {
       title,
       description,

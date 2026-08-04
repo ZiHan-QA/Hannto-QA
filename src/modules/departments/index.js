@@ -88,6 +88,74 @@
     return state.projects.find(item => item.id === id)?.name || '未设置';
   }
 
+  function historyFieldValue(field, value) {
+    if (value === null || value === undefined || value === '') return '未设置';
+    if (field === 'employee_category') return categoryLabels[value] || value;
+    if (field === 'supplier_id') return supplierName(supplierById(value)?.name || '未知供应商');
+    if (field === 'business_unit') return businessUnitLabels[value] || value;
+    if (field === 'onboarding_project_id' || field === 'project_id') return projectName(value);
+    if (field === 'reports_to_id' || field === 'primary_qa_lead_id') return profileName(value);
+    if (field === 'employment_status') return value === 'departed' ? '已离职' : '在职';
+    if (field.endsWith('_date')) return formatDate(value) || value;
+    if (typeof value === 'boolean') return value ? '是' : '否';
+    return String(value);
+  }
+
+  function historyDetailRows(item) {
+    const previous = item.previous_values && typeof item.previous_values === 'object' ? item.previous_values : {};
+    const next = item.new_values && typeof item.new_values === 'object' ? item.new_values : {};
+    const fieldLabels = {
+      employee_category: '员工类别',
+      supplier_id: '供应商',
+      business_unit: '所属 BU',
+      onboarding_project_id: '入职项目',
+      project_id: '当前项目',
+      reports_to_id: '汇报主管',
+      primary_qa_lead_id: 'QA 负责人',
+      employment_status: '任职状态',
+      departure_reason: '离职原因',
+      contract_start_date: '合同开始日',
+      contract_end_date: '合同到期日',
+    };
+    const keys = [...new Set([...Object.keys(previous), ...Object.keys(next)])];
+    return keys
+      .filter(key => historyFieldValue(key, previous[key]) !== historyFieldValue(key, next[key]))
+      .map(key => ({
+        label: fieldLabels[key] || key,
+        before: historyFieldValue(key, previous[key]),
+        after: historyFieldValue(key, next[key]),
+      }));
+  }
+
+  function historyItemHtml(item, historyLabels) {
+    const { escapeHtml } = state.context;
+    const details = historyDetailRows(item);
+    const recordedAt = item.created_at ? String(item.created_at).replace('T', ' ').slice(0, 16) : '';
+    return `<article class="department-history-card">
+      <i class="ti ti-history"></i>
+      <div class="department-history-content">
+        <div class="department-history-heading"><strong>${historyLabels[item.change_type] || '档案变更'}</strong><time>生效 ${formatDate(item.effective_date) || '-'}</time></div>
+        ${details.length ? `<div class="department-history-details">${details.map(detail => `<div><span>${escapeHtml(detail.label)}</span><b>${escapeHtml(detail.before)}</b><i class="ti ti-arrow-right"></i><b>${escapeHtml(detail.after)}</b></div>`).join('')}</div>` : '<div class="department-history-no-detail">该条历史记录未保存变更前后明细</div>'}
+        ${item.notes ? `<p>${escapeHtml(item.notes)}</p>` : ''}
+        ${recordedAt ? `<small>记录时间 ${escapeHtml(recordedAt)}</small>` : ''}
+      </div>
+    </article>`;
+  }
+
+  function memberCurrentProjects(memberId) {
+    const projectIds = new Set(
+      state.projectMembers
+        .filter(item => item.member_id === memberId)
+        .map(item => item.project_id)
+    );
+    return state.projects.filter(project => projectIds.has(project.id));
+  }
+
+  function memberCurrentProjectText(memberId) {
+    const projects = memberCurrentProjects(memberId);
+    return projects.length ? projects.map(project => project.name).join('、') : '暂未分配';
+  }
+
   function memberMissingFields(member) {
     const missing = [];
     const profile = state.profileMap.get(member.member_id) || {};
@@ -109,9 +177,15 @@
     return Math.round(((total - memberMissingFields(member).length) / total) * 100);
   }
 
+  function memberPendingConversion(member) {
+    return member?.employee_category === 'third_party_supplier'
+      && Boolean(formatDate(member.conversion_effective_date));
+  }
+
   function memberMatchesQuickView(member) {
     if (state.quickView === 'incomplete') return memberMissingFields(member).length > 0;
     if (state.quickView === 'supplier') return member.employee_category === 'third_party_supplier';
+    if (state.quickView === 'conversion_pending') return memberPendingConversion(member);
     if (state.quickView === 'regular') return member.employee_category === 'hannto_regular';
     if (state.quickView === 'other') {
       return ['hannto_contract', 'unigroup_hannto', 'meijie_technology', 'intern'].includes(member.employee_category);
@@ -124,10 +198,11 @@
   function memberListHeaders() {
     if (state.quickView === 'incomplete') return ['员工', '待补充字段', '负责人', '完整度', '状态', ''];
     if (state.quickView === 'supplier') return ['员工', '供应商', '合同期限', 'QA 负责人', '状态', ''];
-    if (state.quickView === 'regular') return ['员工', '入职项目', '入职日期', 'QA 负责人', '状态', ''];
-    if (state.quickView === 'other') return ['员工', '员工类别', '归属项目', '入职日期', '状态', ''];
+    if (state.quickView === 'conversion_pending') return ['员工', '当前供应商', '转正生效日', '当前项目 / QA', '状态', ''];
+    if (state.quickView === 'regular') return ['员工', '当前项目', '入职日期', 'QA 负责人', '状态', ''];
+    if (state.quickView === 'other') return ['员工', '员工类别', '当前项目', '入职日期', '状态', ''];
     if (state.quickView === 'departing' || state.quickView === 'departed') return ['员工', '员工类别', '离职日期', '离职原因', '状态', ''];
-    return ['员工', '类别 / 项目', '负责人', '完整度', '状态', ''];
+    return ['员工', '类别 / 当前项目', '负责人', '完整度', '状态', ''];
   }
 
   function contractExpiryText(member) {
@@ -153,6 +228,7 @@
       profileName(member.reports_to_id),
       profileName(member.primary_qa_lead_id),
       projectName(member.onboarding_project_id),
+      memberCurrentProjectText(member.member_id),
     ].filter(Boolean).join(' ');
   }
 
@@ -241,7 +317,7 @@
     const statusCell = `<em class="department-status ${employmentState}">${memberEmploymentLabel(member)}</em>${missing.length ? '<em class="department-status warning">待完善</em>' : ''}`;
     const completionCell = `<span class="department-completeness-cell"><span><strong>${completion}%</strong><small>${missing.length ? `缺 ${missing.length} 项` : '档案完整'}</small></span><i><b style="width:${completion}%"></b></i></span>`;
     let focusCells = `
-      <span><strong>${categoryLabels[member.employee_category] || '待完善'}</strong><small>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : state.context.escapeHtml(projectName(member.onboarding_project_id))}</small></span>
+      <span><strong>${categoryLabels[member.employee_category] || '待完善'}</strong><small>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</small></span>
       <span><strong>${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</strong><small>汇报：${state.context.escapeHtml(profileName(member.reports_to_id))}</small></span>
       ${completionCell}`;
     if (state.quickView === 'incomplete') {
@@ -251,17 +327,21 @@
     } else if (state.quickView === 'supplier') {
       focusCells = `<span><strong>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : '待选择供应商'}</strong><small>${renewals.length ? `已续约 ${renewals.length} 次` : '暂无续约记录'}</small></span>
         <span class="${member.contract_end_date && contractHint.includes('到期') ? 'department-contract-attention' : ''}"><strong>${contractEnd}</strong><small>${contractHint}</small></span>
-        <span><strong>${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</strong><small>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</small></span>`;
+        <span><strong>${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</strong><small>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</small></span>`;
+    } else if (state.quickView === 'conversion_pending') {
+      focusCells = `<span><strong>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : '待选择供应商'}</strong><small>生效前仍按第三方员工管理</small></span>
+        <span><strong>${formatDate(member.conversion_effective_date)}</strong><small>${state.context.escapeHtml(member.conversion_notes || '待转为汉图正式员工')}</small></span>
+        <span><strong>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</strong><small>QA：${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</small></span>`;
     } else if (state.quickView === 'regular') {
-      focusCells = `<span><strong>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</strong><small>${profile.resource_participant === false ? '不计入资源' : '计入资源'}</small></span>
+      focusCells = `<span><strong>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</strong><small>${profile.resource_participant === false ? '不计入资源' : '计入资源'}</small></span>
         <span><strong>${formatDate(member.hire_date) || '待补充'}</strong><small>在职 ${formatDate(member.hire_date) ? '档案已登记' : '缺入职日期'}</small></span>
         <span><strong>${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</strong><small>汇报：${state.context.escapeHtml(profileName(member.reports_to_id))}</small></span>`;
     } else if (state.quickView === 'other') {
       focusCells = `<span><strong>${categoryLabels[member.employee_category] || '待完善'}</strong><small>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : '非第三方员工'}</small></span>
-        <span><strong>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</strong><small>QA：${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</small></span>
+        <span><strong>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</strong><small>QA：${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</small></span>
         <span><strong>${formatDate(member.hire_date) || '待补充'}</strong><small>${profile.resource_participant === false ? '不计入资源' : '计入资源'}</small></span>`;
     } else if (state.quickView === 'departing' || state.quickView === 'departed') {
-      focusCells = `<span><strong>${categoryLabels[member.employee_category] || '未设置'}</strong><small>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</small></span>
+      focusCells = `<span><strong>${categoryLabels[member.employee_category] || '未设置'}</strong><small>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</small></span>
         <span><strong>${formatDate(member.departure_date) || '未登记'}</strong><small>原入职：${formatDate(member.hire_date) || '-'}</small></span>
         <span><strong>${state.context.escapeHtml(member.departure_reason || '未填写')}</strong><small>离职档案</small></span>`;
     }
@@ -333,9 +413,9 @@
     const missing = memberMissingFields(member);
     const completion = memberCompletion(member);
     const supplier = supplierById(member.supplier_id);
+    const pendingConversion = memberPendingConversion(member);
     const history = state.histories
-      .filter(item => item.member_id === member.member_id)
-      .slice(0, 3);
+      .filter(item => item.member_id === member.member_id);
     const renewals = state.renewals
       .filter(item => item.department_member_id === member.id)
       .sort((a, b) => String(b.renewal_date).localeCompare(String(a.renewal_date)));
@@ -361,6 +441,7 @@
             <label><span>第三方供应商</span>${supplierSelect(member)}</label>
             <label><span>汇报主管</span>${profileSelect('reports_to_id', member.reports_to_id)}</label>
             <label><span>主要 QA 负责人</span>${profileSelect('primary_qa_lead_id', member.primary_qa_lead_id, item => item.role === 'qa_lead' || item.role === 'admin')}</label>
+            <label><span>当前项目</span><div class="department-derived-field"><strong>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</strong><small>由项目成员关系自动汇总</small></div></label>
           </div></section>
           <section><h4>入职信息</h4><div class="department-form-grid">
             <label><span>入职日期 *</span><input class="department-input" data-field="hire_date" type="date" value="${formatDate(member.hire_date)}"></label>
@@ -387,8 +468,13 @@
         </div>
         ${manager ? '<button class="department-icon-btn department-start-edit" type="button" title="编辑档案"><i class="ti ti-edit"></i></button>' : ''}
       </div>
+      <nav class="department-profile-tabs">
+        <button class="${state.detailTab === 'overview' ? 'active' : ''}" type="button" data-detail-tab="overview">概览</button>
+        ${member.employee_category === 'third_party_supplier' ? `<button class="${state.detailTab === 'employment' ? 'active' : ''}" type="button" data-detail-tab="employment">合同与转正${pendingConversion ? '<i></i>' : ''}</button>` : ''}
+        <button class="${state.detailTab === 'history' ? 'active' : ''}" type="button" data-detail-tab="history">变更记录</button>
+      </nav>
       <div class="department-profile-scroll">
-        <section class="department-completeness">
+        ${state.detailTab === 'overview' ? `<section class="department-completeness">
           <div><span>档案完整度</span><strong>${completion}%</strong></div>
           <i><b style="width:${completion}%"></b></i>
           ${missing.length ? `<p><i class="ti ti-alert-circle"></i> 待补充：${missing.map(item => state.context.escapeHtml(item)).join('、')}</p>` : '<p class="complete"><i class="ti ti-circle-check"></i> 关键档案已完整</p>'}
@@ -397,6 +483,7 @@
           <h4>任职关系</h4>
           <dl><div><dt>所属 BU</dt><dd>${businessUnitLabels[profile.business_unit] || '待归属'}</dd></div>
           <div><dt>员工类别</dt><dd>${categoryLabels[member.employee_category] || '待完善'}</dd></div>
+          <div><dt>当前项目</dt><dd>${state.context.escapeHtml(memberCurrentProjectText(member.member_id))}</dd></div>
           <div><dt>供应商</dt><dd>${supplier ? state.context.escapeHtml(supplierName(supplier.name)) : '-'}</dd></div>
           <div><dt>汇报主管</dt><dd>${state.context.escapeHtml(profileName(member.reports_to_id))}</dd></div>
           <div><dt>QA 负责人</dt><dd>${state.context.escapeHtml(profileName(member.primary_qa_lead_id))}</dd></div></dl>
@@ -407,8 +494,8 @@
           <div><dt>入职项目</dt><dd>${state.context.escapeHtml(projectName(member.onboarding_project_id))}</dd></div>
           <div><dt>当前状态</dt><dd><span class="department-status ${memberEmploymentState(member)}">${memberEmploymentLabel(member)}</span></dd></div>
           <div><dt>离职日期</dt><dd>${formatDate(member.departure_date) || '-'}</dd></div></dl>
-        </section>
-        ${member.employee_category === 'third_party_supplier' ? `<section class="department-detail-section department-contract-summary">
+        </section>` : ''}
+        ${state.detailTab === 'employment' && member.employee_category === 'third_party_supplier' ? `<section class="department-detail-section department-contract-summary">
           <div class="department-section-title"><h4>第三方合同期限</h4><span class="department-status ${member.contract_end_date ? 'active' : 'warning'}">${renewals.length ? `已续约 ${renewals.length} 次` : (member.contract_end_date ? '已登记' : '待补充')}</span></div>
           <dl><div><dt>首次合同开始日</dt><dd>${formatDate(member.hire_date || member.contract_start_date) || '-'}</dd></div>
           <div><dt>合同到期日</dt><dd>${formatDate(member.contract_end_date) || '-'}</dd></div></dl>
@@ -424,11 +511,22 @@
             <label><span>备注</span><textarea class="department-input" data-field="renewal_notes" rows="2" maxlength="200"></textarea></label>
             <button class="btn-primary department-save-renewal" type="button">${state.contractMode === 'history' ? '保存历史记录' : '确认续约'}</button>
           </div>` : ''}
-        </section>` : ''}
-        <section class="department-detail-section">
-          <div class="department-section-title"><h4>最近变更</h4>${state.context.isSystemAdmin() ? '<button class="department-link department-go-accounts" type="button">账号与权限 <i class="ti ti-arrow-right"></i></button>' : ''}</div>
-          <div class="department-history-list">${history.length ? history.map(item => `<article><i class="ti ti-history"></i><span><strong>${historyLabels[item.change_type] || '档案变更'}</strong><small>${formatDate(item.effective_date)}${item.notes ? ` · ${state.context.escapeHtml(item.notes)}` : ''}</small></span></article>`).join('') : '<div class="department-history-empty">暂无变更记录</div>'}</div>
         </section>
+        <section class="department-detail-section department-contract-summary department-conversion-summary">
+          <div class="department-section-title"><h4>三方转正</h4><span class="department-status ${pendingConversion ? 'warning' : 'active'}">${pendingConversion ? '待生效' : '未安排'}</span></div>
+          ${pendingConversion ? `<dl><div><dt>转正生效日</dt><dd>${formatDate(member.conversion_effective_date)}</dd></div><div><dt>备注</dt><dd>${state.context.escapeHtml(member.conversion_notes || '-')}</dd></div></dl>` : '<p><i class="ti ti-info-circle"></i> 安排后，生效日前仍保留第三方身份；生效日当天自动进入正式员工，历史记录永久保留。</p>'}
+          ${manager && !state.conversionMode ? `<div class="department-contract-actions"><button class="btn-secondary department-open-conversion" type="button">${pendingConversion ? '修改转正安排' : '安排转正'}</button>${pendingConversion ? '<button class="department-link department-cancel-conversion-schedule" type="button">取消安排</button>' : ''}</div>` : ''}
+          ${manager && state.conversionMode ? `<div class="department-renewal-form" data-member-id="${member.id}">
+            <div class="department-section-title"><strong>${pendingConversion ? '修改转正安排' : '安排转正'}</strong><button class="department-icon-btn department-close-conversion" type="button"><i class="ti ti-x"></i></button></div>
+            <label><span>转正生效日期 *</span><input class="department-input" data-field="conversion_effective_date" type="date" min="${localTodayKey()}" value="${formatDate(member.conversion_effective_date)}"></label>
+            <label><span>转正备注</span><textarea class="department-input" data-field="conversion_notes" rows="2" maxlength="200" placeholder="转正原因、岗位或补充说明">${state.context.escapeHtml(member.conversion_notes || '')}</textarea></label>
+            <button class="btn-primary department-save-conversion" type="button">保存转正安排</button>
+          </div>` : ''}
+        </section>` : ''}
+        ${state.detailTab === 'history' ? `<section class="department-detail-section department-history-section">
+          <div class="department-section-title"><h4>变更记录 <small>共 ${history.length} 条</small></h4>${state.context.isSystemAdmin() ? '<button class="department-link department-go-accounts" type="button">账号与权限 <i class="ti ti-arrow-right"></i></button>' : ''}</div>
+          <div class="department-history-list">${history.length ? history.map(item => historyItemHtml(item, historyLabels)).join('') : '<div class="department-history-empty">暂无变更记录</div>'}</div>
+        </section>` : ''}
       </div>
       ${manager ? '<div class="department-profile-actions"><button class="btn-primary department-start-edit" type="button"><i class="ti ti-edit"></i> 编辑员工档案</button></div>' : ''}
     </aside>`;
@@ -469,6 +567,7 @@
       ['all', '全部员工', departmentMembers.length, 'ti-users'],
       ['incomplete', '待完善档案', incompleteCount, 'ti-alert-circle'],
       ['supplier', '第三方员工', departmentMembers.filter(item => item.employee_category === 'third_party_supplier').length, 'ti-building-store'],
+      ['conversion_pending', '待转正', departmentMembers.filter(item => memberPendingConversion(item)).length, 'ti-calendar-up'],
       ['regular', '正式员工', departmentMembers.filter(item => item.employee_category === 'hannto_regular').length, 'ti-user-check'],
       ['other', 'Other', departmentMembers.filter(item => ['hannto_contract', 'unigroup_hannto', 'meijie_technology', 'intern'].includes(item.employee_category)).length, 'ti-category-2'],
       ['departing', '即将离职', departmentMembers.filter(item => memberEmploymentState(item) === 'departing').length, 'ti-calendar-time'],
@@ -527,12 +626,15 @@
   async function load(context) {
     context.content.style.padding = '24px';
     context.content.innerHTML = '<div class="page-card"><div class="department-empty">正在加载部门与员工档案…</div></div>';
-    const [departmentsResult, membersResult, profilesResult, suppliersResult, projectsResult, historiesResult, renewalsResult] = await Promise.all([
+    const conversionResult = await context.sb.rpc('apply_due_department_member_conversions');
+    if (conversionResult.error) console.warn('[departments] due conversion apply skipped:', conversionResult.error);
+    const [departmentsResult, membersResult, profilesResult, suppliersResult, projectsResult, projectMembersResult, historiesResult, renewalsResult] = await Promise.all([
       context.sb.from('departments').select('*').eq('status', 'active').order('name'),
       context.sb.from('department_members').select('*').order('created_at'),
       context.sb.from('profiles').select('*').order('name'),
       context.sb.from('department_suppliers').select('*').order('name'),
       context.sb.from('qa_projects').select('id,name,business_unit').eq('status', 'active').order('name'),
+      context.sb.from('qa_project_members').select('project_id,member_id,is_owner'),
       context.sb.from('employment_change_history').select('*').order('effective_date', { ascending: false }),
       context.sb.from('department_contract_renewals').select('*').order('renewal_date', { ascending: false }),
     ]);
@@ -541,6 +643,7 @@
     if (profilesResult.error) throw profilesResult.error;
     if (suppliersResult.error) throw suppliersResult.error;
     if (projectsResult.error) throw projectsResult.error;
+    if (projectMembersResult.error) throw projectMembersResult.error;
     if (historiesResult.error) console.warn('[departments] history load skipped:', historiesResult.error);
     if (renewalsResult.error) console.warn('[departments] contract renewals load skipped:', renewalsResult.error);
 
@@ -551,6 +654,7 @@
       profiles: profilesResult.data || [],
       suppliers: suppliersResult.data || [],
       projects: projectsResult.data || [],
+      projectMembers: projectMembersResult.data || [],
       histories: historiesResult.data || [],
       renewals: renewalsResult.data || [],
       profileMap: new Map((profilesResult.data || []).map(profile => [profile.id, profile])),
@@ -560,7 +664,9 @@
       view: state?.view || 'members',
       selectedMemberId: state?.selectedMemberId || null,
       editingMemberId: state?.editingMemberId || null,
+      detailTab: state?.detailTab || 'overview',
       contractMode: state?.contractMode || null,
+      conversionMode: state?.conversionMode || false,
       editingSupplierId: state?.editingSupplierId || null,
     };
     render();
@@ -591,6 +697,14 @@
     }
     if (!next.employee_category) {
       state.context.showToast('请选择员工类别', 'error');
+      return;
+    }
+    if (current.employee_category === 'third_party_supplier' && next.employee_category === 'hannto_regular') {
+      state.context.showToast('请先退出档案编辑，再使用详情中的“三方转正”入口', 'error');
+      return;
+    }
+    if (memberPendingConversion(current) && next.employee_category !== current.employee_category) {
+      state.context.showToast('该员工已有待生效转正安排，请先取消安排再修改员工类别', 'error');
       return;
     }
     if (!next.hire_date) {
@@ -645,7 +759,7 @@
         member_id: current.member_id,
         department_id: current.department_id,
         change_type: 'category_change',
-        effective_date: new Date().toISOString().slice(0, 10),
+        effective_date: localTodayKey(),
         previous_values: { employee_category: current.employee_category, supplier_id: current.supplier_id },
         new_values: { employee_category: next.employee_category, supplier_id: next.supplier_id },
         notes: '人员档案页面更新员工类别',
@@ -670,6 +784,42 @@
     }
     state.editingMemberId = null;
     state.context.showToast('员工档案已保存');
+    await load(state.context);
+  }
+
+  async function saveMemberConversion(editor) {
+    const memberId = editor.dataset.memberId;
+    const effectiveDate = editor.querySelector('[data-field="conversion_effective_date"]')?.value || '';
+    const notes = editor.querySelector('[data-field="conversion_notes"]')?.value.trim() || '';
+    if (!effectiveDate) {
+      state.context.showToast('请选择转正生效日期', 'error');
+      return;
+    }
+    if (effectiveDate < localTodayKey()) {
+      state.context.showToast('转正生效日期不能早于今天', 'error');
+      return;
+    }
+    const { error } = await state.context.sb.rpc('schedule_department_member_conversion', {
+      target_department_member_id: memberId,
+      target_effective_date: effectiveDate,
+      target_notes: notes,
+    });
+    if (error) throw error;
+    state.conversionMode = false;
+    state.context.showToast(effectiveDate === localTodayKey() ? '员工已于今日转为正式员工' : `已安排 ${effectiveDate} 转正`);
+    await load(state.context);
+  }
+
+  async function cancelMemberConversion() {
+    const member = state.members.find(item => item.id === state.selectedMemberId);
+    if (!member || !memberPendingConversion(member)) return;
+    if (!global.confirm(`确认取消 ${profileName(member.member_id)} 的转正安排？`)) return;
+    const { error } = await state.context.sb.rpc('cancel_department_member_conversion', {
+      target_department_member_id: member.id,
+    });
+    if (error) throw error;
+    state.conversionMode = false;
+    state.context.showToast('转正安排已取消');
     await load(state.context);
   }
 
@@ -751,13 +901,23 @@
       render();
       return;
     }
+    const currentScroll = currentPanel.querySelector('.department-profile-scroll');
+    const scrollTop = currentScroll?.scrollTop || 0;
     currentPanel.outerHTML = memberDetailPanel(activeDepartment());
+    const nextScroll = state.context.content.querySelector('.department-profile-panel .department-profile-scroll');
+    if (nextScroll && scrollTop) {
+      requestAnimationFrame(() => {
+        nextScroll.scrollTop = scrollTop;
+      });
+    }
   }
 
   function selectMember(memberId) {
     state.selectedMemberId = memberId || null;
     state.editingMemberId = null;
+    state.detailTab = 'overview';
     state.contractMode = null;
+    state.conversionMode = false;
     state.context.content.querySelectorAll('.department-member-row').forEach(row => {
       row.classList.toggle('selected', row.dataset.memberId === state.selectedMemberId);
     });
@@ -796,7 +956,9 @@
         state.view = 'members';
         state.selectedMemberId = null;
         state.editingMemberId = null;
+        state.detailTab = 'overview';
         state.contractMode = null;
+        state.conversionMode = false;
         state.editingSupplierId = null;
         render();
         return;
@@ -805,7 +967,9 @@
       if (viewTab) {
         state.view = viewTab.dataset.departmentView;
         state.editingMemberId = null;
+        state.detailTab = 'overview';
         state.contractMode = null;
+        state.conversionMode = false;
         state.editingSupplierId = null;
         render();
         return;
@@ -817,7 +981,9 @@
         state.filter.status = '';
         state.selectedMemberId = null;
         state.editingMemberId = null;
+        state.detailTab = 'overview';
         state.contractMode = null;
+        state.conversionMode = false;
         render();
         return;
       }
@@ -826,14 +992,24 @@
         selectMember(memberRow.dataset.memberId);
         return;
       }
+      const detailTab = event.target.closest('[data-detail-tab]');
+      if (detailTab) {
+        state.detailTab = detailTab.dataset.detailTab || 'overview';
+        state.contractMode = null;
+        state.conversionMode = false;
+        refreshMemberDetail();
+        return;
+      }
       if (event.target.closest('.department-start-edit')) {
         state.editingMemberId = state.selectedMemberId;
         state.contractMode = null;
+        state.conversionMode = false;
         refreshMemberDetail();
         return;
       }
       if (event.target.closest('.department-cancel-edit')) {
         state.editingMemberId = null;
+        state.conversionMode = false;
         refreshMemberDetail();
         return;
       }
@@ -846,21 +1022,38 @@
         state.quickView = 'incomplete';
         state.editingMemberId = null;
         state.contractMode = null;
+        state.conversionMode = false;
         render();
         return;
       }
       if (event.target.closest('.department-open-renewal')) {
+        state.detailTab = 'employment';
         state.contractMode = 'renewal';
+        state.conversionMode = false;
         refreshMemberDetail();
         return;
       }
       if (event.target.closest('.department-open-history')) {
+        state.detailTab = 'employment';
         state.contractMode = 'history';
+        state.conversionMode = false;
         refreshMemberDetail();
         return;
       }
       if (event.target.closest('.department-cancel-renewal')) {
         state.contractMode = null;
+        refreshMemberDetail();
+        return;
+      }
+      if (event.target.closest('.department-open-conversion')) {
+        state.detailTab = 'employment';
+        state.contractMode = null;
+        state.conversionMode = true;
+        refreshMemberDetail();
+        return;
+      }
+      if (event.target.closest('.department-close-conversion')) {
+        state.conversionMode = false;
         refreshMemberDetail();
         return;
       }
@@ -887,6 +1080,8 @@
       try {
         if (event.target.closest('.department-save-member')) await saveMember(event.target.closest('[data-member-id]'));
         else if (event.target.closest('.department-save-renewal')) await saveContractRenewal(event.target.closest('[data-member-id]'));
+        else if (event.target.closest('.department-save-conversion')) await saveMemberConversion(event.target.closest('[data-member-id]'));
+        else if (event.target.closest('.department-cancel-conversion-schedule')) await cancelMemberConversion();
         else if (event.target.closest('.department-save-supplier')) await saveSupplier(event.target.closest('[data-supplier-id]'));
         else if (event.target.closest('.department-toggle-supplier')) await toggleSupplier(event.target.closest('.department-toggle-supplier'));
       } catch (error) {
