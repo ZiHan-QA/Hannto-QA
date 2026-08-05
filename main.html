@@ -1381,7 +1381,7 @@ function getTaskTestHubPlanIds(task) {
   ].map(value => String(value || '').trim()).filter(Boolean))];
 }
 
-function testHubCachedScopedSuites(task) {
+function testHubCachedScopedSuites(task, testHubSuites = []) {
   if (String(task?.testhub_scope_mode || 'all') !== 'suite') return [];
   const planIds = new Set(getTaskTestHubPlanIds(task));
   const selectedSuiteIds = new Set((task?.testhub_scope_suite_ids || []).map(String));
@@ -1390,8 +1390,8 @@ function testHubCachedScopedSuites(task) {
     && selectedSuiteIds.has(String(item.suite_id)));
 }
 
-function testHubCachedScopedTotal(task) {
-  return testHubCachedScopedSuites(task)
+function testHubCachedScopedTotal(task, testHubSuites = []) {
+  return testHubCachedScopedSuites(task, testHubSuites)
     .reduce((sum, item) => sum + Number(item.case_count || 0), 0);
 }
 
@@ -4755,7 +4755,7 @@ async function renderTaskRecords(workspaceData) {
       const snapshot = taskTestHubProgressByTask.get(task.id);
       const taskPlanIds = getTaskTestHubPlanIds(task);
       const testHubPlanCount = taskPlanIds.length;
-      const cachedScopedSuites = testHubCachedScopedSuites(task);
+      const cachedScopedSuites = testHubCachedScopedSuites(task, testHubSuites);
       const cachedScopedTotal = cachedScopedSuites.reduce((sum, item) => sum + Number(item.case_count || 0), 0);
       const snapshotMatches = testHubPlanCount > 0
         && testHubSnapshotMatchesTask(task, snapshot, cachedScopedTotal);
@@ -4875,7 +4875,7 @@ async function renderTaskRecords(workspaceData) {
     const memberActualToday = memberActiveTasks.reduce((sum, task) => {
       if (taskUsesTestHubProgress(task)) {
         const snapshot = taskTestHubProgressByTask.get(task.id);
-        const cachedScopedTotal = testHubCachedScopedTotal(task);
+        const cachedScopedTotal = testHubCachedScopedTotal(task, testHubSuites);
         return sum + taskMemberTestHubPoints(
           task,
           currentUser.id,
