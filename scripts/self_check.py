@@ -322,6 +322,13 @@ def main() -> None:
         "activeReleases",
         "<option value=\"pc\">PC</option>",
         "cachedScopedTotal",
+        "expectedScopedTotal = 0",
+        "Number(snapshot?.total_cases || 0) === expectedTotal",
+        "function testHubCachedScopedSuites(task, testHubSuites = [])",
+        "function testHubCachedScopedTotal(task, testHubSuites = [])",
+        "testHubCachedScopedSuites(task, testHubSuites)",
+        "testHubCachedScopedTotal(task, testHubSuites)",
+        "testHubSnapshotMatchesTask(task, snapshot, cachedScopedTotal)",
         "function autoBindPingCodeMembers",
         "function clearPingCodeMapping",
         "function canCurrentUserUpdateTaskStatus",
@@ -815,9 +822,11 @@ def main() -> None:
         "task_testhub_daily_execution",
         "def acquire_sync_lock",
         "def cache_plan_suites",
-        "richest = max(",
+        "identity = (",
         "case_suite = case.get(\"suite\")",
         "def normalize_suite_path",
+        "def suite_match_keys",
+        "def unique_suite_names_by_plan",
         "def filter_runs_for_task_scope",
         "def filter_plan_runs_for_shared_scope",
         "all_plans_complete",
@@ -1142,6 +1151,12 @@ registeredModule.render({
         [sys.executable, "-m", "py_compile", str(ROOT / "scripts/sync_testhub_local.py")],
         cwd=ROOT,
         check=True,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "unittest", "scripts/test_testhub_scope.py"],
+        cwd=ROOT,
+        check=True,
+        stdout=subprocess.DEVNULL,
     )
     print("Hannto QA workflow self-check passed")
 

@@ -508,10 +508,16 @@ def resolve_and_persist_assignee_scopes(
     runs: list[dict[str, Any]],
     access_token: str,
 ) -> dict[str, dict[str, Any]]:
-    """Resolve equivalent suite names across plans and cache each member denominator."""
+    """Resolve equivalent suite paths across plans and cache each member denominator."""
     resolved: dict[str, dict[str, Any]] = {}
     for member_id, scope in configured.items():
         suite_ids = set(scope.get("ids") or set())
+        suite_path_keys = {
+            key
+            for run in runs
+            if run_suite(run)[0] in suite_ids
+            for key in suite_match_keys(run)
+        }
         suite_names = {
             normalize_suite_name(suite_name)
             for run in runs
@@ -524,7 +530,7 @@ def resolve_and_persist_assignee_scopes(
             for suite_id, suite_name in [run_suite(run)]
             if (
                 suite_id in suite_ids
-                or normalize_suite_name(suite_name) in suite_names
+                or bool(suite_path_keys.intersection(suite_match_keys(run)))
             ) and suite_name
         })
         target_cases = sum(
@@ -532,7 +538,7 @@ def resolve_and_persist_assignee_scopes(
             for run in runs
             if (
                 run_suite(run)[0] in suite_ids
-                or normalize_suite_name(run_suite(run)[1]) in suite_names
+                or bool(suite_path_keys.intersection(suite_match_keys(run)))
             )
         )
         resolved[member_id] = {
@@ -598,33 +604,48 @@ def run_suite_payload(run: dict[str, Any]) -> dict[str, Any]:
     if not candidates:
         return {}
 
-    # The proxy does not always return the same suite projection for every plan:
-    # run.suite can contain only id/name while case.suite contains the full ancestry.
-    # Prefer the richest projection, then fill only missing fields from the other one.
-    richest = max(
-        candidates,
-        key=lambda suite: (
-            len(normalize_suite_path(suite)),
-            bool(str(suite.get("id") or "").strip()),
-            bool(str(suite.get("name") or "").strip()),
-        ),
+    # The proxy does not always return the same suite projection for every plan.
+    # run.suite is the identity of the leaf used by this plan run, while case.suite
+    # may only be useful for its richer ancestry.  Never replace the run-suite ID
+    # or name with a parent picked merely because that projection has a longer path.
+    identity = (
+        run_suite if isinstance(run_suite, dict) and str(run_suite.get("id") or "").strip()
+        else case_suite
     )
-    merged = dict(richest)
+    if not isinstance(identity, dict):
+        identity = candidates[0]
+    merged = dict(identity)
     for suite in candidates:
         for key, value in suite.items():
             if merged.get(key) in (None, "", [], {}):
                 merged[key] = value
 
-    richest_path = max(
-        (normalize_suite_path(suite) for suite in candidates),
-        key=len,
-        default=[],
+    identity_name = str(identity.get("name") or "").strip()
+    candidate_paths = [normalize_suite_path(suite) for suite in candidates]
+    matching_paths = [
+        path for path in candidate_paths
+        if path and identity_name and normalize_suite_name(path[-1]) == normalize_suite_name(identity_name)
+    ]
+    richest_any_path = max(candidate_paths, key=len, default=[])
+    richest_matching_path = max(matching_paths, key=len, default=[])
+    richest_path = (
+        richest_matching_path
+        if len(richest_matching_path) >= len(richest_any_path)
+        else richest_any_path
     )
+    if identity_name and (
+        not richest_path
+        or normalize_suite_name(richest_path[-1]) != normalize_suite_name(identity_name)
+    ):
+        richest_path = [*richest_path, identity_name]
     if richest_path:
         # Store the normalized path explicitly so a short run.suite projection cannot
         # erase the parent nodes supplied by case.suite.
         merged["paths"] = richest_path
-        merged["name"] = richest_path[-1]
+    if identity_name:
+        merged["name"] = identity_name
+    if str(identity.get("id") or "").strip():
+        merged["id"] = str(identity.get("id") or "").strip()
     return merged
 
 
@@ -749,6 +770,45 @@ def normalize_suite_name(value: Any) -> str:
     return "".join(str(value or "").split()).casefold()
 
 
+def suite_match_keys(run: dict[str, Any]) -> set[tuple[str, ...]]:
+    """Return hierarchy-aware keys for matching the same module across plans.
+
+    A plan-specific root may differ between Windows and Mac plans, so both the
+    complete path and a three/two-level suffix are retained.  A bare leaf name is
+    deliberately excluded because TestHub commonly reuses names such as “元素”.
+    """
+    path = tuple(
+        normalize_suite_name(part)
+        for part in normalize_suite_path(run_suite_payload(run))
+        if normalize_suite_name(part)
+    )
+    if len(path) < 2:
+        return set()
+    keys = {path}
+    for depth in (3, 2):
+        if len(path) >= depth:
+            keys.add(path[-depth:])
+    return keys
+
+
+def unique_suite_names_by_plan(
+    plan_runs: dict[str, list[dict[str, Any]]]
+) -> dict[str, set[str]]:
+    """Names safe to use only as a legacy fallback when a plan has no path data."""
+    result: dict[str, set[str]] = {}
+    for plan_id, runs in plan_runs.items():
+        ids_by_name: dict[str, set[str]] = {}
+        for run in runs:
+            suite_id, suite_name = run_suite(run)
+            normalized = normalize_suite_name(suite_name)
+            if normalized and suite_id:
+                ids_by_name.setdefault(normalized, set()).add(suite_id)
+        result[plan_id] = {
+            name for name, suite_ids in ids_by_name.items() if len(suite_ids) == 1
+        }
+    return result
+
+
 def filter_plan_runs_for_shared_scope(
     task: dict[str, Any], plan_runs: dict[str, list[dict[str, Any]]]
 ) -> dict[str, list[dict[str, Any]]]:
@@ -756,6 +816,13 @@ def filter_plan_runs_for_shared_scope(
     if str(task.get("testhub_scope_mode") or "all") != "suite":
         return plan_runs
     selected_ids = {str(value) for value in (task.get("testhub_scope_suite_ids") or []) if value}
+    selected_path_keys = {
+        key
+        for runs in plan_runs.values()
+        for run in runs
+        if run_suite(run)[0] in selected_ids
+        for key in suite_match_keys(run)
+    }
     selected_names = {
         normalize_suite_name(suite_name)
         for runs in plan_runs.values()
@@ -763,11 +830,17 @@ def filter_plan_runs_for_shared_scope(
         for suite_id, suite_name in [run_suite(run)]
         if suite_id in selected_ids and suite_name
     }
+    unique_names = unique_suite_names_by_plan(plan_runs)
     return {
         plan_id: [
             run for run in runs
             if run_suite(run)[0] in selected_ids
-            or normalize_suite_name(run_suite(run)[1]) in selected_names
+            or bool(selected_path_keys.intersection(suite_match_keys(run)))
+            or (
+                not suite_match_keys(run)
+                and normalize_suite_name(run_suite(run)[1]) in selected_names
+                and normalize_suite_name(run_suite(run)[1]) in unique_names.get(plan_id, set())
+            )
         ]
         for plan_id, runs in plan_runs.items()
     }
@@ -998,6 +1071,7 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
             # Build a shared path dictionary before caching so a complete plan can
             # repair the hierarchy of a sparse plan without changing case counts.
             suite_path_hints: dict[str, list[str]] = {}
+            suite_paths_by_name: dict[str, set[tuple[str, ...]]] = {}
             for plan_runs in plan_runs_by_id.values():
                 for run in plan_runs:
                     suite_payload = run_suite_payload(run)
@@ -1005,12 +1079,18 @@ def sync_task_progress(tasks: list[dict[str, Any]], pingcode_token: str, access_
                     suite_path = normalize_suite_path(suite_payload)
                     if not suite_path:
                         continue
-                    for key in (
-                        f"id:{suite_id}" if suite_id else "",
-                        f"name:{normalize_suite_name(suite_name)}" if suite_name else "",
-                    ):
-                        if key and len(suite_path) > len(suite_path_hints.get(key) or []):
-                            suite_path_hints[key] = suite_path
+                    if suite_id:
+                        id_key = f"id:{suite_id}"
+                        if len(suite_path) > len(suite_path_hints.get(id_key) or []):
+                            suite_path_hints[id_key] = suite_path
+                    normalized_name = normalize_suite_name(suite_name)
+                    if normalized_name and len(suite_path) >= 2:
+                        suite_paths_by_name.setdefault(normalized_name, set()).add(tuple(suite_path))
+            # A name-only hint is safe only when every rich projection agrees on
+            # one hierarchy.  Reused leaf names must remain unhinted.
+            for normalized_name, paths in suite_paths_by_name.items():
+                if len(paths) == 1:
+                    suite_path_hints[f"name:{normalized_name}"] = list(next(iter(paths)))
             for plan_id, plan_runs in plan_runs_by_id.items():
                 cache_plan_suites(
                     library_id,
