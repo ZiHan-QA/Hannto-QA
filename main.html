@@ -1381,7 +1381,21 @@ function getTaskTestHubPlanIds(task) {
   ].map(value => String(value || '').trim()).filter(Boolean))];
 }
 
-function testHubSnapshotMatchesTask(task, snapshot) {
+function testHubCachedScopedSuites(task) {
+  if (String(task?.testhub_scope_mode || 'all') !== 'suite') return [];
+  const planIds = new Set(getTaskTestHubPlanIds(task));
+  const selectedSuiteIds = new Set((task?.testhub_scope_suite_ids || []).map(String));
+  return testHubSuites.filter(item => item.library_id === task?.testhub_library_id
+    && planIds.has(String(item.plan_id))
+    && selectedSuiteIds.has(String(item.suite_id)));
+}
+
+function testHubCachedScopedTotal(task) {
+  return testHubCachedScopedSuites(task)
+    .reduce((sum, item) => sum + Number(item.case_count || 0), 0);
+}
+
+function testHubSnapshotMatchesTask(task, snapshot, expectedScopedTotal = 0) {
   if (!snapshot) return false;
   const taskIds = [...new Set(getTaskTestHubPlanIds(task).map(String))].sort();
   const snapshotIds = [...new Set([
@@ -1397,8 +1411,11 @@ function testHubSnapshotMatchesTask(task, snapshot) {
   if (taskScopeMode !== 'suite') return true;
   const taskSuiteIds = [...new Set((task?.testhub_scope_suite_ids || []).map(String).filter(Boolean))].sort();
   const snapshotSuiteIds = [...new Set((snapshot?.scope_suite_ids || []).map(String).filter(Boolean))].sort();
-  return taskSuiteIds.length === snapshotSuiteIds.length
+  const suiteIdsMatch = taskSuiteIds.length === snapshotSuiteIds.length
     && taskSuiteIds.every((id, index) => id === snapshotSuiteIds[index]);
+  if (!suiteIdsMatch) return false;
+  const expectedTotal = Number(expectedScopedTotal || 0);
+  return !expectedTotal || Number(snapshot?.total_cases || 0) === expectedTotal;
 }
 
 function testHubPlanProgressItems(snapshot) {
@@ -4738,18 +4755,14 @@ async function renderTaskRecords(workspaceData) {
       const snapshot = taskTestHubProgressByTask.get(task.id);
       const taskPlanIds = getTaskTestHubPlanIds(task);
       const testHubPlanCount = taskPlanIds.length;
-      const snapshotMatches = testHubPlanCount > 0 && testHubSnapshotMatchesTask(task, snapshot);
+      const cachedScopedSuites = testHubCachedScopedSuites(task);
+      const cachedScopedTotal = cachedScopedSuites.reduce((sum, item) => sum + Number(item.case_count || 0), 0);
+      const snapshotMatches = testHubPlanCount > 0
+        && testHubSnapshotMatchesTask(task, snapshot, cachedScopedTotal);
       const effectiveSnapshot = snapshotMatches ? snapshot : null;
       const actual = taskActualProgressPoints(task, taskProgressByTask.get(task.id) || [], effectiveSnapshot);
       const taskEffort = Number(task.effort_person_days || 0);
       const progressPercent = taskEffort > 0 ? Math.min(100, actual.totalActual / taskEffort * 100) : (task.status === 'done' ? 100 : 0);
-      const selectedSuiteIds = new Set((task.testhub_scope_suite_ids || []).map(String));
-      const cachedScopedSuites = task.testhub_scope_mode === 'suite'
-        ? testHubSuites.filter(item => item.library_id === task.testhub_library_id
-          && taskPlanIds.includes(String(item.plan_id))
-          && selectedSuiteIds.has(String(item.suite_id)))
-        : [];
-      const cachedScopedTotal = cachedScopedSuites.reduce((sum, item) => sum + Number(item.case_count || 0), 0);
       const snapshotTotalCases = Number(effectiveSnapshot?.total_cases || 0);
       const displayedTotalCases = snapshotTotalCases || cachedScopedTotal;
       const executedCases = Number(effectiveSnapshot?.executed_cases || 0);
@@ -4862,7 +4875,13 @@ async function renderTaskRecords(workspaceData) {
     const memberActualToday = memberActiveTasks.reduce((sum, task) => {
       if (taskUsesTestHubProgress(task)) {
         const snapshot = taskTestHubProgressByTask.get(task.id);
-        return sum + taskMemberTestHubPoints(task, currentUser.id, todayKey, testHubSnapshotMatchesTask(task, snapshot) ? snapshot : null);
+        const cachedScopedTotal = testHubCachedScopedTotal(task);
+        return sum + taskMemberTestHubPoints(
+          task,
+          currentUser.id,
+          todayKey,
+          testHubSnapshotMatchesTask(task, snapshot, cachedScopedTotal) ? snapshot : null
+        );
       }
       return sum + (taskProgressByTask.get(task.id) || [])
         .filter(log => log.executor_id === currentUser.id && log.work_date === todayKey && log.source === 'manual')
