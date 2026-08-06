@@ -24,6 +24,25 @@ def make_run(plan: str, index: int, suite_id: str, path: list[str]) -> dict:
 
 
 class TestSharedSuiteScope(unittest.TestCase):
+    def test_every_result_except_untested_counts_as_executed(self) -> None:
+        statuses = [
+            "未测试",
+            "未测",
+            "not_run",
+            "通过",
+            "失败",
+            "阻塞",
+            "不适用",
+            "自定义结果",
+        ]
+        runs = [{"latest_executed_status": {"name": status}} for status in statuses]
+
+        summary = sync.summarize_runs(runs)
+
+        self.assertEqual(8, summary["total"])
+        self.assertEqual(5, summary["executed"])
+        self.assertAlmostEqual(5 / 8, summary["ratio"])
+
     def test_selected_module_uses_path_not_whole_plan_or_leaf_name(self) -> None:
         plans: dict[str, list[dict]] = {"windows": [], "mac": []}
         for plan_id, suite_prefix in (("windows", "win"), ("mac", "mac")):

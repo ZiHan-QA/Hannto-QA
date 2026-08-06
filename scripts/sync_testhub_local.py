@@ -42,12 +42,9 @@ SUPABASE_CREDENTIAL = "LieneQA/SupabaseSyncAccount"
 PLAN_PAGE_SIZE = 100
 RUN_PAGE_SIZE = 5
 UNTESTED_STATUSES = {
-    "", "未测试", "untested", "not_tested", "not tested", "not_run", "not run", "pending"
-}
-EXECUTED_STATUSES = {
-    "通过", "失败", "跳过", "不适用", "条件通过", "阻塞", "受阻",
-    "pass", "passed", "failure", "failed", "skip", "skipped", "block", "blocked",
-    "not_applicable", "not applicable", "conditional_pass", "condition_pass",
+    "", "未测", "未测试", "未执行", "未开始", "待测试", "待执行",
+    "untested", "not_tested", "not tested", "not_run", "not run",
+    "not_started", "not started", "pending",
 }
 SYNC_LOCK_MAX_AGE_SECONDS = 2 * 60 * 60
 
@@ -587,10 +584,15 @@ def summarize_runs(runs: list[dict[str, Any]]) -> dict[str, Any]:
     for run in runs:
         status = str(((run.get("latest_executed_status") or {}).get("name") or run.get("status") or "")).strip()
         counts[status or "未测试"] = counts.get(status or "未测试", 0) + 1
-        if status.casefold() in EXECUTED_STATUSES:
+        if is_executed_status(status):
             executed += 1
     total = len(runs)
     return {"total": total, "executed": executed, "ratio": executed / total if total else 0, "counts": counts}
+
+
+def is_executed_status(status: str) -> bool:
+    """Treat every TestHub result except an explicit untested state as executed."""
+    return str(status or "").strip().casefold() not in UNTESTED_STATUSES
 
 
 def run_suite_payload(run: dict[str, Any]) -> dict[str, Any]:
@@ -971,7 +973,7 @@ def replace_daily_execution(
     assignee_scopes = assignee_scopes or {}
     for run in runs:
         status = str(((run.get("latest_executed_status") or {}).get("name") or run.get("status") or "")).strip()
-        if status.casefold() not in EXECUTED_STATUSES:
+        if not is_executed_status(status):
             continue
         executor_key, pingcode_user_id, executor_name, work_date = run_executor_and_date(run)
         profile = profile_directory.get(pingcode_user_id)

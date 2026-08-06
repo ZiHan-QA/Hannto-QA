@@ -2452,7 +2452,15 @@ function renderTaskPlanSyncStatus(task, snapshot) {
 }
 
 function taskUsesTestHubProgress(task) {
-  return getTaskTestHubPlanIds(task).length > 0 && Number(task.testhub_effort_person_days) > 0;
+  return taskHasTestHubPlans(task) && Number(task.testhub_effort_person_days) > 0;
+}
+
+function taskHasTestHubPlans(task) {
+  return getTaskTestHubPlanIds(task).length > 0;
+}
+
+function canCurrentUserManuallyUpdateTaskStatus(task) {
+  return canCurrentUserUpdateTaskStatus(task) && !taskHasTestHubPlans(task);
 }
 
 function taskProgressReportDate(log) {
@@ -2819,6 +2827,10 @@ async function batchUpdateTaskStatus() {
   const ids = selectedBatchTaskIds();
   const status = document.getElementById('taskBatchStatus')?.value;
   if (!ids.length) { showToast('请先选择工作事项', 'error'); return; }
+  if (ids.some(id => taskHasTestHubPlans(taskRecordCache.get(id)))) {
+    showToast('TestHub 事项状态由同步结果自动更新，请取消选择后重试', 'error');
+    return;
+  }
   if (!['todo','in_progress','cancelled'].includes(status)) { showToast('该状态需要逐项补充说明', 'error'); return; }
   try {
     const { error } = await sb.from('qa_tasks').update({ status }).in('id', ids);
@@ -4783,7 +4795,7 @@ async function renderTaskRecords(workspaceData) {
           : ` · TestHub ${testHubPlanCount} 个计划${testHubScopeText} · 已执行 ${executedCases} / 总 Case ${displayedTotalCases}${perPlanProgressText}${scopeAwaitingSync ? '（范围待同步）' : ''}`
         : '';
       const canEdit = canCurrentUserEditTask(task);
-      const canUpdateStatus = canCurrentUserUpdateTaskStatus(task);
+      const canUpdateStatus = canCurrentUserManuallyUpdateTaskStatus(task);
       const memberIds = assignments.map(item => item.member_id).join(',');
       const progressMode = testHubPlanCount ? 'auto' : 'manual';
       const delayState = taskDelayState(task);
@@ -4799,7 +4811,7 @@ async function renderTaskRecords(workspaceData) {
       const detailActions = `<div class="task-drawer-actions">
         <button class="btn-secondary" onclick="closeTaskDetailDrawer();openEditQaTask('${task.id}', '${canEdit ? 'full' : 'readonly'}')">${canEdit ? '查看/编辑' : '查看配置'}</button>
         ${canEdit ? `<button class="btn-secondary" onclick="closeTaskDetailDrawer();duplicateQaTask('${task.id}')">复制为下一轮</button>` : ''}
-        ${canUpdateStatus ? `<button class="btn-primary" onclick="closeTaskDetailDrawer();openProgressModal('${task.id}')">${testHubPlanCount ? '更新状态' : '更新状态/进度'}</button>` : ''}
+        ${canUpdateStatus ? `<button class="btn-primary" onclick="closeTaskDetailDrawer();openProgressModal('${task.id}')">更新状态/进度</button>` : ''}
         ${userRole === 'admin' && testHubPlanCount ? `<button class="btn-secondary" onclick="syncTestHubProgress('${task.id}', this)">刷新 TestHub</button>` : ''}
         ${taskDelayAdminControlHtml(task)}
       </div>`;
@@ -6027,7 +6039,7 @@ function renderDashboardTasks(tasks, upcomingTasks, failed, todayStart, todayEnd
         </div>
         <div class="task-meta">${formatDashboardDue(task.due_date, todayStart, todayEnd)} · ${escapeDashboardHtml(taskStatusText(task.status))}${task.effort_person_days ? ` · 我的今日 ${taskMemberDailyPlanOnDate(task, currentUser.id, dashboardTodayInputValue()).toFixed(2)} 点` : ''} · ${taskUsesTestHubProgress(task) ? 'TestHub 自动' : '手工填报'}</div>
       </div>
-      ${canCurrentUserUpdateTaskStatus(task) ? `<button class="risk-action" title="修改待处理、进行中、已阻塞或已完成状态" onclick="openTaskFromDashboard('${task.id}', 'status')">${escapeDashboardHtml(taskStatusText(task.status))} <i class="ti ti-chevron-down"></i></button>` : ''}
+      ${canCurrentUserManuallyUpdateTaskStatus(task) ? `<button class="risk-action" title="修改待处理、进行中、已阻塞或已完成状态" onclick="openTaskFromDashboard('${task.id}', 'status')">${escapeDashboardHtml(taskStatusText(task.status))} <i class="ti ti-chevron-down"></i></button>` : ''}
     </div>`;
   }).join('');
 }
@@ -6214,7 +6226,7 @@ async function openTaskInline(taskId, mode = 'edit') {
       return;
     }
     const editorMode = canCurrentUserEditTask(task) ? 'full'
-      : canCurrentUserUpdateTaskStatus(task) ? 'status'
+      : canCurrentUserManuallyUpdateTaskStatus(task) ? 'status'
       : 'readonly';
     await openEditQaTask(taskId, editorMode);
   } catch (error) {
@@ -6656,8 +6668,13 @@ async function openEditQaTask(id, mode = 'full') {
     : '请先运行本地同步工具，再查询缓存';
   modal.querySelectorAll('input, textarea, select').forEach(element => {
     const statusFields = new Set(['newTaskStatus','newTaskBlockedReason','newTaskBlockedOwner','newTaskBlockedUntil','newTaskCompletionNote']);
-    element.disabled = readOnly || (statusOnly && !statusFields.has(element.id)) || (element.id === 'newTaskAssignee' && userRole !== 'admin');
+    element.disabled = readOnly
+      || (statusOnly && !statusFields.has(element.id))
+      || (element.id === 'newTaskStatus' && taskHasTestHubPlans(task))
+      || (element.id === 'newTaskAssignee' && userRole !== 'admin');
   });
+  const statusSelect = document.getElementById('newTaskStatus');
+  if (statusSelect) statusSelect.title = taskHasTestHubPlans(task) ? 'TestHub 事项状态由同步结果自动更新' : '';
   const cancelledOption = document.querySelector('#newTaskStatus option[value="cancelled"]');
   if (cancelledOption) cancelledOption.disabled = statusOnly;
   modal.querySelectorAll('button').forEach(element => {
@@ -6709,6 +6726,7 @@ function openProgressModal(id) {
   const task = taskRecordCache.get(id);
   const modal = document.getElementById('progressModal');
   if (!task || !modal) { showToast('未找到工作事项，请刷新后重试', 'error'); return; }
+  if (taskHasTestHubPlans(task)) { showToast('TestHub 事项状态由同步结果自动更新', 'error'); return; }
   if (!canCurrentUserUpdateTaskStatus(task)) { showToast('只有任务负责人可以更新状态和进度', 'error'); return; }
   progressQaTaskId = id;
   const dateInput = document.getElementById('progressWorkDate');
@@ -7015,6 +7033,7 @@ async function saveTaskProgress() {
   const completionNote = document.getElementById('progressCompletionNote')?.value.trim() || '';
   const button = document.getElementById('saveProgressBtn');
   if (!task) { showToast('未找到工作事项', 'error'); return; }
+  if (taskHasTestHubPlans(task)) { showToast('TestHub 事项状态由同步结果自动更新', 'error'); return; }
   const automatic = taskUsesTestHubProgress(task);
   const wasBatchMode = progressBatchMode;
   const batchStates = progressBatchMode
@@ -7917,6 +7936,10 @@ async function saveQaTask() {
   const priority = existingTask?.priority || 'P1';
   const taskType = document.getElementById('newTaskType')?.value;
   const status = document.getElementById('newTaskStatus')?.value || 'todo';
+  if (existingTask && taskHasTestHubPlans(existingTask) && status !== existingTask.status) {
+    showToast('TestHub 事项状态由同步结果自动更新', 'error');
+    return;
+  }
   const testRound = Number(document.getElementById('newTaskRound')?.value || 1);
   const seriesSourceId = document.getElementById('newTaskSeriesSource')?.value || pendingTaskSeriesSourceId || null;
   const releaseId = document.getElementById('newTaskRelease')?.value || null;
