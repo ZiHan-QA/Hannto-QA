@@ -391,10 +391,14 @@
   }
 
   function updateBatchSelection() {
-    const selected = selectedBatchTaskIds().length;
+    const selectedIds = selectedBatchTaskIds();
+    const selected = selectedIds.length;
+    const includesTestHubTask = selectedIds.some(id => state.viewModel?.rows?.some(row => row.id === id && row.testHubPlanCount));
     const count = document.getElementById('taskBatchCount');
     if (count) count.textContent = `已选 ${selected} 项`;
     document.getElementById('taskBatchToolbar')?.classList.toggle('visible', selected > 0);
+    const statusControls = document.getElementById('taskBatchStatusControls');
+    if (statusControls) statusControls.style.display = includesTestHubTask ? 'none' : 'contents';
   }
 
   function toggleAllVisible(checked) {
@@ -517,7 +521,7 @@
       <td><strong class="tasks-module-range">${escapeHtml(row.range || '-')}</strong><div class="release-meta">${row.overdue ? (row.status === 'done' ? '完成时间晚于原排期' : '已超过排期') : escapeHtml(row.syncText || '')}</div></td>
       <td><div class="tasks-module-row-actions">
         <button class="btn-secondary" onclick="openTaskDetailDrawer('${id}')">详情</button>
-        ${row.canUpdateStatus ? `<button class="btn-primary" onclick="openProgressModal('${id}')">${row.testHubPlanCount ? '更新状态' : '更新进度'}</button>` : ''}
+        ${row.canUpdateStatus && !row.testHubPlanCount ? `<button class="btn-primary" onclick="openProgressModal('${id}')">更新进度</button>` : ''}
       </div></td>
     </tr>`;
   }
@@ -599,12 +603,14 @@
         ${taskFiltersHtml()}
         <div class="team-task-filters task-batch-floating" id="taskBatchToolbar">
           <strong id="taskBatchCount">已选 0 项</strong>
-          <select class="dashboard-filter" id="taskBatchStatus">
-            <option value="todo">改为待处理</option>
-            <option value="in_progress">改为进行中</option>
-            <option value="cancelled">改为已取消</option>
-          </select>
-          <button class="btn-secondary" onclick="batchUpdateTaskStatus()">批量更新状态</button>
+          <span id="taskBatchStatusControls" style="display:contents;">
+            <select class="dashboard-filter" id="taskBatchStatus">
+              <option value="todo">改为待处理</option>
+              <option value="in_progress">改为进行中</option>
+              <option value="cancelled">改为已取消</option>
+            </select>
+            <button class="btn-secondary" onclick="batchUpdateTaskStatus()">批量更新状态</button>
+          </span>
           <input class="dashboard-filter" id="taskBatchDeadline" type="date">
           <button class="btn-secondary" onclick="batchUpdateTaskDeadline()">批量修改截止日</button>
         </div>
